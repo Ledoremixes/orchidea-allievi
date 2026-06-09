@@ -2088,3 +2088,718 @@ input:focus, select:focus, textarea:focus { border-color: rgba(217,164,65,.85); 
     color: #ffe39a;
   }
 }
+
+/* Step 20 - Restyling pagina pagamenti */
+.payments-page {
+  gap: 18px;
+}
+.payments-hero {
+  align-items: stretch;
+}
+.payments-total-box {
+  min-width: min(320px, 100%);
+  display: grid;
+  gap: 6px;
+}
+.payments-total-box small {
+  color: var(--muted);
+  font-size: .84rem;
+}
+.payments-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.payment-summary-card {
+  position: relative;
+  overflow: hidden;
+}
+.payment-summary-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -55% auto;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.11), transparent 68%);
+  pointer-events: none;
+}
+.payment-summary-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.accent-card {
+  border-color: rgba(217,164,65,.26);
+  background: radial-gradient(circle at top right, rgba(217,164,65,.22), transparent 45%), linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.045));
+}
+.success-card {
+  border-color: rgba(70,214,154,.22);
+  background: radial-gradient(circle at top right, rgba(70,214,154,.16), transparent 42%), linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.045));
+}
+.payments-section-card {
+  display: grid;
+  gap: 16px;
+}
+.payments-section-head {
+  align-items: flex-start;
+}
+.payments-section-head h3 {
+  margin: 6px 0 8px;
+  font-size: 1.35rem;
+}
+.payments-section-head p {
+  margin: 0;
+  color: var(--muted);
+}
+.section-counter {
+  min-width: 46px;
+  height: 46px;
+  padding: 0 14px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(217,164,65,.12);
+  border: 1px solid rgba(217,164,65,.24);
+  color: var(--accent);
+  font-weight: 1000;
+}
+.payments-stack {
+  display: grid;
+  gap: 14px;
+}
+.payment-card-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.04));
+}
+.payment-card-main {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+.payment-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.payment-card-head h3 {
+  margin: 10px 0 6px;
+  font-size: 1.2rem;
+}
+.payment-card-head p {
+  margin: 0;
+  color: var(--muted);
+}
+.payment-amount-box {
+  min-width: 170px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(0,0,0,.18);
+  text-align: right;
+}
+.payment-amount-box span,
+.payment-meta-item span {
+  display: block;
+  color: var(--muted);
+  font-size: .8rem;
+}
+.payment-amount-box strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 1.42rem;
+  letter-spacing: -.03em;
+}
+.payment-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.payment-meta-item {
+  padding: 13px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.16);
+}
+.payment-meta-item strong {
+  display: block;
+  margin-top: 6px;
+  word-break: break-word;
+}
+.payment-card-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+.slim-action {
+  width: auto;
+  min-height: 42px;
+  padding: 10px 16px;
+}
+.payment-success-box {
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(70,214,154,.22);
+  background: rgba(70,214,154,.09);
+  text-align: right;
+}
+.payment-success-box strong,
+.payment-success-box span {
+  display: block;
+}
+.payment-success-box strong {
+  color: #d7ffec;
+}
+.payment-success-box span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: .84rem;
+}
+.payments-empty-state {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255,255,255,.14);
+  background: rgba(0,0,0,.14);
+}
+.payments-empty-state h4 {
+  margin: 0 0 8px;
+}
+.payments-empty-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.success-empty-state {
+  border-color: rgba(70,214,154,.26);
+  background: rgba(70,214,154,.08);
+}
+
+@media (max-width: 1040px) {
+  .payments-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .payments-total-box {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .payment-card-v2 {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .payment-card-head {
+    flex-direction: column;
+  }
+  .payment-amount-box,
+  .payment-success-box {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+  .payment-meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .payment-card-actions {
+    justify-items: stretch;
+  }
+  .payment-card-actions .primary-btn,
+  .payment-card-actions .ghost-btn {
+    width: 100%;
+  }
+  .section-counter {
+    align-self: flex-start;
+  }
+}
+
+/* Step 21 - Pagamenti admin più ordinati e user friendly */
+.secretary-card {
+  overflow: hidden;
+}
+.secretary-head {
+  align-items: flex-start;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,.09);
+}
+.secretary-head .primary-btn.slim {
+  min-width: 230px;
+}
+.monthly-payment-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.monthly-payment-stats .clickable-stat {
+  min-height: 136px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 26px;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.monthly-payment-stats .clickable-stat:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217,164,65,.32);
+  background: radial-gradient(circle at top right, rgba(217,164,65,.16), transparent 48%), rgba(255,255,255,.08);
+}
+.payment-filters-bar {
+  display: grid;
+  grid-template-columns: 180px minmax(190px, 260px) minmax(160px, 220px) minmax(260px, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border-radius: 26px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+}
+.payment-filters-bar label {
+  margin: 0;
+}
+.payment-filters-bar input,
+.payment-filters-bar select {
+  min-height: 48px;
+}
+.monthly-payment-board-wrap {
+  margin-top: 4px;
+}
+.monthly-payment-board {
+  display: grid;
+  gap: 14px;
+}
+.monthly-payment-card {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,.105);
+  background:
+    radial-gradient(circle at top right, rgba(141,60,255,.11), transparent 42%),
+    linear-gradient(180deg, rgba(255,255,255,.078), rgba(255,255,255,.038));
+  box-shadow: 0 18px 52px rgba(0,0,0,.22);
+}
+.monthly-payment-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: rgba(255,255,255,.14);
+}
+.monthly-payment-card.is-due::before {
+  background: linear-gradient(180deg, #ffe39a, #d9a441);
+}
+.monthly-payment-card.is-ok::before {
+  background: linear-gradient(180deg, #8effc9, #46d69a);
+}
+.monthly-payment-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.monthly-student-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.monthly-student-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 1000;
+  color: #17091e;
+  background: linear-gradient(135deg, #fff1b7, var(--accent));
+  box-shadow: 0 12px 30px rgba(217,164,65,.18);
+}
+.monthly-student-block strong,
+.monthly-student-block small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monthly-student-block strong {
+  font-size: 1.08rem;
+}
+.monthly-student-block small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .88rem;
+}
+.monthly-payment-main-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) repeat(4, minmax(145px, 1fr));
+  gap: 10px;
+}
+.monthly-info-box {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.16);
+}
+.monthly-info-box span,
+.monthly-info-box small,
+.monthly-info-box em {
+  display: block;
+}
+.monthly-info-box span {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.monthly-info-box strong {
+  display: block;
+  margin-top: 7px;
+  line-height: 1.25;
+}
+.monthly-info-box small {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.monthly-info-box em {
+  width: fit-content;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #ffe7a1;
+  background: rgba(217,164,65,.14);
+  border: 1px solid rgba(217,164,65,.25);
+  font-style: normal;
+  font-weight: 900;
+  font-size: .78rem;
+}
+.monthly-info-box.amount-box strong {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+.monthly-payment-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  min-height: 0;
+}
+.monthly-payment-note:empty {
+  display: none;
+}
+.monthly-payment-note span {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255,255,255,.065);
+  border: 1px solid rgba(255,255,255,.08);
+  font-size: .82rem;
+  font-weight: 800;
+}
+.monthly-payment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.monthly-main-action {
+  width: auto;
+  min-width: 176px;
+}
+.monthly-more-actions {
+  position: relative;
+}
+.monthly-more-actions summary {
+  list-style: none;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  border-radius: 999px;
+  color: rgba(255,248,251,.78);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.07);
+  font-weight: 900;
+  cursor: pointer;
+}
+.monthly-more-actions summary::-webkit-details-marker {
+  display: none;
+}
+.monthly-more-actions summary::after {
+  content: "⌄";
+  margin-left: 8px;
+  color: var(--accent);
+}
+.monthly-more-actions[open] summary::after {
+  content: "⌃";
+}
+.monthly-more-actions > div {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 8;
+  min-width: 210px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(12,6,16,.98);
+  box-shadow: 0 22px 70px rgba(0,0,0,.42);
+}
+.monthly-more-actions .mini-btn {
+  width: 100%;
+  justify-content: center;
+}
+.secretary-empty-state {
+  margin-top: 0;
+}
+
+@media (max-width: 1280px) {
+  .monthly-payment-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .payment-filters-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .monthly-payment-main-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .monthly-info-box.course-box {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .secretary-head,
+  .monthly-payment-card-top,
+  .monthly-payment-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .secretary-head .primary-btn.slim,
+  .monthly-main-action,
+  .monthly-payment-actions .mini-btn,
+  .monthly-more-actions summary {
+    width: 100%;
+  }
+  .monthly-payment-stats,
+  .payment-filters-bar,
+  .monthly-payment-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .monthly-payment-card {
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .monthly-more-actions > div {
+    position: static;
+    margin-top: 8px;
+  }
+}
+
+/* Step 22 - Fix menu Altre azioni nei pagamenti admin
+   Il menu ora si apre dentro la card, non sotto/clippato. */
+.monthly-payment-card,
+.secretary-card {
+  overflow: visible;
+}
+.monthly-payment-card {
+  z-index: 1;
+}
+.monthly-payment-card:has(.monthly-more-actions[open]) {
+  z-index: 12;
+}
+.monthly-more-actions {
+  position: relative;
+}
+.monthly-more-actions[open] {
+  flex: 1 0 100%;
+  display: grid;
+  justify-items: end;
+}
+.monthly-more-actions > div {
+  position: static;
+  width: min(360px, 100%);
+  min-width: 0;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(12,6,16,.96);
+  border: 1px solid rgba(217,164,65,.18);
+  box-shadow: 0 18px 55px rgba(0,0,0,.34);
+}
+.monthly-more-actions[open] summary {
+  border-color: rgba(217,164,65,.34);
+  background: rgba(217,164,65,.13);
+  color: var(--text);
+}
+.monthly-more-actions .mini-btn.danger {
+  min-height: 40px;
+  justify-content: center;
+}
+
+@supports not selector(:has(*)) {
+  .monthly-payment-card {
+    z-index: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .monthly-more-actions,
+  .monthly-more-actions[open] {
+    width: 100%;
+    flex-basis: auto;
+    justify-items: stretch;
+  }
+  .monthly-more-actions > div {
+    width: 100%;
+  }
+}
+
+/* Step 23 - Rifinitura card pagamenti admin e pannello Altre azioni */
+.secretary-card {
+  overflow: hidden;
+}
+.monthly-payment-card {
+  overflow: hidden;
+  padding-left: 22px;
+  isolation: isolate;
+}
+.monthly-payment-card::before {
+  inset: 0 auto 0 0;
+  width: 7px;
+  border-radius: 28px 0 0 28px;
+  z-index: 0;
+}
+.monthly-payment-card > * {
+  position: relative;
+  z-index: 1;
+}
+.monthly-payment-card:has(.monthly-more-actions[open]) {
+  z-index: 1;
+}
+.monthly-payment-actions {
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.monthly-more-actions,
+.monthly-more-actions[open] {
+  position: static;
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+}
+.monthly-more-actions summary {
+  user-select: none;
+  min-height: 42px;
+  padding: 10px 16px;
+  color: #ffe8aa;
+  border-color: rgba(217,164,65,.26);
+  background: rgba(217,164,65,.095);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.monthly-more-actions summary:hover {
+  border-color: rgba(217,164,65,.42);
+  background: rgba(217,164,65,.16);
+}
+.monthly-more-actions[open] {
+  flex-basis: 100%;
+  width: 100%;
+  justify-items: stretch;
+}
+.monthly-more-actions[open] summary {
+  justify-self: end;
+  color: #1b0f05;
+  background: linear-gradient(135deg, #fff1b7, var(--accent));
+  border-color: rgba(255,231,161,.55);
+  box-shadow: 0 12px 28px rgba(217,164,65,.16);
+}
+.monthly-more-actions > div {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  margin-top: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+  box-shadow: none;
+}
+.monthly-more-actions > div::before {
+  content: "Gestione avanzata";
+  margin-right: auto;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.monthly-more-actions .mini-btn.danger {
+  width: auto;
+  min-height: 38px;
+  padding: 9px 13px;
+  color: #ffd7df;
+  background: rgba(255,107,129,.08);
+  border-color: rgba(255,107,129,.20);
+  box-shadow: none;
+}
+.monthly-more-actions .mini-btn.danger:hover {
+  background: rgba(255,107,129,.14);
+  border-color: rgba(255,107,129,.34);
+}
+
+@media (max-width: 760px) {
+  .monthly-payment-card {
+    padding-left: 18px;
+  }
+  .monthly-payment-card::before {
+    width: 6px;
+    border-radius: 24px 0 0 24px;
+  }
+  .monthly-payment-actions {
+    align-items: stretch;
+  }
+  .monthly-more-actions,
+  .monthly-more-actions[open],
+  .monthly-more-actions[open] summary {
+    width: 100%;
+    justify-self: stretch;
+    justify-items: stretch;
+  }
+  .monthly-more-actions > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .monthly-more-actions > div::before {
+    margin-right: 0;
+    margin-bottom: 2px;
+  }
+  .monthly-more-actions .mini-btn.danger {
+    width: 100%;
+  }
+}

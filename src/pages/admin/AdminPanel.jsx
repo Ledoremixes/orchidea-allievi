@@ -78,6 +78,12 @@ function fullName(student) {
   return `${student?.nome || ""} ${student?.cognome || ""}`.trim() || "Senza nome";
 }
 
+function initials(student) {
+  const first = String(student?.nome || "").trim().charAt(0);
+  const last = String(student?.cognome || "").trim().charAt(0);
+  return `${first}${last}`.trim().toUpperCase() || "OR";
+}
+
 function studentSearchLabel(student) {
   if (!student) return "";
   const card = membershipCode(student);
@@ -3007,73 +3013,105 @@ export default function AdminPanel() {
             </label>
           </div>
 
-          <div className="admin-table-wrap monthly-payment-table-wrap">
-            <table className="admin-table monthly-payment-table">
-              <thead>
-                <tr>
-                  <th>Allievo</th>
-                  <th>Corso</th>
-                  <th>Formula</th>
-                  <th>Copertura</th>
-                  <th>Quota mese</th>
-                  <th>Totale pagamento</th>
-                  <th>Stato</th>
-                  <th>Azione rapida</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={`${row.enrollment.id}-${row.payment?.id || row.status}`} className={row.status === "da_pagare" || row.status === "da_generare" ? "payment-row-due" : ""}>
-                    <td>
-                      <strong>{fullName(row.student)}</strong>
-                      <small>{row.student?.email || "—"} · {membershipNumber(row.student)}</small>
-                    </td>
-                    <td>
-                      {row.course?.nome || "Corso"}
-                      <small>{row.course?.livello || ""}</small>
-                      {row.packageName && <small className="package-inline-label">{row.packageName}</small>}
-                    </td>
-                    <td>
-                      {billingLabel(row.cycle)}
-                      <small>{formatMoney(row.monthlyPrice)} / mese</small>
-                      {row.packageId && <small>{formatPercent(row.packagePercent)} del pacchetto</small>}
-                    </td>
-                    <td>{formatDate(row.periodStart)}<small>fino al {formatDate(row.periodEnd)}</small></td>
-                    <td><strong>{formatMoney(row.amount)}</strong><small>singolo mese</small></td>
-                    <td>
-                      <strong>{formatMoney(row.totalAmount)}</strong>
-                      <small>{row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : "mensile"}</small>
-                      {row.packageTotalMonthly > 0 && <small>pacchetto totale {formatMoney(row.packageTotalMonthly)} / mese</small>}
-                    </td>
-                    <td>
-                      <span className={rowStatusClass(row.status)}>{paymentStatusLabels[row.status] || row.status}</span>
-                      {row.payment?.pagato_il && <small>pagato il {formatDate(row.payment.pagato_il)}</small>}
-                      {row.payment && row.months > 1 && <small>quota mese {formatMoney(row.amount)} · totale {formatMoney(row.totalAmount)}</small>}
-                      {!row.payment && row.status === "da_generare" && <small>quota non ancora creata</small>}
-                      {row.status === "sospeso" && <small>{row.enrollment.stato} · rinnovo disattivo</small>}
-                    </td>
-                    <td>
-                      <div className="table-actions">
+          <div className="monthly-payment-board-wrap">
+            {visibleRows.length === 0 ? (
+              <div className="payments-empty-state secretary-empty-state">
+                <h4>Nessuna riga trovata</h4>
+                <p>Prova a cambiare mese, corso, stato oppure ricerca allievo.</p>
+              </div>
+            ) : (
+              <div className="monthly-payment-board">
+                {visibleRows.map((row) => {
+                  const isDue = row.status === "da_pagare" || row.status === "da_generare";
+                  const isPaidOrCovered = row.status === "pagato" || row.status === "coperto";
+                  const primaryActionLabel = row.payment
+                    ? row.payment.stato === "pagato"
+                      ? row.packageId ? "Riapri pacchetto" : "Riapri quota"
+                      : row.packageId ? "Segna pacchetto pagato" : "Segna pagato"
+                    : row.billable
+                      ? "Genera quota"
+                      : "Nessuna azione";
+
+                  return (
+                    <article
+                      key={`${row.enrollment.id}-${row.payment?.id || row.status}`}
+                      className={`monthly-payment-card ${isDue ? "is-due" : ""} ${isPaidOrCovered ? "is-ok" : ""}`}
+                    >
+                      <div className="monthly-payment-card-top">
+                        <div className="monthly-student-block">
+                          <span className="monthly-student-avatar">{initials(row.student)}</span>
+                          <div>
+                            <strong>{fullName(row.student)}</strong>
+                            <small>{membershipNumber(row.student)}</small>
+                          </div>
+                        </div>
+                        <span className={rowStatusClass(row.status)}>{paymentStatusLabels[row.status] || row.status}</span>
+                      </div>
+
+                      <div className="monthly-payment-main-grid">
+                        <div className="monthly-info-box course-box">
+                          <span>Corso</span>
+                          <strong>{row.course?.nome || "Corso"}</strong>
+                          {row.course?.livello && <small>{row.course.livello}</small>}
+                          {row.packageName && <em>{row.packageName}</em>}
+                        </div>
+
+                        <div className="monthly-info-box">
+                          <span>Formula</span>
+                          <strong>{billingLabel(row.cycle)}</strong>
+                          <small>{formatMoney(row.monthlyPrice)} / mese</small>
+                          {row.packageId && <small>{formatPercent(row.packagePercent)} del pacchetto</small>}
+                        </div>
+
+                        <div className="monthly-info-box">
+                          <span>Copertura</span>
+                          <strong>{formatDate(row.periodStart)}</strong>
+                          <small>fino al {formatDate(row.periodEnd)}</small>
+                        </div>
+
+                        <div className="monthly-info-box amount-box">
+                          <span>Quota mese</span>
+                          <strong>{formatMoney(row.amount)}</strong>
+                          <small>importo da considerare per {monthHumanLabel(paymentMonth)}</small>
+                        </div>
+
+                        <div className="monthly-info-box amount-box">
+                          <span>Totale pagamento</span>
+                          <strong>{formatMoney(row.totalAmount)}</strong>
+                          <small>{row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : "mensile"}</small>
+                          {row.packageTotalMonthly > 0 && <small>pacchetto {formatMoney(row.packageTotalMonthly)} / mese</small>}
+                        </div>
+                      </div>
+
+                      <div className="monthly-payment-note">
+                        {row.payment?.pagato_il && <span>Pagato il {formatDate(row.payment.pagato_il)}</span>}
+                        {row.payment && row.months > 1 && <span>Quota mese {formatMoney(row.amount)} · totale {formatMoney(row.totalAmount)}</span>}
+                        {!row.payment && row.status === "da_generare" && <span>Quota non ancora creata</span>}
+                        {row.status === "sospeso" && <span>{row.enrollment.stato} · rinnovo disattivo</span>}
+                      </div>
+
+                      <div className="monthly-payment-actions">
                         <button className="mini-btn" type="button" onClick={() => openPaymentRowEditor(row)}>✎ Modifica</button>
                         {row.payment ? (
-                          <>
-                            <button className="mini-btn" type="button" onClick={() => handleTogglePayment(row.payment)}>{row.payment.stato === "pagato" ? (row.packageId ? "Riapri pacchetto" : "Riapri") : (row.packageId ? "Segna pacchetto pagato" : "Segna pagato")}</button>
-                            <button className="mini-btn danger" type="button" onClick={() => handleDeletePayment(row.payment)}>Elimina quota</button>
-                          </>
+                          <button className="primary-btn slim monthly-main-action" type="button" onClick={() => handleTogglePayment(row.payment)}>{primaryActionLabel}</button>
                         ) : row.billable ? (
-                          <button className="mini-btn" type="button" onClick={() => handleGenerateSingleDue(row)}>Genera quota</button>
+                          <button className="primary-btn slim monthly-main-action" type="button" onClick={() => handleGenerateSingleDue(row)}>{primaryActionLabel}</button>
                         ) : null}
-                        {row.enrollment.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(row.enrollment)}>Chiudi corso</button>}
-                        <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(row.enrollment)}>Elimina riga</button>
+
+                        <details className="monthly-more-actions">
+                          <summary>Altre azioni</summary>
+                          <div>
+                            {row.payment && <button className="mini-btn danger" type="button" onClick={() => handleDeletePayment(row.payment)}>Elimina quota</button>}
+                            {row.enrollment.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(row.enrollment)}>Chiudi corso</button>}
+                            <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(row.enrollment)}>Elimina riga</button>
+                          </div>
+                        </details>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {visibleRows.length === 0 && (
-                  <tr><td colSpan="8"><p className="empty-text">Nessuna riga trovata con i filtri selezionati.</p></td></tr>
-                )}
-              </tbody>
-            </table>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
