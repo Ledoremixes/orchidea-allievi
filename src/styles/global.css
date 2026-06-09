@@ -4,7 +4,7 @@
   --card: rgba(255,255,255,.075);
   --card-strong: rgba(255,255,255,.12);
   --border: rgba(255,255,255,.14);
-  --text: #fffff8;
+  --text: #fff8fb;
   --muted: rgba(255,248,251,.68);
   --accent: #d9a441;
   --accent-2: #8d3cff;
@@ -2061,5 +2061,30 @@ input:focus, select:focus, textarea:focus { border-color: rgba(217,164,65,.85); 
   .student-detail-panel .student-course-summary-row .edit-pencil {
     width: 34px;
     height: 34px;
+  }
+}
+
+/* Step 18 - Navbar mobile gialla Orchidea */
+@media (max-width: 1040px) {
+  .bottom-nav {
+    border-color: rgba(217, 164, 65, 0.24);
+  }
+
+  .bottom-link,
+  .bottom-link span,
+  .bottom-link small {
+    color: #d9a441;
+  }
+
+  .bottom-link.active {
+    color: #ffe39a;
+    background: rgba(217, 164, 65, 0.16);
+    border: 1px solid rgba(217, 164, 65, 0.30);
+    box-shadow: 0 12px 30px rgba(217, 164, 65, 0.16);
+  }
+
+  .bottom-link.active span,
+  .bottom-link.active small {
+    color: #ffe39a;
   }
 }
