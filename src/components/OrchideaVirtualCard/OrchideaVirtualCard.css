@@ -1,0 +1,364 @@
+.orchidea-tessera-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 760px) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tessera-helper-card {
+  min-height: 220px;
+}
+
+.tessera-helper-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.tessera-helper-list .info-box {
+  display: grid;
+  gap: 4px;
+}
+
+.orchidea-virtual-card-section {
+  width: 100%;
+  display: grid;
+  gap: 22px;
+}
+
+.orchidea-virtual-card-heading span {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #f5bb4c;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.orchidea-virtual-card-heading h2 {
+  margin: 0;
+  color: #fff7ef;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.orchidea-virtual-card-heading p {
+  max-width: 760px;
+  margin: 18px 0 0;
+  color: rgba(255, 247, 239, 0.76);
+  line-height: 1.65;
+}
+
+.orchidea-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.orchidea-card-flip-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff7ef;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.orchidea-card-flip-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 187, 76, 0.55);
+  background: rgba(245, 187, 76, 0.13);
+}
+
+.orchidea-card-status,
+.orchidea-card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.orchidea-card-status.is-active,
+.orchidea-card-pill.is-active {
+  color: #dffff1;
+  background: rgba(65, 191, 141, 0.28);
+  border: 1px solid rgba(132, 245, 197, 0.35);
+}
+
+.orchidea-card-status.is-inactive,
+.orchidea-card-pill.is-inactive {
+  color: #ffe9c4;
+  background: rgba(255, 209, 102, 0.17);
+  border: 1px solid rgba(255, 209, 102, 0.32);
+}
+
+.orchidea-card-scene {
+  width: min(100%, 760px);
+  perspective: 1600px;
+}
+
+.orchidea-card-inner {
+  position: relative;
+  min-height: 430px;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.orchidea-card-scene.is-flipped .orchidea-card-inner {
+  transform: rotateY(180deg);
+}
+
+.orchidea-card-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 28px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.orchidea-card-front,
+.orchidea-card-back {
+  padding: clamp(22px, 4vw, 34px);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(245, 187, 76, 0.12), transparent 30%),
+    radial-gradient(circle at 80% 10%, rgba(209, 70, 255, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(58, 46, 53, 0.96), rgba(35, 18, 43, 0.98) 58%, rgba(24, 11, 32, 0.98));
+}
+
+.orchidea-card-back {
+  transform: rotateY(180deg);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 22px;
+}
+
+.orchidea-card-shine {
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.12), transparent 60%);
+  transform: translateX(-32%) rotate(8deg);
+  pointer-events: none;
+}
+
+.orchidea-card-orchid-shape {
+  position: absolute;
+  right: -76px;
+  top: -90px;
+  width: 280px;
+  height: 280px;
+  border-radius: 46% 54% 44% 56%;
+  background: radial-gradient(circle, rgba(217, 164, 65, 0.22), rgba(255, 0, 238, 0.08) 52%, transparent 68%);
+  filter: blur(2px);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.orchidea-card-orchid-shape.back {
+  right: auto;
+  left: -84px;
+  top: auto;
+  bottom: -94px;
+}
+
+.orchidea-card-top,
+.orchidea-card-back-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.orchidea-card-logo {
+  width: 126px;
+  max-height: 70px;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
+}
+
+.orchidea-card-avatar {
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  margin-top: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe89c, #e8ba4f);
+  color: #170b1d;
+  font-size: 1.38rem;
+  font-weight: 1000;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+}
+
+.orchidea-card-main {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+}
+
+.orchidea-card-main h3,
+.orchidea-card-back-info h3 {
+  margin: 0;
+  color: #fff7ef;
+  font-size: clamp(1.55rem, 4vw, 2rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.orchidea-card-main p,
+.orchidea-card-back-info p {
+  margin: 12px 0 0;
+  color: rgba(255, 247, 239, 0.68);
+  line-height: 1.55;
+}
+
+.orchidea-card-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.orchidea-card-grid div {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(15, 8, 22, 0.34);
+}
+
+.orchidea-card-grid span,
+.orchidea-card-back-header span,
+.orchidea-card-code-placeholder span {
+  display: block;
+  color: rgba(255, 247, 239, 0.62);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.orchidea-card-grid strong,
+.orchidea-card-back-header strong,
+.orchidea-card-code-placeholder strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff7ef;
+  font-weight: 1000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orchidea-card-qr-wrap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+
+.orchidea-card-qr {
+  width: min(52vw, 190px);
+  aspect-ratio: 1;
+  border-radius: 24px;
+  border: 10px solid rgba(255, 255, 255, 0.96);
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.orchidea-card-code-placeholder {
+  width: min(100%, 360px);
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border-radius: 26px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(90deg, rgba(245, 187, 76, 0.18) 1px, transparent 1px),
+    linear-gradient(rgba(245, 187, 76, 0.12) 1px, transparent 1px),
+    rgba(15, 8, 22, 0.42);
+  background-size: 20px 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.24);
+}
+
+.orchidea-card-code-placeholder strong {
+  color: #ffe89c;
+  font-size: clamp(1.3rem, 4vw, 2rem);
+  letter-spacing: 0.02em;
+}
+
+.orchidea-card-back-info {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 18px;
+  background: rgba(15, 8, 22, 0.34);
+}
+
+@media (max-width: 1180px) {
+  .orchidea-tessera-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .orchidea-virtual-card-section {
+    gap: 18px;
+  }
+
+  .orchidea-card-scene {
+    width: 100%;
+  }
+
+  .orchidea-card-inner {
+    min-height: 520px;
+  }
+
+  .orchidea-card-face {
+    border-radius: 24px;
+  }
+
+  .orchidea-card-logo {
+    width: 112px;
+  }
+
+  .orchidea-card-avatar {
+    margin-top: 46px;
+  }
+
+  .orchidea-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .orchidea-card-inner {
+    min-height: 560px;
+  }
+
+  .orchidea-card-top,
+  .orchidea-card-back-header {
+    align-items: flex-start;
+  }
+
+  .orchidea-card-pill {
+    padding: 7px 10px;
+  }
+}
