@@ -16,31 +16,6 @@ function getFullName(student = {}) {
   return `${firstName} ${lastName}`.trim() || "Allievo Orchidea";
 }
 
-function getInitials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "OC";
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
-function formatDate(dateValue) {
-  if (!dateValue) return "—";
-  const raw = String(dateValue);
-
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
-
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return raw;
-
-  return new Intl.DateTimeFormat("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
 function formatCardNumber(value) {
   if (!value) return "Da assegnare";
   const text = String(value).trim();
@@ -73,10 +48,12 @@ export default function OrchideaVirtualCard({
   logoSrc = "/assets/logo.png",
   showHeading = true,
 }) {
-  const [flipped, setFlipped] = useState(false);
+  const [view, setView] = useState("front");
 
   const cardData = useMemo(() => {
     const name = getFullName(student);
+    const firstName = pickValue(student.nome, student.first_name, name.split(" ").slice(0, -1).join(" "));
+    const lastName = pickValue(student.cognome, student.last_name, name.split(" ").slice(-1).join(" "));
     const status = pickValue(
       tesseramento.stato,
       tesseramento.status,
@@ -86,22 +63,9 @@ export default function OrchideaVirtualCard({
     );
 
     return {
-      name,
-      initials: getInitials(name),
-      email: pickValue(student.email, student.mail, student.user_email, tesseramento.email, "—"),
-      birthDate: formatDate(
-        pickValue(student.data_nascita, student.nascita, student.birth_date, tesseramento.data_nascita, tesseramento.nascita)
-      ),
-      fiscalCode: pickValue(
-        student.codice_fiscale,
-        student.cf,
-        student.fiscal_code,
-        tesseramento.codice_fiscale,
-        tesseramento.cf,
-        "—"
-      )
-        .toString()
-        .toUpperCase(),
+      fullName: name,
+      firstName: firstName || name,
+      lastName: lastName || "—",
       cardNumber: formatCardNumber(
         pickValue(
           tesseramento.numero_tessera,
@@ -123,91 +87,80 @@ export default function OrchideaVirtualCard({
         <div className="orchidea-virtual-card-heading">
           <span>Tessera digitale</span>
           <h2>La tua Orchidea Card</h2>
-          <p>
-            Tessera unica per corsi e serate. Mostrala all’ingresso per verificare rapidamente tesseramento,
-            corsi e pagamenti.
-          </p>
+          <p>Tessera unica per corsi e serate, pronta da mostrare all’ingresso direttamente dal telefono.</p>
         </div>
       )}
 
-      <div className="orchidea-card-actions">
-        <button type="button" className="orchidea-card-flip-btn" onClick={() => setFlipped((value) => !value)}>
-          {flipped ? "Mostra fronte" : "Mostra retro"}
-        </button>
+      <div className="orchidea-card-toolbar">
+        <div className="orchidea-card-switcher" role="tablist" aria-label="Visualizzazione tessera">
+          <button
+            type="button"
+            className={`orchidea-card-switch ${view === "front" ? "is-active" : ""}`}
+            onClick={() => setView("front")}
+          >
+            Fronte
+          </button>
+          <button
+            type="button"
+            className={`orchidea-card-switch ${view === "back" ? "is-active" : ""}`}
+            onClick={() => setView("back")}
+          >
+            Retro
+          </button>
+        </div>
+
         <span className={`orchidea-card-status ${cardData.active ? "is-active" : "is-inactive"}`}>
           {cardData.active ? "Attiva" : "Da verificare"}
         </span>
       </div>
 
-      <div className={`orchidea-card-scene ${flipped ? "is-flipped" : ""}`}>
-        <div className="orchidea-card-inner">
-          <article className="orchidea-card-face orchidea-card-front" aria-label="Fronte tessera digitale Orchidea">
-            <div className="orchidea-card-orchid-shape" aria-hidden="true" />
-            <div className="orchidea-card-shine" aria-hidden="true" />
-
-            <div className="orchidea-card-top">
-              <img src={logoSrc} alt="Orchidea" className="orchidea-card-logo" />
-              <span className={`orchidea-card-pill ${cardData.active ? "is-active" : "is-inactive"}`}>
-                {cardData.active ? "Attiva" : "Da verificare"}
-              </span>
+      <div className={`orchidea-card-flip-scene ${view === "back" ? "is-flipped" : ""}`}>
+        <div className="orchidea-card-flip-inner">
+          <article className="orchidea-pass-card orchidea-pass-card-front" aria-hidden={view !== "front"}>
+            <div className="orchidea-pass-background">
+              <div className="orchidea-pass-lines left" aria-hidden="true" />
+              <div className="orchidea-pass-lines right" aria-hidden="true" />
             </div>
 
-            <div className="orchidea-card-avatar">{cardData.initials}</div>
-
-            <div className="orchidea-card-main">
-              <h3>{cardData.name}</h3>
-              <p>{cardData.email}</p>
+            <div className="orchidea-pass-brand">
+              <img src={logoSrc} alt="Orchidea" className="orchidea-pass-logo" />
             </div>
 
-            <div className="orchidea-card-grid">
-              <div>
-                <span>Numero tessera</span>
+            <div className="orchidea-pass-footer">
+              <div className="orchidea-pass-footer-text">
+                <span>Tessera digitale</span>
                 <strong>{cardData.cardNumber}</strong>
+                <small>
+                  {cardData.fullName} · Stagione {cardData.season}
+                </small>
               </div>
-              <div>
-                <span>Stagione</span>
-                <strong>{cardData.season}</strong>
-              </div>
-              <div>
-                <span>Nascita</span>
-                <strong>{cardData.birthDate}</strong>
-              </div>
-              <div>
-                <span>Codice fiscale</span>
-                <strong>{cardData.fiscalCode}</strong>
+
+              <div className="orchidea-pass-qr-shell">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="QR code tessera Orchidea" className="orchidea-pass-qr" />
+                ) : (
+                  <div className="orchidea-pass-qr-placeholder">
+                    <strong>{cardData.cardNumber}</strong>
+                  </div>
+                )}
               </div>
             </div>
           </article>
 
-          <article className="orchidea-card-face orchidea-card-back" aria-label="Retro tessera digitale Orchidea">
-            <div className="orchidea-card-orchid-shape back" aria-hidden="true" />
-            <div className="orchidea-card-shine" aria-hidden="true" />
-
-            <div className="orchidea-card-back-header">
-              <img src={logoSrc} alt="Orchidea" className="orchidea-card-logo" />
-              <div>
-                <span>Accesso rapido</span>
+          <article className="orchidea-pass-card orchidea-pass-card-back" aria-hidden={view !== "back"}>
+            <div className="orchidea-pass-back-inner">
+              <div className="orchidea-pass-back-row">
+                <span>NUMERO</span>
                 <strong>{cardData.cardNumber}</strong>
               </div>
-            </div>
-
-            <div className="orchidea-card-qr-wrap">
-              {qrCodeUrl ? (
-                <img src={qrCodeUrl} alt="QR Code tessera" className="orchidea-card-qr" />
-              ) : (
-                <div className="orchidea-card-code-placeholder">
-                  <span>Codice tessera</span>
-                  <strong>{cardData.cardNumber}</strong>
-                </div>
-              )}
-            </div>
-
-            <div className="orchidea-card-back-info">
-              <h3>{cardData.name}</h3>
-              <p>
-                Mostra questa tessera all’ingresso. Il personale può verificare stato tessera, corsi attivi e
-                pagamenti collegati.
-              </p>
+              <div className="orchidea-pass-back-row">
+                <span>NOME</span>
+                <strong>{cardData.firstName}</strong>
+              </div>
+              <div className="orchidea-pass-back-row">
+                <span>COGNOME</span>
+                <strong>{cardData.lastName}</strong>
+              </div>
             </div>
           </article>
         </div>

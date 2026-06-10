@@ -1849,87 +1849,170 @@ export default function AdminPanel() {
   }
 
   function renderOverview() {
+    const openPayments = payments.filter((payment) => payment.stato !== "pagato");
+    const overduePayments = openPayments.filter((payment) => payment.scadenza && payment.scadenza < todayIso());
+    const latestStudents = students.slice(0, 5);
+    const nextPayments = openPayments.slice(0, 5);
+
     return (
-      <div className="admin-section-stack">
-        <div className="stats-grid admin-stats-grid">
-          <div className="stat-card"><span>Tesserati</span><strong>{students.length}</strong><small>{stats.activeMemberships} tessere attive</small></div>
-          <div className="stat-card"><span>Corsisti</span><strong>{stats.corsisti}</strong><small>{stats.activeEnrollments} iscrizioni attive</small></div>
-          <div className="stat-card"><span>Corsi attivi</span><strong>{activeCourses.length}</strong><small>{courses.length} corsi totali</small></div>
-          <div className="stat-card"><span>Tessere senza numero</span><strong>{stats.missingMembershipNumbers}</strong><small>da assegnare</small></div>
+      <div className="admin-section-stack admin-overview-v2">
+        <div className="content-card overview-command-center">
+          <div>
+            <span className="eyebrow">Dashboard operativa</span>
+            <h3>Gestione rapida del club</h3>
+            <p>
+              I dati importanti sono in alto, le azioni frequenti subito sotto. Così trovi velocemente allievi,
+              corsi, iscrizioni, pagamenti e video senza passare da schermate confusionarie.
+            </p>
+          </div>
+          <div className="overview-command-actions">
+            <button className="primary-btn slim" type="button" onClick={() => goToSection("students")}>
+              Gestisci allievi
+            </button>
+            <button className="ghost-btn slim-action" type="button" onClick={() => goToSection("payments")}>
+              Controlla pagamenti
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-stats-grid admin-stats-grid-v2">
+          <article className="stat-card admin-kpi-card highlight">
+            <div className="admin-kpi-icon">◆</div>
+            <span>Tesserati</span>
+            <strong>{students.length}</strong>
+            <small>{stats.activeMemberships} tessere attive</small>
+          </article>
+          <article className="stat-card admin-kpi-card">
+            <div className="admin-kpi-icon">✦</div>
+            <span>Corsisti</span>
+            <strong>{stats.corsisti}</strong>
+            <small>{stats.activeEnrollments} iscrizioni attive</small>
+          </article>
+          <article className="stat-card admin-kpi-card">
+            <div className="admin-kpi-icon">◷</div>
+            <span>Corsi attivi</span>
+            <strong>{activeCourses.length}</strong>
+            <small>{courses.length} corsi totali</small>
+          </article>
+          <article className={`stat-card admin-kpi-card ${stats.missingMembershipNumbers > 0 ? "warning" : "success"}`}>
+            <div className="admin-kpi-icon">#</div>
+            <span>Tessere senza numero</span>
+            <strong>{stats.missingMembershipNumbers}</strong>
+            <small>{stats.missingMembershipNumbers > 0 ? "da assegnare" : "tutto in ordine"}</small>
+          </article>
         </div>
 
         {stats.missingMembershipNumbers > 0 && (
-          <div className="content-card warning-card number-warning-card">
+          <div className="content-card warning-card number-warning-card overview-warning-card">
             <div>
-              <span className="eyebrow">Numeri tessera</span>
-              <h3>Ci sono tessere senza numero</h3>
-              <p>Il sito mostra già il codice tessera generato dall’ID, tipo TESS-XXXX. Qui puoi aggiungere anche un numero progressivo personalizzato se ti serve.</p>
+              <span className="eyebrow">Azione consigliata</span>
+              <h3>Ci sono tessere senza numero progressivo</h3>
+              <p>Genera i numeri mancanti così tessera digitale, QR code e area riservata restano allineati.</p>
             </div>
             <button className="primary-btn slim" type="button" onClick={handleGenerateMissingMembershipNumbers} disabled={generatingNumbers}>
-              {generatingNumbers ? "Generazione…" : "Genera numeri mancanti"}
+              {generatingNumbers ? "Generazione…" : "Genera numeri"}
             </button>
           </div>
         )}
 
-        <div className="admin-dashboard-cards">
-          <button type="button" className="admin-dashboard-card" onClick={() => goToSection("students")}>
-            <span>Tesserati</span>
-            <strong>Gestisci anagrafiche</strong>
-            <small>Apri la scheda allievo, modifica dati, tessera, stato e ruolo corsista.</small>
-          </button>
-          <button type="button" className="admin-dashboard-card" onClick={() => goToSection("courses")}>
-            <span>Corsi</span>
-            <strong>Organizza calendario</strong>
-            <small>Crea corsi, orari, livelli e sale.</small>
-          </button>
-          <button type="button" className="admin-dashboard-card" onClick={() => goToSection("enrollments")}>
-            <span>Iscrizioni</span>
-            <strong>Cerca e iscrivi allievi</strong>
-            <small>Barra di ricerca rapida, comoda anche con centinaia di tesserati.</small>
-          </button>
-          <button type="button" className="admin-dashboard-card" onClick={() => goToSection("payments")}>
-            <span>Pagamenti</span>
-            <strong>Quote e incassi</strong>
-            <small>Crea scadenze e segna pagamenti manuali.</small>
-          </button>
-          <button type="button" className="admin-dashboard-card" onClick={() => goToSection("videos")}>
-            <span>Video</span>
-            <strong>Lezioni riservate</strong>
-            <small>Carica video visibili solo agli iscritti al corso.</small>
-          </button>
+        <div className="content-card overview-quick-panel">
+          <div className="card-head overview-panel-head">
+            <div>
+              <span className="eyebrow">Scorciatoie</span>
+              <h3>Cosa devi fare?</h3>
+              <p>Scegli l’area da gestire: ogni riquadro porta direttamente alla sezione corretta.</p>
+            </div>
+          </div>
+
+          <div className="admin-action-grid-v2">
+            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("students")}>
+              <span className="action-icon">◆</span>
+              <span className="action-label">Tesserati</span>
+              <strong>Gestisci anagrafiche</strong>
+              <small>Modifica dati, tessera, stato e ruolo corsista.</small>
+            </button>
+            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("courses")}>
+              <span className="action-icon">◷</span>
+              <span className="action-label">Corsi</span>
+              <strong>Organizza calendario</strong>
+              <small>Crea corsi, livelli, orari e sale.</small>
+            </button>
+            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("enrollments")}>
+              <span className="action-icon">+</span>
+              <span className="action-label">Iscrizioni</span>
+              <strong>Iscrivi un allievo</strong>
+              <small>Ricerca rapida e associazione ai corsi.</small>
+            </button>
+            <button type="button" className="admin-action-card-v2 accent" onClick={() => goToSection("payments")}>
+              <span className="action-icon">€</span>
+              <span className="action-label">Pagamenti</span>
+              <strong>Quote e incassi</strong>
+              <small>Controlla scadenze, pacchetti e pagamenti.</small>
+            </button>
+            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("videos")}>
+              <span className="action-icon">▶</span>
+              <span className="action-label">Video</span>
+              <strong>Lezioni riservate</strong>
+              <small>Carica contenuti per gli iscritti ai corsi.</small>
+            </button>
+          </div>
         </div>
 
-        <div className="admin-overview-grid">
-          <div className="content-card admin-card">
-            <span className="eyebrow">Ultimi tesserati</span>
-            <h3>Nuove anagrafiche</h3>
-            <div className="compact-list">
-              {students.slice(0, 6).map((student) => (
-                <button className="compact-row compact-button-row" type="button" key={student.id} onClick={() => { goToSection("students"); openStudentDetail(student); }}>
-                  <span>
+        <div className="admin-overview-grid admin-overview-grid-v2">
+          <div className="content-card admin-card overview-list-card">
+            <div className="overview-list-head">
+              <div>
+                <span className="eyebrow">Ultimi tesserati</span>
+                <h3>Nuove anagrafiche</h3>
+              </div>
+              <button className="mini-btn" type="button" onClick={() => goToSection("students")}>Apri elenco</button>
+            </div>
+            <div className="overview-list-v2">
+              {latestStudents.map((student) => (
+                <button className="overview-list-row" type="button" key={student.id} onClick={() => { goToSection("students"); openStudentDetail(student); }}>
+                  <span className="avatar mini-avatar">{initials(student)}</span>
+                  <span className="overview-row-main">
                     <strong>{fullName(student)}</strong>
                     <small>{student.email || "—"} · {student.is_corsista ? "Corsista" : "Tesserato"}</small>
                   </span>
                   <em>{membershipNumber(student) || "No tessera"}</em>
                 </button>
               ))}
+              {latestStudents.length === 0 && <p className="empty-text">Nessun tesserato inserito.</p>}
             </div>
           </div>
 
-          <div className="content-card admin-card">
-            <span className="eyebrow">Pagamenti aperti</span>
-            <h3>Da controllare</h3>
-            <div className="compact-list">
-              {payments.filter((payment) => payment.stato !== "pagato").slice(0, 6).map((payment) => (
-                <div className="compact-row" key={payment.id}>
-                  <div>
+          <div className="content-card admin-card overview-list-card payments-check-card">
+            <div className="overview-list-head">
+              <div>
+                <span className="eyebrow">Pagamenti aperti</span>
+                <h3>Da controllare</h3>
+              </div>
+              <div className="overview-count-pill">
+                <strong>{openPayments.length}</strong>
+                <span>aperti</span>
+              </div>
+            </div>
+
+            {overduePayments.length > 0 && (
+              <div className="overview-alert-strip">
+                <strong>{overduePayments.length}</strong>
+                <span>{overduePayments.length === 1 ? "quota scaduta" : "quote scadute"}</span>
+              </div>
+            )}
+
+            <div className="overview-list-v2">
+              {nextPayments.map((payment) => (
+                <button className="overview-list-row payment-row" type="button" key={payment.id} onClick={() => goToSection("payments")}>
+                  <span className="payment-dot">€</span>
+                  <span className="overview-row-main">
                     <strong>{payment.descrizione} · {formatMoney(payment.importo)}</strong>
-                    <span>{payment.tesseramenti?.nome} {payment.tesseramenti?.cognome} · {formatDate(payment.scadenza)}</span>
-                  </div>
-                  <span className={paymentStatusClass(payment.stato)}>{payment.stato || "da_pagare"}</span>
-                </div>
+                    <small>{payment.tesseramenti?.nome} {payment.tesseramenti?.cognome} · {formatDate(payment.scadenza)}</small>
+                  </span>
+                  <span className={paymentStatusClass(payment.stato)}>{paymentStatusLabels[payment.stato] || payment.stato || "Da pagare"}</span>
+                </button>
               ))}
-              {payments.filter((payment) => payment.stato !== "pagato").length === 0 && <p className="empty-text">Nessun pagamento aperto.</p>}
+              {openPayments.length === 0 && <p className="empty-text">Nessun pagamento aperto. Ottimo così.</p>}
             </div>
           </div>
         </div>
@@ -2437,19 +2520,22 @@ export default function AdminPanel() {
 
     return (
       <div className="admin-modal-backdrop" role="presentation" onMouseDown={() => setCourseDetail(null)}>
-        <div className="admin-modal course-detail-modal" role="dialog" aria-modal="true" aria-label={`Dettagli corso ${course.nome || ""}`} onMouseDown={(e) => e.stopPropagation()}>
-          <div className="modal-head">
-            <div>
-              <span className="eyebrow">Dettaglio corso</span>
-              <h3>{course.nome || "Corso"}</h3>
-              <p className="admin-help-text">
-                {course.livello || "Livello da definire"} · {course.giorno_settimana || "Giorno da definire"} · {formatTime(course.ora_inizio)}-{formatTime(course.ora_fine)} · {course.sala || "Sala da definire"}
-              </p>
+        <div className="admin-modal course-detail-modal course-detail-modal-v2" role="dialog" aria-modal="true" aria-label={`Dettagli corso ${course.nome || ""}`} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="modal-head course-detail-hero">
+            <div className="course-detail-title-row">
+              <div className="course-detail-icon">◷</div>
+              <div>
+                <span className="eyebrow">Dettaglio corso</span>
+                <h3>{course.nome || "Corso"}</h3>
+                <p className="admin-help-text">
+                  {course.livello || "Livello da definire"} · {course.giorno_settimana || "Giorno da definire"} · {formatTime(course.ora_inizio)}-{formatTime(course.ora_fine)} · {course.sala || "Sala da definire"}
+                </p>
+              </div>
             </div>
             <button className="mini-btn" type="button" onClick={() => setCourseDetail(null)}>Chiudi</button>
           </div>
 
-          <div className="course-detail-stats">
+          <div className="course-detail-stats course-detail-stats-v2">
             <div><span>Iscritti totali</span><strong>{courseDetailEnrollments.length}</strong></div>
             <div><span>Attivi</span><strong>{activeCount}</strong></div>
             <div><span>Sospesi</span><strong>{suspendedCount}</strong></div>
@@ -2458,148 +2544,202 @@ export default function AdminPanel() {
             <div><span>Incassato corso</span><strong>{formatMoney(coursePaidTotal)}</strong></div>
           </div>
 
-          <div className="course-detail-actions">
+          <div className="course-detail-actions course-detail-actions-v2">
             <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); startEditCourse(course); }}>✎ Modifica corso</button>
             <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); goToSection("enrollments"); }}>+ Iscrivi allievi</button>
             <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); goToSection("payments"); setPaymentCourseFilter(course.id); }}>€ Pagamenti corso</button>
           </div>
 
-          <div className="modal-subhead">
+          <div className="modal-subhead course-students-subhead">
             <div>
               <strong>Iscritti al corso</strong>
-              <small>Qui vedi tutti gli allievi collegati, anche sospesi o terminati.</small>
+              <small>Vista pulita per controllare velocemente allievi, quota, stato e azioni principali.</small>
             </div>
+            <span className="section-counter">{courseDetailEnrollments.length}</span>
           </div>
 
-          <div className="admin-table-wrap modal-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Allievo</th>
-                  <th>Numero tessera</th>
-                  <th>Pagamento</th>
-                  <th>Quota mese</th>
-                  <th>Stato</th>
-                  <th>Inizio</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {courseDetailEnrollments.map((enrollment) => {
-                  const student = students.find((item) => item.id === enrollment.tesseramento_id) || enrollment.tesseramenti || {};
-                  return (
-                    <tr key={enrollment.id}>
-                      <td>
-                        <strong>{fullName(student)}</strong>
-                        <small>{student.email || "—"} · {student.telefono || "telefono mancante"}</small>
-                      </td>
-                      <td><strong>{membershipNumber(student) || "—"}</strong></td>
-                      <td>
-                        {billingLabel(enrollment.tipo_pagamento || "mensile")}
-                        <small>{enrollment.genera_pagamento === false ? "Incluso in pacchetto" : "Genera quote"}</small>
-                      </td>
-                      <td><strong>{formatMoney(enrollment.tariffa_mensile ?? course.prezzo_mensile)}</strong></td>
-                      <td>
-                        <span className={enrollment.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{enrollment.stato || "attivo"}</span>
-                        <small>{enrollment.rinnovo_attivo === false ? "quote/video disattivati" : "quote attive"}</small>
-                      </td>
-                      <td>{formatDate(enrollment.data_inizio || enrollment.data_iscrizione)}</td>
-                      <td>
-                        <div className="table-actions">
-                          <button className="mini-btn" type="button" onClick={() => openStudentFromCourse(enrollment)}>Scheda</button>
-                          <button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(enrollment)}>{enrollment.stato === "attivo" ? "Sospendi" : "Riattiva"}</button>
-                          <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(enrollment)}>Elimina riga</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {courseDetailEnrollments.length === 0 && (
-                  <tr><td colSpan="7"><p className="empty-text">Nessun allievo iscritto a questo corso.</p></td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {courseDetailEnrollments.length === 0 ? (
+            <div className="payments-empty-state">
+              <h4>Nessun allievo iscritto</h4>
+              <p>Quando iscrivi un allievo a questo corso, lo vedrai qui con quota e stato iscrizione.</p>
+            </div>
+          ) : (
+            <div className="course-student-list">
+              {courseDetailEnrollments.map((enrollment) => {
+                const student = students.find((item) => item.id === enrollment.tesseramento_id) || enrollment.tesseramenti || {};
+                const enrollmentStatus = enrollment.stato || "attivo";
+                return (
+                  <article className="course-student-card" key={enrollment.id}>
+                    <div className="course-student-person">
+                      <span className="avatar mini-avatar">{initials(student)}</span>
+                      <div>
+                        <h4>{fullName(student)}</h4>
+                        <small>{membershipNumber(student) || "Nessuna tessera"} · {student.email || "email mancante"}</small>
+                      </div>
+                    </div>
+
+                    <div className="course-student-meta-grid">
+                      <div><span>Pagamento</span><strong>{billingLabel(enrollment.tipo_pagamento || "mensile")}</strong><small>{enrollment.genera_pagamento === false ? "Incluso in pacchetto" : "Genera quote"}</small></div>
+                      <div><span>Quota mese</span><strong>{formatMoney(enrollment.tariffa_mensile ?? course.prezzo_mensile)}</strong></div>
+                      <div><span>Stato</span><strong>{enrollmentStatus}</strong><small>{enrollment.rinnovo_attivo === false ? "quote/video disattivati" : "quote attive"}</small></div>
+                      <div><span>Inizio</span><strong>{formatDate(enrollment.data_inizio || enrollment.data_iscrizione)}</strong></div>
+                    </div>
+
+                    <div className="course-student-actions">
+                      <button className="mini-btn" type="button" onClick={() => openStudentFromCourse(enrollment)}>Scheda allievo</button>
+                      <button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(enrollment)}>{enrollmentStatus === "attivo" ? "Sospendi" : "Riattiva"}</button>
+                      <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(enrollment)}>Elimina riga</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   function renderCourses() {
+    const activeCourseCount = courses.filter((course) => course.attivo).length;
+    const inactiveCourseCount = Math.max(0, courses.length - activeCourseCount);
+    const courseIds = new Set(courses.map((course) => course.id));
+    const courseEnrollments = enrollments.filter((item) => courseIds.has(item.corso_id));
+    const activeEnrollmentCount = courseEnrollments.filter((item) => item.stato === "attivo").length;
+    const averagePrice = activeCourseCount
+      ? courses.filter((course) => course.attivo).reduce((sum, course) => sum + Number(course.prezzo_mensile || 0), 0) / activeCourseCount
+      : 0;
+
+    function dayWeight(value) {
+      const clean = String(value || "").toLowerCase();
+      const days = ["luned", "marted", "mercoled", "gioved", "venerd", "sabato", "domenica"];
+      const index = days.findIndex((day) => clean.includes(day));
+      return index === -1 ? 99 : index;
+    }
+
+    function dayShort(value) {
+      const clean = String(value || "").toLowerCase();
+      if (clean.includes("luned")) return "LUN";
+      if (clean.includes("marted")) return "MAR";
+      if (clean.includes("mercoled")) return "MER";
+      if (clean.includes("gioved")) return "GIO";
+      if (clean.includes("venerd")) return "VEN";
+      if (clean.includes("sabato")) return "SAB";
+      if (clean.includes("domenica")) return "DOM";
+      return "—";
+    }
+
+    const sortedCourses = [...courses].sort((a, b) => {
+      const byDay = dayWeight(a.giorno_settimana) - dayWeight(b.giorno_settimana);
+      if (byDay !== 0) return byDay;
+      return String(a.ora_inizio || "99:99").localeCompare(String(b.ora_inizio || "99:99"));
+    });
+
     return (
-      <div className="admin-section-layout courses-admin-layout">
-        <form className="content-card admin-card" onSubmit={handleCreateCourse}>
-          <span className="eyebrow">Corsi</span>
-          <h3>{editingCourse ? "Modifica corso" : "Crea nuovo corso"}</h3>
-          <p className="admin-help-text">Il prezzo mensile inserito qui diventa il prezzo base. Nella scheda allievo puoi poi personalizzarlo per multicorso, trimestrale, annuale o All You Can Dance.</p>
-          <label>Nome corso<input value={courseForm.nome} onChange={(e) => setCourseForm({ ...courseForm, nome: e.target.value })} placeholder="Bachata" /></label>
-          <label>Livello<input value={courseForm.livello} onChange={(e) => setCourseForm({ ...courseForm, livello: e.target.value })} placeholder="Base / Intermedio" /></label>
-          <div className="form-row">
-            <label>Giorno<input value={courseForm.giorno_settimana} onChange={(e) => setCourseForm({ ...courseForm, giorno_settimana: e.target.value })} placeholder="Lunedì" /></label>
-            <label>Sala<input value={courseForm.sala} onChange={(e) => setCourseForm({ ...courseForm, sala: e.target.value })} placeholder="Sala 1" /></label>
-          </div>
-          <div className="form-row">
-            <label>Inizio<input type="time" value={courseForm.ora_inizio} onChange={(e) => setCourseForm({ ...courseForm, ora_inizio: e.target.value })} /></label>
-            <label>Fine<input type="time" value={courseForm.ora_fine} onChange={(e) => setCourseForm({ ...courseForm, ora_fine: e.target.value })} /></label>
-          </div>
-          <label>Prezzo mensile base<input type="number" step="0.01" value={courseForm.prezzo_mensile} onChange={(e) => setCourseForm({ ...courseForm, prezzo_mensile: e.target.value })} /></label>
-          <div className="form-actions-row">
-            <button className="primary-btn" type="submit">{editingCourse ? "Salva modifiche corso" : "Salva corso"}</button>
-            {editingCourse && <button className="ghost-btn" type="button" onClick={cancelEditCourse}>Annulla modifica</button>}
-          </div>
-        </form>
-
-        <div className="content-card admin-card courses-catalog-card">
-          <div className="card-head">
-            <div>
-              <span className="eyebrow">Calendario corsi</span>
-              <h3>Tutti i corsi</h3>
-              <p className="admin-help-text">Ogni corso è una scheda separata: apri i dettagli per vedere subito tutti gli iscritti e lo stato della loro iscrizione.</p>
-            </div>
-            <span className="status-pill neutral">{courses.length} corsi</span>
+      <div className="courses-page-stack">
+        <div className="content-card courses-hero-card">
+          <div className="courses-hero-copy">
+            <span className="eyebrow">Corsi</span>
+            <h3>Calendario corsi</h3>
+            <p>Gestisci corsi, orari, sale, prezzi base e iscritti con una vista più semplice e ordinata.</p>
           </div>
 
-          <div className="course-modal-grid">
-            {courses.map((course) => {
-              const courseEnrollments = enrollments.filter((item) => item.corso_id === course.id);
-              const activeEnrollments = courseEnrollments.filter((item) => item.stato === "attivo");
-              const suspendedEnrollments = courseEnrollments.filter((item) => item.stato === "sospeso");
-              return (
-                <article className={`course-management-card ${editingCourse?.id === course.id ? "editing" : ""}`} key={course.id}>
-                  <div className="course-management-head">
-                    <div>
-                      <span className="eyebrow">{course.giorno_settimana || "Giorno da definire"}</span>
-                      <h4>{course.nome}</h4>
-                      <small>{course.livello || "Livello da definire"}</small>
-                    </div>
-                    <span className={course.attivo ? "status-pill ok" : "status-pill neutral"}>{course.attivo ? "Attivo" : "Disattivo"}</span>
-                  </div>
-
-                  <div className="course-card-info-grid">
-                    <div><span>Orario</span><strong>{formatTime(course.ora_inizio)}-{formatTime(course.ora_fine)}</strong></div>
-                    <div><span>Sala</span><strong>{course.sala || "—"}</strong></div>
-                    <div><span>Prezzo base</span><strong>{formatMoney(course.prezzo_mensile)}</strong></div>
-                  </div>
-
-                  <div className="course-enrollment-strip">
-                    <div><span>Iscritti</span><strong>{courseEnrollments.length}</strong></div>
-                    <div><span>Attivi</span><strong>{activeEnrollments.length}</strong></div>
-                    <div><span>Sospesi</span><strong>{suspendedEnrollments.length}</strong></div>
-                  </div>
-
-                  <div className="course-card-actions">
-                    <button className="primary-btn slim" type="button" onClick={() => setCourseDetail(course)}>Apri dettagli</button>
-                    <button className="mini-btn" type="button" title="Modifica dettagli corso" onClick={() => startEditCourse(course)}>✎</button>
-                    <button className="mini-btn" type="button" onClick={() => handleToggleCourse(course)}>{course.attivo ? "Disattiva" : "Riattiva"}</button>
-                  </div>
-                </article>
-              );
-            })}
-            {courses.length === 0 && <p className="empty-text">Non hai ancora creato corsi.</p>}
+          <div className="courses-overview-grid">
+            <div><span>Corsi attivi</span><strong>{activeCourseCount}</strong><small>{inactiveCourseCount} disattivi</small></div>
+            <div><span>Iscrizioni attive</span><strong>{activeEnrollmentCount}</strong><small>{courseEnrollments.length} totali</small></div>
+            <div><span>Prezzo medio</span><strong>{formatMoney(averagePrice)}</strong><small>base mensile</small></div>
           </div>
         </div>
 
-        {renderCourseDetailModal()}
+        <div className="admin-section-layout courses-admin-layout courses-admin-layout-v2">
+          <form id="course-form-card" className="content-card admin-card course-editor-card" onSubmit={handleCreateCourse}>
+            <div className="course-editor-head">
+              <div>
+                <span className="eyebrow">{editingCourse ? "Modifica" : "Nuovo corso"}</span>
+                <h3>{editingCourse ? "Aggiorna corso" : "Crea corso"}</h3>
+                <p className="admin-help-text">Inserisci solo i dati essenziali: nome, livello, orario, sala e prezzo base. I pacchetti si gestiscono poi nella scheda allievo.</p>
+              </div>
+              {editingCourse && <span className="status-pill warn">In modifica</span>}
+            </div>
+
+            <div className="course-form-grid">
+              <label className="wide-field">Nome corso<input value={courseForm.nome} onChange={(e) => setCourseForm({ ...courseForm, nome: e.target.value })} placeholder="Bachata" /></label>
+              <label>Livello<input value={courseForm.livello} onChange={(e) => setCourseForm({ ...courseForm, livello: e.target.value })} placeholder="Base / Intermedio" /></label>
+              <label>Giorno<input value={courseForm.giorno_settimana} onChange={(e) => setCourseForm({ ...courseForm, giorno_settimana: e.target.value })} placeholder="Lunedì" /></label>
+              <label>Sala<input value={courseForm.sala} onChange={(e) => setCourseForm({ ...courseForm, sala: e.target.value })} placeholder="Sala 1" /></label>
+              <label>Inizio<input type="time" value={courseForm.ora_inizio} onChange={(e) => setCourseForm({ ...courseForm, ora_inizio: e.target.value })} /></label>
+              <label>Fine<input type="time" value={courseForm.ora_fine} onChange={(e) => setCourseForm({ ...courseForm, ora_fine: e.target.value })} /></label>
+              <label>Prezzo mensile base<input type="number" step="0.01" value={courseForm.prezzo_mensile} onChange={(e) => setCourseForm({ ...courseForm, prezzo_mensile: e.target.value })} /></label>
+            </div>
+
+            <div className="form-actions-row course-form-actions">
+              <button className="primary-btn" type="submit">{editingCourse ? "Salva modifiche" : "Salva corso"}</button>
+              {editingCourse && <button className="ghost-btn" type="button" onClick={cancelEditCourse}>Annulla</button>}
+            </div>
+          </form>
+
+          <div className="content-card admin-card courses-catalog-card courses-catalog-card-v2">
+            <div className="card-head courses-catalog-head">
+              <div>
+                <span className="eyebrow">Lista corsi</span>
+                <h3>Corsi creati</h3>
+                <p className="admin-help-text">Le schede sono ordinate per giorno e orario. Apri i dettagli per vedere iscritti, pagamenti e azioni veloci.</p>
+              </div>
+              <span className="status-pill neutral">{courses.length} corsi</span>
+            </div>
+
+            <div className="course-modal-grid course-modal-grid-v2">
+              {sortedCourses.map((course) => {
+                const allEnrollments = enrollments.filter((item) => item.corso_id === course.id);
+                const activeEnrollments = allEnrollments.filter((item) => item.stato === "attivo");
+                const suspendedEnrollments = allEnrollments.filter((item) => item.stato === "sospeso");
+                const isEditing = editingCourse?.id === course.id;
+                return (
+                  <article className={`course-management-card course-management-card-v2 ${isEditing ? "editing" : ""} ${course.attivo ? "" : "inactive"}`} key={course.id}>
+                    <div className="course-management-head course-management-head-v2">
+                      <div className="course-day-badge">
+                        <strong>{dayShort(course.giorno_settimana)}</strong>
+                        <span>{course.giorno_settimana || "Giorno"}</span>
+                      </div>
+                      <div className="course-title-block">
+                        <h4>{course.nome || "Corso senza nome"}</h4>
+                        <small>{course.livello || "Livello da definire"}</small>
+                      </div>
+                      <span className={course.attivo ? "status-pill ok" : "status-pill neutral"}>{course.attivo ? "Attivo" : "Disattivo"}</span>
+                    </div>
+
+                    <div className="course-time-band">
+                      <span>Orario</span>
+                      <strong>{formatTime(course.ora_inizio)} - {formatTime(course.ora_fine)}</strong>
+                      <small>{course.sala || "Sala da definire"}</small>
+                    </div>
+
+                    <div className="course-card-info-grid course-card-info-grid-v2">
+                      <div><span>Prezzo base</span><strong>{formatMoney(course.prezzo_mensile)}</strong></div>
+                      <div><span>Iscritti</span><strong>{allEnrollments.length}</strong></div>
+                      <div><span>Attivi</span><strong>{activeEnrollments.length}</strong></div>
+                      <div><span>Sospesi</span><strong>{suspendedEnrollments.length}</strong></div>
+                    </div>
+
+                    <div className="course-card-actions course-card-actions-v2">
+                      <button className="primary-btn slim" type="button" onClick={() => setCourseDetail(course)}>Apri dettagli</button>
+                      <button className="mini-btn" type="button" onClick={() => startEditCourse(course)}>Modifica</button>
+                      <button className="mini-btn" type="button" onClick={() => handleToggleCourse(course)}>{course.attivo ? "Disattiva" : "Riattiva"}</button>
+                    </div>
+                  </article>
+                );
+              })}
+              {courses.length === 0 && (
+                <div className="payments-empty-state">
+                  <h4>Nessun corso creato</h4>
+                  <p>Crea il primo corso dal pannello a sinistra. Dopo il salvataggio apparirà qui come scheda.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {renderCourseDetailModal()}
+        </div>
       </div>
     );
   }
