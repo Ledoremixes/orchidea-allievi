@@ -775,8 +775,110 @@ export default function AdminPanel() {
       });
   }, [enrollments, payments, students, courses, paymentMonth, paymentSearch, paymentCourseFilter, paymentStateFilter]);
 
+
+  const monthlyPaymentDisplayRows = useMemo(() => {
+    const grouped = new Map();
+    const singleRows = [];
+
+    monthlyPaymentRows.forEach((row, index) => {
+      if (!row.packageId) {
+        singleRows.push({
+          ...row,
+          displayKey: `single-${row.enrollment.id}-${row.payment?.id || row.status}-${index}`,
+          isPackageGroup: false,
+          memberRows: [row],
+          payments: row.payment ? [row.payment] : [],
+          courses: row.course ? [row.course] : [],
+          courseNames: row.course?.nome ? row.course.nome : "Corso",
+          courseSummary: row.course?.nome || "Corso",
+        });
+        return;
+      }
+
+      const key = [
+        row.student?.id || row.enrollment?.tesseramento_id,
+        row.packageId,
+        row.periodStart,
+        row.periodEnd,
+      ].join("|");
+
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(row);
+    });
+
+    const packageRows = Array.from(grouped.entries()).map(([key, memberRows]) => {
+      const sortedMembers = [...memberRows].sort((a, b) => {
+        const courseA = `${a.course?.nome || ""} ${a.course?.livello || ""}`.toLowerCase();
+        const courseB = `${b.course?.nome || ""} ${b.course?.livello || ""}`.toLowerCase();
+        return courseA.localeCompare(courseB);
+      });
+      const representative =
+        sortedMembers.find((row) => row.status === "da_pagare") ||
+        sortedMembers.find((row) => row.status === "da_generare") ||
+        sortedMembers.find((row) => row.status === "pagato") ||
+        sortedMembers[0];
+      const statuses = sortedMembers.map((row) => row.status);
+      const allSuspended = statuses.every((status) => status === "sospeso");
+      const allPaidOrCovered = statuses.every((status) => status === "pagato" || status === "coperto");
+      const hasOpenPayment = statuses.some((status) => status === "da_pagare");
+      const hasToGenerate = statuses.some((status) => status === "da_generare");
+      const paymentsInGroup = sortedMembers.map((row) => row.payment).filter(Boolean);
+      const maxMonths = Math.max(1, ...sortedMembers.map((row) => Number(row.months || 1)));
+      const monthlyPackageTotal = Number(representative.packageTotalMonthly || 0) > 0
+        ? Number(representative.packageTotalMonthly)
+        : sortedMembers.reduce((sum, row) => sum + Number(row.amount || row.monthlyPrice || 0), 0);
+      const totalPackageAmount = paymentsInGroup.length
+        ? sortedMembers.reduce((sum, row) => sum + Number(row.totalAmount || row.amount || 0), 0)
+        : monthlyPackageTotal * maxMonths;
+      const courses = sortedMembers.map((row) => row.course).filter(Boolean);
+      const courseNames = courses
+        .map((course) => [course.nome, course.livello].filter(Boolean).join(" "))
+        .filter(Boolean);
+      let status = representative.status;
+
+      if (allSuspended) status = "sospeso";
+      else if (allPaidOrCovered) status = statuses.includes("pagato") ? "pagato" : "coperto";
+      else if (hasOpenPayment) status = "da_pagare";
+      else if (hasToGenerate) status = "da_generare";
+
+      return {
+        ...representative,
+        id: `package-${key}`,
+        displayKey: `package-${key}`,
+        isPackageGroup: true,
+        memberRows: sortedMembers,
+        payments: paymentsInGroup,
+        payment: paymentsInGroup[0] || null,
+        enrollment: representative.enrollment,
+        student: representative.student,
+        course: null,
+        courses,
+        courseNames: courseNames.join(", "),
+        courseSummary: `${sortedMembers.length} corsi inclusi`,
+        status,
+        billable: sortedMembers.some((row) => row.billable),
+        cycle: representative.cycle,
+        months: maxMonths,
+        amount: monthlyPackageTotal,
+        monthlyPrice: monthlyPackageTotal,
+        totalAmount: totalPackageAmount,
+        packageName: representative.packageName || "Pacchetto multicorso",
+        packagePercent: 100,
+        periodStart: representative.periodStart,
+        periodEnd: representative.periodEnd,
+      };
+    });
+
+    return [...singleRows, ...packageRows].sort((a, b) => {
+      const nameCompare = fullName(a.student).localeCompare(fullName(b.student));
+      if (nameCompare !== 0) return nameCompare;
+      if (a.isPackageGroup !== b.isPackageGroup) return a.isPackageGroup ? -1 : 1;
+      return String(a.courseSummary || "").localeCompare(String(b.courseSummary || ""));
+    });
+  }, [monthlyPaymentRows]);
+
   const monthlyPaymentStats = useMemo(() => {
-    const rows = monthlyPaymentRows;
+    const rows = monthlyPaymentDisplayRows;
     const dueRows = rows.filter((row) => row.status === "da_pagare" || row.status === "da_generare");
     const paidRows = rows.filter((row) => row.status === "pagato" || row.status === "coperto");
     const suspendedRows = rows.filter((row) => row.status === "sospeso");
@@ -796,7 +898,7 @@ export default function AdminPanel() {
       paidCashTotal,
       toGenerate: rows.filter((row) => row.status === "da_generare" && row.billable).length,
     };
-  }, [monthlyPaymentRows, paymentMonth]);
+  }, [monthlyPaymentDisplayRows, paymentMonth]);
 
   function showSuccess(text) {
     setMessage(text);
@@ -1552,6 +1654,99 @@ export default function AdminPanel() {
     return true;
   }
 
+  async function handleGeneratePaymentDisplayRow(row) {
+    if (!row?.isPackageGroup) return handleGenerateSingleDue(row);
+
+    const rowsToGenerate = row.memberRows.filter((item) => item.billable && !item.payment);
+    if (rowsToGenerate.length === 0) {
+      showSuccess("Le quote del pacchetto sono già state create.");
+      return false;
+    }
+
+    const confirmed = window.confirm(`Generare le quote del pacchetto ${row.packageName || "multicorso"} per ${fullName(row.student)}?`);
+    if (!confirmed) return false;
+
+    const payloads = rowsToGenerate.map((item) => {
+      const months = billingMonths(item.cycle);
+      const start = item.periodStart || monthBounds(paymentMonth).start;
+      const end = item.periodEnd || periodEndFromStart(start, months);
+      const amount = Number(item.monthlyPrice || 0) * months;
+
+      return {
+        tesseramento_id: item.enrollment.tesseramento_id,
+        corso_id: item.enrollment.corso_id,
+        iscrizione_id: item.enrollment.id,
+        descrizione: `${item.packageName || row.packageName || "Pacchetto multicorso"} - ${item.course?.nome || "corso"} - ${billingLabel(item.cycle)}`,
+        importo: amount,
+        periodo: buildPaymentPeriodLabel(start, end, item.cycle),
+        scadenza: start,
+        stato: "da_pagare",
+        metodo: null,
+        tipo_quota: "corso",
+        billing_cycle: item.cycle,
+        periodo_inizio: start,
+        periodo_fine: end,
+        copertura_mesi: months,
+        pacchetto_id: item.packageId || row.packageId || null,
+        pacchetto_nome: item.packageName || row.packageName || "Pacchetto multicorso",
+        pacchetto_totale_mensile: item.packageTotalMonthly || row.packageTotalMonthly || row.amount || null,
+        quota_pacchetto_percentuale: item.packagePercent || null,
+      };
+    });
+
+    const { error: insertError } = await supabase.from("pagamenti").insert(payloads);
+    if (insertError) {
+      showError(insertError.message);
+      return false;
+    }
+
+    showSuccess("Quote del pacchetto multicorso generate.");
+    await loadAdminData();
+    return true;
+  }
+
+  async function handleDeletePaymentDisplayRow(row) {
+    if (!row?.isPackageGroup) return handleDeletePayment(row.payment);
+
+    const paymentIds = row.payments.map((payment) => payment.id).filter(Boolean);
+    if (paymentIds.length === 0) return;
+
+    const confirmed = window.confirm(`Eliminare tutte le quote del pacchetto ${row.packageName || "multicorso"} per ${fullName(row.student)}?`);
+    if (!confirmed) return;
+
+    const { error: deleteError } = await supabase.from("pagamenti").delete().in("id", paymentIds);
+    if (deleteError) {
+      showError(deleteError.message);
+      return;
+    }
+
+    showSuccess("Quote del pacchetto eliminate.");
+    await loadAdminData();
+  }
+
+  async function handleEndEnrollmentDisplayRow(row) {
+    if (!row?.isPackageGroup) return handleEndEnrollment(row.enrollment);
+
+    const enrollmentIds = row.memberRows.map((item) => item.enrollment?.id).filter(Boolean);
+    if (enrollmentIds.length === 0) return;
+
+    const confirmed = window.confirm(`Chiudere tutti i corsi del pacchetto per ${fullName(row.student)}? Non verranno più generate quote future.`);
+    if (!confirmed) return;
+
+    const { error: updateError } = await supabase
+      .from("iscrizioni_corsi")
+      .update({ stato: "terminato", rinnovo_attivo: false, data_fine: todayIso() })
+      .in("id", enrollmentIds);
+
+    if (updateError) {
+      showError(updateError.message);
+      return;
+    }
+
+    showSuccess("Pacchetto chiuso per l’allievo. Le quote future non verranno più imputate.");
+    await loadAdminData();
+  }
+
   async function handleSavePaymentRow(e) {
     e.preventDefault();
     if (!editingPaymentRow || !paymentRowForm) return;
@@ -2021,158 +2216,194 @@ export default function AdminPanel() {
   }
 
   function renderStudentDetail() {
-    if (!editingStudent) {
-      return (
-        <div className="content-card admin-card student-detail-empty">
-          <span className="eyebrow">Scheda allievo</span>
-          <h3>Seleziona un tesserato</h3>
-          <p>Apri una scheda dalla tabella per modificare dati personali, numero tessera, stato pagamento, ruolo corsista e tessera attiva.</p>
-        </div>
-      );
-    }
+    if (!editingStudent) return null;
+
+    const openPayments = studentPayments.filter((payment) => payment.stato !== "pagato");
+    const paidPayments = studentPayments.filter((payment) => payment.stato === "pagato");
+    const activeStudentEnrollments = studentEnrollments.filter((item) => item.stato === "attivo");
 
     return (
-      <form className="content-card admin-card student-detail-panel" onSubmit={handleSaveStudent}>
-        <div className="card-head">
-          <div>
-            <span className="eyebrow">Scheda allievo</span>
-            <h3>{fullName(editingStudent)}</h3>
-            <p className="admin-help-text">Modifica anagrafica e stato senza creare doppioni.</p>
-          </div>
-          <button className="mini-btn" type="button" onClick={closeStudentDetail}>Chiudi</button>
-        </div>
-
-        <div className="form-row">
-          <label>Nome<input value={studentForm.nome} onChange={(e) => setStudentForm({ ...studentForm, nome: e.target.value })} /></label>
-          <label>Cognome<input value={studentForm.cognome} onChange={(e) => setStudentForm({ ...studentForm, cognome: e.target.value })} /></label>
-        </div>
-        <label>Email<input type="email" value={studentForm.email} onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })} /></label>
-        <div className="form-row">
-          <label>Telefono<input value={studentForm.telefono} onChange={(e) => setStudentForm({ ...studentForm, telefono: e.target.value })} /></label>
-          <label>Codice fiscale<input value={studentForm.cf} onChange={(e) => setStudentForm({ ...studentForm, cf: e.target.value })} /></label>
-        </div>
-        <div className="form-row">
-          <label>Data nascita<input type="date" value={studentForm.nascita || ""} onChange={(e) => setStudentForm({ ...studentForm, nascita: e.target.value })} /></label>
-          <label>Luogo nascita<input value={studentForm.luogo} onChange={(e) => setStudentForm({ ...studentForm, luogo: e.target.value })} /></label>
-        </div>
-        <label>Residenza<input value={studentForm.residenza} onChange={(e) => setStudentForm({ ...studentForm, residenza: e.target.value })} /></label>
-
-        <div className="form-row membership-number-row">
-          <label>Numero tessera personalizzato<input value={studentForm.numero_tessera} onChange={(e) => setStudentForm({ ...studentForm, numero_tessera: e.target.value })} placeholder="Lascia vuoto per usare il codice TESS del sito" /></label>
-          <label>Stagione<input value={studentForm.stagione} onChange={(e) => setStudentForm({ ...studentForm, stagione: e.target.value })} /></label>
-        </div>
-        {!studentForm.numero_tessera && (
-          <div className="info-box compact-info">
-            <strong>Codice tessera attuale: {membershipNumber(editingStudent)}</strong>
-            <span>È lo stesso codice che vedi nel sito, generato dall’ID tesseramento.</span>
-            <button className="ghost-btn full-width" type="button" onClick={() => setStudentForm({ ...studentForm, numero_tessera: makeNextMembershipNumber(students) })}>
-              Suggerisci numero progressivo personalizzato
-            </button>
-          </div>
-        )}
-
-        <div className="form-row">
-          <label>Stato tessera
-            <select value={studentForm.status || ""} onChange={(e) => setStudentForm({ ...studentForm, status: e.target.value })}>
-              <option value="pending_payment">In attesa pagamento</option>
-              <option value="active">Attiva</option>
-              <option value="inactive">Non attiva</option>
-              <option value="blocked">Bloccata</option>
-            </select>
-          </label>
-          <label>Stato pagamento tessera
-            <select value={studentForm.payment_status || ""} onChange={(e) => setStudentForm({ ...studentForm, payment_status: e.target.value })}>
-              <option value="unpaid">Non pagato</option>
-              <option value="paid">Pagato</option>
-              <option value="pending">In attesa</option>
-              <option value="refunded">Rimborsato</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="checkbox-grid">
-          <label className="check-card"><input type="checkbox" checked={studentForm.tessera_attiva} onChange={(e) => setStudentForm({ ...studentForm, tessera_attiva: e.target.checked })} /> Tessera attiva</label>
-          <label className="check-card"><input type="checkbox" checked={studentForm.is_corsista} onChange={(e) => setStudentForm({ ...studentForm, is_corsista: e.target.checked })} /> Corsista</label>
-        </div>
-
-        <button className="primary-btn" type="submit" disabled={savingStudent}>{savingStudent ? "Salvataggio…" : "Salva scheda allievo"}</button>
-
-        <div className="student-detail-summary">
-          <div>
-            <span>Corsi collegati</span>
-            <strong>{studentEnrollments.length}</strong>
-          </div>
-          <div>
-            <span>Quote aperte</span>
-            <strong>{studentPayments.filter((p) => p.stato !== "pagato").length}</strong>
-          </div>
-          <div>
-            <span>Auth collegato</span>
-            <strong>{editingStudent.auth_user_id ? "Sì" : "No"}</strong>
-          </div>
-        </div>
-
-        <div className="detail-mini-grid">
-          <div className="student-enrollment-editor student-enrollment-compact">
-            <div className="mini-section-head compact-head">
+      <div className="admin-modal-backdrop student-profile-modal-backdrop" role="presentation" onMouseDown={closeStudentDetail}>
+        <form className="admin-modal student-profile-modal" role="dialog" aria-modal="true" aria-label={`Scheda tesserato ${fullName(editingStudent)}`} onSubmit={handleSaveStudent} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="student-profile-hero">
+            <div className="student-profile-identity">
+              <span className="avatar student-profile-avatar">{initials(editingStudent)}</span>
               <div>
-                <strong>Iscrizioni e prezzi</strong>
-                <small>Apri la matita per modificare formula, importo e stato del singolo corso.</small>
-              </div>
-              <div className="mini-section-actions">
-                <span className="status-pill neutral">{studentEnrollments.length} corsi</span>
-                {studentEnrollments.length > 1 && (
-                  <button className="mini-btn package-manage-btn" type="button" onClick={() => openStudentPackageManager()}>Gestisci pacchetto</button>
-                )}
+                <span className="eyebrow">Scheda tesserato</span>
+                <h3>{fullName(editingStudent)}</h3>
+                <p>{editingStudent.email || "Email non inserita"}</p>
               </div>
             </div>
+            <div className="student-profile-actions-head">
+              <span className={editingStudent.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{editingStudent.tessera_attiva !== false ? "Tessera attiva" : "Tessera non attiva"}</span>
+              <button className="mini-btn" type="button" onClick={closeStudentDetail}>Chiudi</button>
+            </div>
+          </div>
 
-            {studentEnrollments.length ? (
-              <div className="student-course-summary-list">
-                {studentEnrollments.map((item) => (
-                  <button
-                    className="student-course-summary-row"
-                    key={item.id}
-                    type="button"
-                    onClick={() => setEditingStudentEnrollment(item)}
-                  >
-                    <div>
-                      <strong className="student-course-title">{item.corsi?.nome || "Corso"}</strong>
-                      <small>
-                        {item.corsi?.livello || "Livello non impostato"} · {billingLabel(item.tipo_pagamento || "mensile")} · {formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese
-                      </small>
-                      {item.pacchetto_nome && (
-                        <small className="package-inline-label">
-                          Pacchetto · {formatPercent(item.quota_pacchetto_percentuale)} · {formatMoney(item.pacchetto_totale_mensile)} / mese
-                        </small>
-                      )}
-                    </div>
-                    <span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato || "attivo"}</span>
-                    <span className="edit-pencil" aria-label="Modifica corso">✎</span>
-                  </button>
-                ))}
-              </div>
-            ) : <small>Nessun corso collegato.</small>}
-          </div>
-          <div className="student-payments-panel">
-            <div className="student-payments-head">
-              <strong>Pagamenti</strong>
-              <span className="status-pill neutral">{studentPayments.length}</span>
+          <div className="student-profile-summary-grid">
+            <div>
+              <span>Numero tessera</span>
+              <strong>{membershipNumber(editingStudent) || "Senza numero"}</strong>
             </div>
-            {studentPayments.length ? (
-              <div className="student-payment-list">
-                {studentPayments.slice(0, 6).map((payment) => (
-                  <div className="student-payment-row" key={payment.id}>
-                    <span>{payment.descrizione}</span>
-                    <strong>{formatMoney(payment.importo)}</strong>
-                    <small>{payment.stato}</small>
-                  </div>
-                ))}
-              </div>
-            ) : <small>Nessun pagamento creato.</small>}
+            <div>
+              <span>Corsi collegati</span>
+              <strong>{studentEnrollments.length}</strong>
+              <small>{activeStudentEnrollments.length} attivi</small>
+            </div>
+            <div>
+              <span>Quote aperte</span>
+              <strong>{openPayments.length}</strong>
+              <small>{openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</small>
+            </div>
+            <div>
+              <span>Pagamenti registrati</span>
+              <strong>{paidPayments.length}</strong>
+              <small>{paidPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</small>
+            </div>
           </div>
-        </div>
-      </form>
+
+          <div className="student-profile-modal-body">
+            <section className="student-profile-form-card">
+              <div className="mini-section-head compact-head">
+                <div>
+                  <strong>Dati anagrafici</strong>
+                  <small>Modifica i dati principali senza creare doppioni nel sistema.</small>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <label>Nome<input value={studentForm.nome} onChange={(e) => setStudentForm({ ...studentForm, nome: e.target.value })} /></label>
+                <label>Cognome<input value={studentForm.cognome} onChange={(e) => setStudentForm({ ...studentForm, cognome: e.target.value })} /></label>
+              </div>
+              <label>Email<input type="email" value={studentForm.email} onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })} /></label>
+              <div className="form-row">
+                <label>Telefono<input value={studentForm.telefono} onChange={(e) => setStudentForm({ ...studentForm, telefono: e.target.value })} /></label>
+                <label>Codice fiscale<input value={studentForm.cf} onChange={(e) => setStudentForm({ ...studentForm, cf: e.target.value })} /></label>
+              </div>
+              <div className="form-row">
+                <label>Data nascita<input type="date" value={studentForm.nascita || ""} onChange={(e) => setStudentForm({ ...studentForm, nascita: e.target.value })} /></label>
+                <label>Luogo nascita<input value={studentForm.luogo} onChange={(e) => setStudentForm({ ...studentForm, luogo: e.target.value })} /></label>
+              </div>
+              <label>Residenza<input value={studentForm.residenza} onChange={(e) => setStudentForm({ ...studentForm, residenza: e.target.value })} /></label>
+            </section>
+
+            <section className="student-profile-form-card">
+              <div className="mini-section-head compact-head">
+                <div>
+                  <strong>Tessera e stato account</strong>
+                  <small>Gestisci numero tessera, stato pagamento e ruolo corsista.</small>
+                </div>
+              </div>
+
+              <div className="form-row membership-number-row">
+                <label>Numero tessera personalizzato<input value={studentForm.numero_tessera} onChange={(e) => setStudentForm({ ...studentForm, numero_tessera: e.target.value })} placeholder="Lascia vuoto per usare il codice TESS del sito" /></label>
+                <label>Stagione<input value={studentForm.stagione} onChange={(e) => setStudentForm({ ...studentForm, stagione: e.target.value })} /></label>
+              </div>
+              {!studentForm.numero_tessera && (
+                <div className="info-box compact-info">
+                  <strong>Codice tessera attuale: {membershipNumber(editingStudent)}</strong>
+                  <span>È lo stesso codice che vedi nel sito, generato dall’ID tesseramento.</span>
+                  <button className="ghost-btn full-width" type="button" onClick={() => setStudentForm({ ...studentForm, numero_tessera: makeNextMembershipNumber(students) })}>
+                    Suggerisci numero progressivo personalizzato
+                  </button>
+                </div>
+              )}
+
+              <div className="form-row">
+                <label>Stato tessera
+                  <select value={studentForm.status || ""} onChange={(e) => setStudentForm({ ...studentForm, status: e.target.value })}>
+                    <option value="pending_payment">In attesa pagamento</option>
+                    <option value="active">Attiva</option>
+                    <option value="inactive">Non attiva</option>
+                    <option value="blocked">Bloccata</option>
+                  </select>
+                </label>
+                <label>Stato pagamento tessera
+                  <select value={studentForm.payment_status || ""} onChange={(e) => setStudentForm({ ...studentForm, payment_status: e.target.value })}>
+                    <option value="unpaid">Non pagato</option>
+                    <option value="paid">Pagato</option>
+                    <option value="pending">In attesa</option>
+                    <option value="refunded">Rimborsato</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="checkbox-grid student-profile-checks">
+                <label className="check-card"><input type="checkbox" checked={studentForm.tessera_attiva} onChange={(e) => setStudentForm({ ...studentForm, tessera_attiva: e.target.checked })} /> Tessera attiva</label>
+                <label className="check-card"><input type="checkbox" checked={studentForm.is_corsista} onChange={(e) => setStudentForm({ ...studentForm, is_corsista: e.target.checked })} /> Corsista</label>
+              </div>
+            </section>
+
+            <section className="student-profile-form-card student-profile-wide-card">
+              <div className="mini-section-head compact-head">
+                <div>
+                  <strong>Iscrizioni e prezzi</strong>
+                  <small>Apri una riga per modificare formula, importo e stato del singolo corso.</small>
+                </div>
+                <div className="mini-section-actions">
+                  <span className="status-pill neutral">{studentEnrollments.length} corsi</span>
+                  {studentEnrollments.length > 1 && (
+                    <button className="mini-btn package-manage-btn" type="button" onClick={() => openStudentPackageManager()}>Gestisci pacchetto</button>
+                  )}
+                </div>
+              </div>
+
+              {studentEnrollments.length ? (
+                <div className="student-profile-course-grid">
+                  {studentEnrollments.map((item) => (
+                    <button
+                      className="student-course-summary-row student-profile-course-card"
+                      key={item.id}
+                      type="button"
+                      onClick={() => setEditingStudentEnrollment(item)}
+                    >
+                      <div>
+                        <strong className="student-course-title">{item.corsi?.nome || "Corso"}</strong>
+                        <small>
+                          {item.corsi?.livello || "Livello non impostato"} · {billingLabel(item.tipo_pagamento || "mensile")} · {formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese
+                        </small>
+                        {item.pacchetto_nome && (
+                          <small className="package-inline-label">
+                            Pacchetto · {formatPercent(item.quota_pacchetto_percentuale)} · {formatMoney(item.pacchetto_totale_mensile)} / mese
+                          </small>
+                        )}
+                      </div>
+                      <span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato || "attivo"}</span>
+                      <span className="edit-pencil" aria-label="Modifica corso">✎</span>
+                    </button>
+                  ))}
+                </div>
+              ) : <div className="payments-empty-state"><h4>Nessun corso collegato</h4><p>Quando il tesserato verrà iscritto a un corso, lo vedrai qui.</p></div>}
+            </section>
+
+            <section className="student-profile-form-card student-profile-wide-card">
+              <div className="student-payments-head">
+                <div>
+                  <strong>Pagamenti</strong>
+                  <small>Ultimi movimenti collegati al tesserato.</small>
+                </div>
+                <span className="status-pill neutral">{studentPayments.length}</span>
+              </div>
+              {studentPayments.length ? (
+                <div className="student-payment-list student-profile-payment-list">
+                  {studentPayments.slice(0, 8).map((payment) => (
+                    <div className="student-payment-row" key={payment.id}>
+                      <span>{payment.descrizione}</span>
+                      <strong>{formatMoney(payment.importo)}</strong>
+                      <small>{payment.stato}</small>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="payments-empty-state"><h4>Nessun pagamento creato</h4><p>Le quote create dal pannello pagamenti appariranno qui.</p></div>}
+            </section>
+          </div>
+
+          <div className="student-profile-footer-actions">
+            <button className="ghost-btn" type="button" onClick={closeStudentDetail}>Annulla</button>
+            <button className="primary-btn" type="submit" disabled={savingStudent}>{savingStudent ? "Salvataggio…" : "Salva scheda tesserato"}</button>
+          </div>
+        </form>
+      </div>
     );
   }
 
@@ -2401,91 +2632,121 @@ export default function AdminPanel() {
 
   function renderStudents() {
     return (
-      <div className="admin-section-layout students-admin-layout">
-        <div className="content-card admin-card">
-          <div className="card-head">
+      <div className="admin-section-stack students-modern-section">
+        <div className="content-card admin-card students-command-card">
+          <div className="students-command-main">
             <div>
               <span className="eyebrow">Tesserati</span>
               <h3>Anagrafiche e accessi corsisti</h3>
-              <p className="admin-help-text">Qui non creiamo doppioni: trasformi il tesserato esistente in corsista quando si iscrive ai corsi.</p>
+              <p className="admin-help-text">Ricerca, controlla e apri la scheda completa in un modale senza perdere la lista.</p>
             </div>
-            <div className="students-head-actions">
-              <input
-                className="search-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cerca nome, email, CF, tessera…"
-              />
+            <div className="students-command-actions">
               <button className="mini-btn" type="button" onClick={handleGenerateMissingMembershipNumbers} disabled={generatingNumbers || stats.missingMembershipNumbers === 0}>
-                {generatingNumbers ? "Genero…" : "Genera numeri"}
+                {generatingNumbers ? "Genero…" : "Genera numeri mancanti"}
               </button>
             </div>
           </div>
 
-          <div className="student-list-toolbar">
+          <div className="students-search-panel">
+            <div className="students-search-box">
+              <span>⌕</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cerca per nome, email, telefono, codice fiscale o tessera…"
+              />
+            </div>
+            <div className="students-search-stats">
+              <strong>{totalStudentRows}</strong>
+              <span>{search.trim() ? "risultati" : "tesserati"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="students-overview-grid">
+          <article className="stat-card student-overview-card highlight">
+            <span>Tesserati totali</span>
+            <strong>{students.length}</strong>
+            <small>{stats.activeMemberships} tessere attive</small>
+          </article>
+          <article className="stat-card student-overview-card">
+            <span>Corsisti</span>
+            <strong>{stats.corsisti}</strong>
+            <small>con ruolo corsista attivo</small>
+          </article>
+          <article className={`stat-card student-overview-card ${stats.missingMembershipNumbers > 0 ? "warning" : "success"}`}>
+            <span>Senza numero</span>
+            <strong>{stats.missingMembershipNumbers}</strong>
+            <small>{stats.missingMembershipNumbers > 0 ? "da sistemare" : "tutto in ordine"}</small>
+          </article>
+        </div>
+
+        <div className="content-card admin-card students-list-card-v2">
+          <div className="student-list-toolbar students-list-toolbar-v2">
             <div>
-              <strong>{search.trim() ? "Risultati ricerca" : "Elenco tesserati"}</strong>
-              <small>{totalStudentRows} tesserati trovati · massimo {studentPageSize} per pagina</small>
+              <strong>{search.trim() ? "Risultati ricerca" : "Lista tesserati"}</strong>
+              <small>{totalStudentRows} tesserati trovati · pagina {currentStudentPage} di {totalStudentPages}</small>
             </div>
             {renderStudentPagination("top")}
           </div>
 
-          <div
-            className="admin-table-top-scroll students-table-top-scroll"
-            ref={studentTableTopScrollRef}
-            onScroll={() => syncStudentTableScroll("top")}
-            aria-label="Scorrimento orizzontale tabella tesserati"
-          >
-            <div className="students-table-scroll-spacer" />
-          </div>
+          <div className="students-card-list-v2">
+            {paginatedStudents.map((student) => {
+              const studentEnrollmentCount = enrollments.filter((item) => item.tesseramento_id === student.id).length;
+              const studentOpenPayments = payments.filter((item) => item.tesseramento_id === student.id && item.stato !== "pagato").length;
+              return (
+                <article className="student-list-card-v2" key={student.id}>
+                  <div className="student-list-card-identity">
+                    <span className="avatar student-list-avatar">{initials(student)}</span>
+                    <div>
+                      <strong>{fullName(student)}</strong>
+                      <span>{student.email || "Email non inserita"}</span>
+                      <small>{student.telefono || "Telefono non inserito"}</small>
+                    </div>
+                  </div>
 
-          <div
-            className="admin-table-wrap students-table-wrap"
-            ref={studentTableScrollRef}
-            onScroll={() => syncStudentTableScroll("table")}
-          >
-            <table className="admin-table students-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>CF</th>
-                  <th>Tessera</th>
-                  <th>Stato</th>
-                  <th>Ruolo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedStudents.map((student) => (
-                  <tr key={student.id} className={editingStudent?.id === student.id ? "selected-table-row" : ""}>
-                    <td><strong>{fullName(student)}</strong><small>{student.telefono || "—"}</small></td>
-                    <td>{student.email || "—"}</td>
-                    <td>{student.cf || "—"}</td>
-                    <td>
-                      <span className={student.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{student.tessera_attiva !== false ? "Attiva" : "Non attiva"}</span>
-                      <small>{membershipNumber(student) || "Senza numero"}</small>
-                    </td>
-                    <td><span className={tesseramentoStatusClass(student.status)}>{student.status || "—"}</span><small>{student.payment_status || "—"}</small></td>
-                    <td><span className={student.is_corsista ? "status-pill ok" : "status-pill neutral"}>{student.is_corsista ? "Corsista" : "Tesserato"}</span></td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="mini-btn" type="button" onClick={() => openStudentDetail(student)}>Apri scheda</button>
-                        {!hasCustomMembershipNumber(student) && <button className="mini-btn" type="button" onClick={() => handleGenerateMembershipNumber(student)}>N. progr.</button>}
-                        <button className="mini-btn" type="button" onClick={() => handleToggleStudent(student)}>
-                          {student.is_corsista ? "Rimuovi" : "Corsista"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {paginatedStudents.length === 0 && (
-                  <tr>
-                    <td colSpan="7"><p className="empty-text">Nessun tesserato trovato.</p></td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  <div className="student-list-card-data">
+                    <div>
+                      <span>Tessera</span>
+                      <strong>{membershipNumber(student) || "Senza numero"}</strong>
+                    </div>
+                    <div>
+                      <span>Codice fiscale</span>
+                      <strong>{student.cf || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Corsi</span>
+                      <strong>{studentEnrollmentCount}</strong>
+                    </div>
+                    <div>
+                      <span>Quote aperte</span>
+                      <strong>{studentOpenPayments}</strong>
+                    </div>
+                  </div>
+
+                  <div className="student-list-card-statuses">
+                    <span className={student.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{student.tessera_attiva !== false ? "Tessera attiva" : "Non attiva"}</span>
+                    <span className={student.is_corsista ? "status-pill ok" : "status-pill neutral"}>{student.is_corsista ? "Corsista" : "Tesserato"}</span>
+                    <span className={tesseramentoStatusClass(student.status)}>{student.status || "—"}</span>
+                  </div>
+
+                  <div className="student-list-card-actions">
+                    <button className="primary-btn slim" type="button" onClick={() => openStudentDetail(student)}>Apri scheda</button>
+                    {!hasCustomMembershipNumber(student) && <button className="mini-btn" type="button" onClick={() => handleGenerateMembershipNumber(student)}>N. progr.</button>}
+                    <button className="mini-btn" type="button" onClick={() => handleToggleStudent(student)}>
+                      {student.is_corsista ? "Rimuovi corsista" : "Rendi corsista"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+
+            {paginatedStudents.length === 0 && (
+              <div className="payments-empty-state students-empty-v2">
+                <h4>Nessun tesserato trovato</h4>
+                <p>Prova a cercare con nome, cognome, email, codice fiscale o numero tessera.</p>
+              </div>
+            )}
           </div>
 
           {renderStudentPagination("bottom")}
@@ -3098,7 +3359,7 @@ export default function AdminPanel() {
   }
 
   function renderPayments() {
-    const visibleRows = monthlyPaymentRows;
+    const visibleRows = monthlyPaymentDisplayRows;
     const showOnlyDue = () => setPaymentStateFilter("due_all");
 
     return (
@@ -3108,7 +3369,7 @@ export default function AdminPanel() {
             <div>
               <span className="eyebrow">Segreteria pagamenti</span>
               <h3>Situazione quote di {monthHumanLabel(paymentMonth)}</h3>
-              <p className="admin-help-text">Qui la segretaria vede la quota del singolo mese, il totale del pagamento e la copertura. Un trimestrale da 120 € viene letto come 40 €/mese coperto per 3 mesi.</p>
+              <p className="admin-help-text">Qui la segretaria vede una riga per allievo: i pacchetti multicorso vengono accorpati in una sola card con il totale mensile da incassare.</p>
             </div>
             <button className="primary-btn slim" type="button" onClick={handleGenerateMonthlyDues} disabled={generatingMonthlyDues || monthlyPaymentStats.toGenerate === 0}>
               {generatingMonthlyDues ? "Genero…" : `Genera quote mese (${monthlyPaymentStats.toGenerate})`}
@@ -3116,7 +3377,7 @@ export default function AdminPanel() {
           </div>
 
           <div className="monthly-payment-stats">
-            <button type="button" className="stat-card clickable-stat" onClick={() => setPaymentStateFilter("all")}><span>Allievi/corsi</span><strong>{monthlyPaymentStats.total}</strong><small>nel mese selezionato</small></button>
+            <button type="button" className="stat-card clickable-stat" onClick={() => setPaymentStateFilter("all")}><span>Allievi/pacchetti</span><strong>{monthlyPaymentStats.total}</strong><small>nel mese selezionato</small></button>
             <button type="button" className="stat-card clickable-stat" onClick={showOnlyDue}><span>Da incassare</span><strong>{monthlyPaymentStats.due}</strong><small>{formatMoney(monthlyPaymentStats.dueTotal)}</small></button>
             <button type="button" className="stat-card clickable-stat" onClick={() => setPaymentStateFilter("paid_all")}><span>Pagati/coperti</span><strong>{monthlyPaymentStats.paid}</strong><small>{formatMoney(monthlyPaymentStats.paidTotal)} quota mese</small></button>
             <button type="button" className="stat-card clickable-stat" onClick={() => setPaymentStateFilter("sospeso")}><span>Sospesi/chiusi</span><strong>{monthlyPaymentStats.suspended}</strong><small>nessuna quota futura</small></button>
@@ -3164,18 +3425,21 @@ export default function AdminPanel() {
                 {visibleRows.map((row) => {
                   const isDue = row.status === "da_pagare" || row.status === "da_generare";
                   const isPaidOrCovered = row.status === "pagato" || row.status === "coperto";
+                  const isPackage = Boolean(row.isPackageGroup);
                   const primaryActionLabel = row.payment
                     ? row.payment.stato === "pagato"
-                      ? row.packageId ? "Riapri pacchetto" : "Riapri quota"
-                      : row.packageId ? "Segna pacchetto pagato" : "Segna pagato"
+                      ? isPackage || row.packageId ? "Riapri pacchetto" : "Riapri quota"
+                      : isPackage || row.packageId ? "Segna pacchetto pagato" : "Segna pagato"
                     : row.billable
-                      ? "Genera quota"
+                      ? isPackage ? "Genera pacchetto" : "Genera quota"
                       : "Nessuna azione";
+                  const displayedCourses = isPackage ? row.memberRows.slice(0, 6) : [];
+                  const extraCourseCount = isPackage ? Math.max(row.memberRows.length - displayedCourses.length, 0) : 0;
 
                   return (
                     <article
-                      key={`${row.enrollment.id}-${row.payment?.id || row.status}`}
-                      className={`monthly-payment-card ${isDue ? "is-due" : ""} ${isPaidOrCovered ? "is-ok" : ""}`}
+                      key={row.displayKey || `${row.enrollment.id}-${row.payment?.id || row.status}`}
+                      className={`monthly-payment-card ${isDue ? "is-due" : ""} ${isPaidOrCovered ? "is-ok" : ""} ${isPackage ? "is-package" : ""}`}
                     >
                       <div className="monthly-payment-card-top">
                         <div className="monthly-student-block">
@@ -3185,22 +3449,39 @@ export default function AdminPanel() {
                             <small>{membershipNumber(row.student)}</small>
                           </div>
                         </div>
-                        <span className={rowStatusClass(row.status)}>{paymentStatusLabels[row.status] || row.status}</span>
+                        <div className="monthly-card-top-badges">
+                          {isPackage && <span className="status-pill package-pill">Pacchetto multicorso</span>}
+                          <span className={rowStatusClass(row.status)}>{paymentStatusLabels[row.status] || row.status}</span>
+                        </div>
                       </div>
 
                       <div className="monthly-payment-main-grid">
-                        <div className="monthly-info-box course-box">
-                          <span>Corso</span>
-                          <strong>{row.course?.nome || "Corso"}</strong>
-                          {row.course?.livello && <small>{row.course.livello}</small>}
-                          {row.packageName && <em>{row.packageName}</em>}
+                        <div className="monthly-info-box course-box monthly-package-box">
+                          <span>{isPackage ? "Pacchetto" : "Corso"}</span>
+                          <strong>{isPackage ? (row.packageName || "Pacchetto multicorso") : (row.course?.nome || "Corso")}</strong>
+                          {isPackage ? (
+                            <>
+                              <small>{row.courseSummary}</small>
+                              <div className="monthly-course-chip-list">
+                                {displayedCourses.map((member) => (
+                                  <em key={member.enrollment.id}>{member.course?.nome || "Corso"}</em>
+                                ))}
+                                {extraCourseCount > 0 && <em>+{extraCourseCount}</em>}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {row.course?.livello && <small>{row.course.livello}</small>}
+                              {row.packageName && <em>{row.packageName}</em>}
+                            </>
+                          )}
                         </div>
 
                         <div className="monthly-info-box">
                           <span>Formula</span>
-                          <strong>{billingLabel(row.cycle)}</strong>
+                          <strong>{isPackage ? "Multicorso" : billingLabel(row.cycle)}</strong>
                           <small>{formatMoney(row.monthlyPrice)} / mese</small>
-                          {row.packageId && <small>{formatPercent(row.packagePercent)} del pacchetto</small>}
+                          {isPackage ? <small>totale mensile del pacchetto</small> : row.packageId && <small>{formatPercent(row.packagePercent)} del pacchetto</small>}
                         </div>
 
                         <div className="monthly-info-box">
@@ -3210,7 +3491,7 @@ export default function AdminPanel() {
                         </div>
 
                         <div className="monthly-info-box amount-box">
-                          <span>Quota mese</span>
+                          <span>{isPackage ? "Quota pacchetto" : "Quota mese"}</span>
                           <strong>{formatMoney(row.amount)}</strong>
                           <small>importo da considerare per {monthHumanLabel(paymentMonth)}</small>
                         </div>
@@ -3218,32 +3499,34 @@ export default function AdminPanel() {
                         <div className="monthly-info-box amount-box">
                           <span>Totale pagamento</span>
                           <strong>{formatMoney(row.totalAmount)}</strong>
-                          <small>{row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : "mensile"}</small>
-                          {row.packageTotalMonthly > 0 && <small>pacchetto {formatMoney(row.packageTotalMonthly)} / mese</small>}
+                          <small>{row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : isPackage ? "totale pacchetto mensile" : "mensile"}</small>
+                          {isPackage && <small>{row.memberRows.length} corsi raggruppati in una sola riga</small>}
+                          {!isPackage && row.packageTotalMonthly > 0 && <small>pacchetto {formatMoney(row.packageTotalMonthly)} / mese</small>}
                         </div>
                       </div>
 
                       <div className="monthly-payment-note">
                         {row.payment?.pagato_il && <span>Pagato il {formatDate(row.payment.pagato_il)}</span>}
+                        {isPackage && <span>{row.memberRows.length} righe corso accorpate</span>}
                         {row.payment && row.months > 1 && <span>Quota mese {formatMoney(row.amount)} · totale {formatMoney(row.totalAmount)}</span>}
-                        {!row.payment && row.status === "da_generare" && <span>Quota non ancora creata</span>}
-                        {row.status === "sospeso" && <span>{row.enrollment.stato} · rinnovo disattivo</span>}
+                        {!row.payment && row.status === "da_generare" && <span>{isPackage ? "Pacchetto non ancora generato" : "Quota non ancora creata"}</span>}
+                        {row.status === "sospeso" && <span>{isPackage ? "pacchetto sospeso/chiuso" : `${row.enrollment.stato} · rinnovo disattivo`}</span>}
                       </div>
 
                       <div className="monthly-payment-actions">
-                        <button className="mini-btn" type="button" onClick={() => openPaymentRowEditor(row)}>✎ Modifica</button>
+                        <button className="mini-btn" type="button" onClick={() => openPaymentRowEditor(isPackage ? row.memberRows[0] : row)}>✎ Modifica</button>
                         {row.payment ? (
                           <button className="primary-btn slim monthly-main-action" type="button" onClick={() => handleTogglePayment(row.payment)}>{primaryActionLabel}</button>
                         ) : row.billable ? (
-                          <button className="primary-btn slim monthly-main-action" type="button" onClick={() => handleGenerateSingleDue(row)}>{primaryActionLabel}</button>
+                          <button className="primary-btn slim monthly-main-action" type="button" onClick={() => handleGeneratePaymentDisplayRow(row)}>{primaryActionLabel}</button>
                         ) : null}
 
                         <details className="monthly-more-actions">
                           <summary>Altre azioni</summary>
                           <div>
-                            {row.payment && <button className="mini-btn danger" type="button" onClick={() => handleDeletePayment(row.payment)}>Elimina quota</button>}
-                            {row.enrollment.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(row.enrollment)}>Chiudi corso</button>}
-                            <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(row.enrollment)}>Elimina riga</button>
+                            {row.payment && <button className="mini-btn danger" type="button" onClick={() => handleDeletePaymentDisplayRow(row)}>{isPackage ? "Elimina quote pacchetto" : "Elimina quota"}</button>}
+                            {(isPackage || row.enrollment.stato !== "terminato") && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollmentDisplayRow(row)}>{isPackage ? "Chiudi pacchetto" : "Chiudi corso"}</button>}
+                            {!isPackage && <button className="mini-btn danger" type="button" onClick={() => handleDeleteEnrollmentRow(row.enrollment)}>Elimina riga</button>}
                           </div>
                         </details>
                       </div>
