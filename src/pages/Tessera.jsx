@@ -29,7 +29,7 @@ export default function Tessera() {
   }, [student.qr_token, student.qrToken]);
 
   return (
-    <section className="page-section">
+    <section className="page-section comfort-page user-card-page">
       <div className="section-title">
         <span className="eyebrow">Tessera digitale</span>
         <h2>La tua Orchidea Card</h2>

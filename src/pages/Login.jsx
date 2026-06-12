@@ -70,8 +70,8 @@ export default function Login() {
 
   if (!isSupabaseConfigured) {
     return (
-      <div className="auth-page">
-        <div className="auth-card compact-card">
+      <div className="auth-page comfort-auth-page">
+        <div className="auth-card compact-card comfort-auth-card">
           <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
           <h1>Configura Supabase</h1>
           <p>Crea <strong>.env.local</strong> copiando <strong>.env.example</strong> e inserendo le stesse variabili pubbliche del sito.</p>
@@ -81,22 +81,29 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-hero">
+    <div className="auth-page comfort-auth-page">
+      <div className="auth-hero comfort-auth-hero">
         <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
-        <span className="eyebrow">Orchidea Club</span>
-        <h1>Tutto il tuo mondo Orchidea in un’unica area.</h1>
-        <p>Corsi, tessera digitale, pagamenti e video riservati ai tuoi corsi.</p>
+        <span className="eyebrow">Area riservata allievi</span>
+        <h1>La tua Orchidea, sempre con te.</h1>
+        <p>Accedi a tessera digitale, corsi, pagamenti e video riservati in un ambiente semplice e ordinato.</p>
+
+        <div className="auth-benefit-grid">
+          <div><span>◆</span><strong>Tessera digitale</strong><small>QR code pronto all’ingresso</small></div>
+          <div><span>◷</span><strong>Corsi e orari</strong><small>Calendario personale</small></div>
+          <div><span>▶</span><strong>Video corsi</strong><small>Ripassi sempre disponibili</small></div>
+        </div>
       </div>
 
-      <form className="auth-card" onSubmit={handleLogin}>
+      <form className="auth-card comfort-auth-card" onSubmit={handleLogin}>
         <span className="eyebrow">Accesso allievi</span>
         <h2>Entra nella tua area</h2>
+        <p className="auth-form-intro">Usa la stessa email indicata nel tesseramento per evitare doppioni.</p>
 
         {error && <div className="alert error">{error}</div>}
         {message && <div className="alert success">{message}</div>}
 
-        <label>
+        <label className="comfort-field">
           Email
           <input
             type="email"
@@ -107,7 +114,7 @@ export default function Login() {
           />
         </label>
 
-        <label>
+        <label className="comfort-field">
           Password
           <input
             type="password"
@@ -122,13 +129,14 @@ export default function Login() {
           {loading ? "Accesso in corso…" : "Accedi"}
         </button>
 
-        <button className="link-btn" type="button" onClick={handlePasswordReset} disabled={resetLoading}>
+        <button className="link-btn comfort-link-btn" type="button" onClick={handlePasswordReset} disabled={resetLoading}>
           {resetLoading ? "Invio link…" : "Primo accesso o password dimenticata"}
         </button>
 
-        <p className="tiny-note">
-          Usa la stessa email indicata nel tesseramento. In questo modo il sistema non crea duplicati.
-        </p>
+        <div className="auth-safe-note">
+          <strong>Primo accesso?</strong>
+          <span>Inserisci la tua email e premi “Primo accesso” per ricevere il link di impostazione password.</span>
+        </div>
 
         <Link to="/" className="hidden-link">Vai alla dashboard</Link>
       </form>

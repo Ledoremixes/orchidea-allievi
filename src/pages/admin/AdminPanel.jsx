@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
 import { formatDate, formatMoney, formatTime } from "../../lib/format.js";
 import { membershipCode, hasCustomMembershipNumber } from "../../lib/membership.js";
+import { getCourseVisual } from "../../lib/courseVisuals.js";
 
 const emptyCourse = {
   nome: "",
@@ -501,6 +502,7 @@ export default function AdminPanel() {
   const [enrollmentPackageMonthlyPrice, setEnrollmentPackageMonthlyPrice] = useState("70");
   const [useEnrollmentPackage, setUseEnrollmentPackage] = useState(false);
   const [enrollmentPackageName, setEnrollmentPackageName] = useState("Pacchetto multicorso");
+  const [enrollmentExistingPackageId, setEnrollmentExistingPackageId] = useState("");
   const [enrollmentStartDate, setEnrollmentStartDate] = useState(todayIso());
   const [enrollmentRenewalActive, setEnrollmentRenewalActive] = useState(true);
   const [paymentForm, setPaymentForm] = useState(emptyPayment);
@@ -607,6 +609,57 @@ export default function AdminPanel() {
     [students, selectedStudentId]
   );
 
+  const selectedStudentEnrollments = useMemo(() => {
+    if (!selectedStudentId) return [];
+    return enrollments
+      .filter((item) => item.tesseramento_id === selectedStudentId)
+      .sort((a, b) => {
+        const aName = `${a.corsi?.nome || ""} ${a.corsi?.livello || ""}`.toLowerCase();
+        const bName = `${b.corsi?.nome || ""} ${b.corsi?.livello || ""}`.toLowerCase();
+        return aName.localeCompare(bName);
+      });
+  }, [selectedStudentId, enrollments]);
+
+  const selectedStudentEnrollmentByCourseId = useMemo(() => {
+    return new Map(selectedStudentEnrollments.map((item) => [item.corso_id, item]));
+  }, [selectedStudentEnrollments]);
+
+  const selectedStudentPackageGroups = useMemo(() => {
+    const groups = new Map();
+
+    selectedStudentEnrollments.forEach((item) => {
+      if (!item.pacchetto_id || item.stato === "terminato") return;
+      const key = item.pacchetto_id;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          id: key,
+          name: item.pacchetto_nome || "Pacchetto multicorso",
+          billingCycle: item.tipo_pagamento || "mensile",
+          totalMonthly: Number(item.pacchetto_totale_mensile || 0),
+          rows: [],
+        });
+      }
+      const group = groups.get(key);
+      group.rows.push(item);
+      if (!group.totalMonthly && item.pacchetto_totale_mensile) group.totalMonthly = Number(item.pacchetto_totale_mensile || 0);
+    });
+
+    return Array.from(groups.values()).map((group) => {
+      const fallbackTotal = group.rows
+        .filter((row) => row.stato === "attivo")
+        .reduce((sum, row) => sum + Number(row.tariffa_mensile || 0), 0);
+      return {
+        ...group,
+        totalMonthly: Number(group.totalMonthly || fallbackTotal || 0),
+      };
+    });
+  }, [selectedStudentEnrollments]);
+
+  const selectedExistingPackage = useMemo(() => {
+    if (!enrollmentExistingPackageId) return null;
+    return selectedStudentPackageGroups.find((group) => group.id === enrollmentExistingPackageId) || null;
+  }, [enrollmentExistingPackageId, selectedStudentPackageGroups]);
+
   const selectedEnrollmentCourses = useMemo(
     () => selectedCourseIds.map((id) => courses.find((course) => course.id === id)).filter(Boolean),
     [courses, selectedCourseIds]
@@ -617,9 +670,39 @@ export default function AdminPanel() {
     [selectedEnrollmentCourses]
   );
 
+  const packageCoursesForEnrollmentPreview = useMemo(() => {
+    const combined = new Map();
+
+    if (selectedExistingPackage) {
+      selectedExistingPackage.rows
+        .filter((row) => row.stato === "attivo")
+        .forEach((row) => {
+          combined.set(row.corso_id, {
+            ...(row.corsi || {}),
+            id: row.corso_id,
+            nome: row.corsi?.nome || row.course_name || "Corso",
+            livello: row.corsi?.livello || "",
+            prezzo_mensile: enrollmentBasePriceForPackage(row),
+            alreadyInPackage: true,
+          });
+        });
+    }
+
+    selectedEnrollmentCourses.forEach((course) => {
+      combined.set(course.id, { ...course, alreadyInPackage: false });
+    });
+
+    return Array.from(combined.values());
+  }, [selectedExistingPackage, selectedEnrollmentCourses]);
+
+  const enrollmentPackageBaseTotal = useMemo(
+    () => packageBaseTotal(packageCoursesForEnrollmentPreview),
+    [packageCoursesForEnrollmentPreview]
+  );
+
   const selectedPackageAllocation = useMemo(
-    () => allocatePackagePrices(selectedEnrollmentCourses, enrollmentPackageMonthlyPrice),
-    [selectedEnrollmentCourses, enrollmentPackageMonthlyPrice]
+    () => allocatePackagePrices(packageCoursesForEnrollmentPreview, enrollmentPackageMonthlyPrice),
+    [packageCoursesForEnrollmentPreview, enrollmentPackageMonthlyPrice]
   );
 
   useEffect(() => {
@@ -629,16 +712,42 @@ export default function AdminPanel() {
   }, [selectedEnrollmentCourses.length]);
 
   useEffect(() => {
-    if (selectedEnrollmentCourses.length > 1) {
+    if (!selectedStudentId) return;
+    const firstPackage = selectedStudentPackageGroups[0];
+    if (!firstPackage) {
+      setEnrollmentExistingPackageId("");
+      return;
+    }
+
+    setEnrollmentExistingPackageId((current) => current || firstPackage.id);
+    setEnrollmentPackageName(firstPackage.name || "Pacchetto multicorso");
+    if (Number(firstPackage.totalMonthly || 0) > 0) {
+      setEnrollmentPackageMonthlyPrice(String(firstPackage.totalMonthly));
+    }
+  }, [selectedStudentId, selectedStudentPackageGroups]);
+
+  useEffect(() => {
+    const isExtendingExistingPackage = Boolean(selectedExistingPackage && selectedEnrollmentCourses.length > 0);
+
+    if (selectedEnrollmentCourses.length > 1 || isExtendingExistingPackage) {
       setUseEnrollmentPackage(true);
       const currentPackagePrice = Number(enrollmentPackageMonthlyPrice || 0);
-      if ((!currentPackagePrice || currentPackagePrice === 70) && selectedCoursesBaseTotal > 0 && enrollmentBillingCycle !== "all_you_can_dance") {
-        setEnrollmentPackageMonthlyPrice(String(selectedCoursesBaseTotal));
+      const suggestedTotal = isExtendingExistingPackage
+        ? Number(selectedExistingPackage.totalMonthly || enrollmentPackageBaseTotal || 0)
+        : selectedCoursesBaseTotal;
+      if ((!currentPackagePrice || currentPackagePrice === 70) && suggestedTotal > 0 && enrollmentBillingCycle !== "all_you_can_dance") {
+        setEnrollmentPackageMonthlyPrice(String(suggestedTotal));
       }
-    } else if (selectedEnrollmentCourses.length <= 1) {
+    } else if (selectedEnrollmentCourses.length <= 1 && !isExtendingExistingPackage) {
       setUseEnrollmentPackage(false);
     }
-  }, [selectedEnrollmentCourses.length, selectedCoursesBaseTotal, enrollmentBillingCycle]);
+  }, [selectedEnrollmentCourses.length, selectedCoursesBaseTotal, enrollmentPackageBaseTotal, enrollmentBillingCycle, selectedExistingPackage]);
+
+  useEffect(() => {
+    if (!selectedStudentId || selectedStudentEnrollments.length === 0) return;
+    const alreadyAssigned = new Set(selectedStudentEnrollments.map((item) => item.corso_id));
+    setSelectedCourseIds((current) => current.filter((courseId) => !alreadyAssigned.has(courseId)));
+  }, [selectedStudentId, selectedStudentEnrollments]);
 
   const selectedPaymentStudent = useMemo(
     () => students.find((student) => student.id === paymentForm.tesseramento_id) || null,
@@ -823,13 +932,22 @@ export default function AdminPanel() {
       const hasOpenPayment = statuses.some((status) => status === "da_pagare");
       const hasToGenerate = statuses.some((status) => status === "da_generare");
       const paymentsInGroup = sortedMembers.map((row) => row.payment).filter(Boolean);
+      const paidPaymentsInGroup = paymentsInGroup.filter((payment) => payment.stato === "pagato");
+      const openPaymentsInGroup = paymentsInGroup.filter((payment) => payment.stato !== "pagato" && payment.stato !== "annullato");
+      const paidPackageAmount = paidPaymentsInGroup.reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
+      const openPackageAmount = openPaymentsInGroup.reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
       const maxMonths = Math.max(1, ...sortedMembers.map((row) => Number(row.months || 1)));
       const monthlyPackageTotal = Number(representative.packageTotalMonthly || 0) > 0
         ? Number(representative.packageTotalMonthly)
         : sortedMembers.reduce((sum, row) => sum + Number(row.amount || row.monthlyPrice || 0), 0);
-      const totalPackageAmount = paymentsInGroup.length
-        ? sortedMembers.reduce((sum, row) => sum + Number(row.totalAmount || row.amount || 0), 0)
-        : monthlyPackageTotal * maxMonths;
+      const expectedPackageAmount = Number((monthlyPackageTotal * maxMonths).toFixed(2));
+      const remainingPackageAmount = Math.max(0, Number((expectedPackageAmount - paidPackageAmount).toFixed(2)));
+      const totalPackageAmount = allPaidOrCovered
+        ? expectedPackageAmount
+        : remainingPackageAmount > 0
+          ? remainingPackageAmount
+          : openPackageAmount || expectedPackageAmount;
+      const paymentForActions = openPaymentsInGroup[0] || (hasToGenerate ? null : paidPaymentsInGroup[0] || paymentsInGroup[0] || null);
       const courses = sortedMembers.map((row) => row.course).filter(Boolean);
       const courseNames = courses
         .map((course) => [course.nome, course.livello].filter(Boolean).join(" "))
@@ -848,7 +966,11 @@ export default function AdminPanel() {
         isPackageGroup: true,
         memberRows: sortedMembers,
         payments: paymentsInGroup,
-        payment: paymentsInGroup[0] || null,
+        payment: paymentForActions,
+        paidAmount: paidPackageAmount,
+        openAmount: openPackageAmount,
+        remainingAmount: remainingPackageAmount,
+        expectedAmount: expectedPackageAmount,
         enrollment: representative.enrollment,
         student: representative.student,
         course: null,
@@ -1124,6 +1246,12 @@ export default function AdminPanel() {
   }
 
   function toggleSelectedCourse(course) {
+    const existingEnrollment = selectedStudentEnrollmentByCourseId.get(course.id);
+    if (existingEnrollment) {
+      showError(`${course.nome || "Questo corso"} è già presente nella scheda dell’allievo. Usa “Gestisci corso” nella sezione iscrizioni attuali per riattivarlo, sospenderlo o chiuderlo.`);
+      return;
+    }
+
     setSelectedCourseIds((current) => {
       const exists = current.includes(course.id);
       const next = exists ? current.filter((id) => id !== course.id) : [...current, course.id];
@@ -1177,10 +1305,12 @@ export default function AdminPanel() {
     return true;
   }
 
-  function openStudentPackageManager(packageId = null) {
-    if (!editingStudent) return;
+  function openStudentPackageManager(packageId = null, studentOverride = null) {
+    const sourceStudent = studentOverride || editingStudent;
+    if (!sourceStudent) return;
 
-    const sourceRows = studentEnrollments
+    const sourceEnrollments = enrollments.filter((item) => item.tesseramento_id === sourceStudent.id);
+    const sourceRows = sourceEnrollments
       .filter((item) => !packageId || item.pacchetto_id === packageId)
       .map((item) => ({
         id: item.id,
@@ -1197,8 +1327,8 @@ export default function AdminPanel() {
       }));
 
     const reference = packageId
-      ? studentEnrollments.find((item) => item.pacchetto_id === packageId)
-      : studentEnrollments.find((item) => item.pacchetto_id) || studentEnrollments[0];
+      ? sourceEnrollments.find((item) => item.pacchetto_id === packageId)
+      : sourceEnrollments.find((item) => item.pacchetto_id) || sourceEnrollments[0];
 
     const activeRows = sourceRows.filter((row) => row.included && row.stato === "attivo");
     const currentTotal = activeRows.reduce((sum, row) => sum + Number(row.current_monthly || 0), 0);
@@ -1321,7 +1451,8 @@ export default function AdminPanel() {
           })
           .eq("iscrizione_id", row.id)
           .neq("stato", "pagato")
-          .gte("periodo_inizio", applyStart);
+          .eq("periodo_inizio", applyStart)
+          .eq("periodo_fine", futurePaymentEnd);
 
         if (paymentUpdateError) {
           setSavingStudentPackage(false);
@@ -1334,7 +1465,8 @@ export default function AdminPanel() {
           .delete()
           .eq("iscrizione_id", row.id)
           .neq("stato", "pagato")
-          .gte("periodo_inizio", applyStart);
+          .eq("periodo_inizio", applyStart)
+          .eq("periodo_fine", futurePaymentEnd);
 
         if (paymentDeleteError) {
           setSavingStudentPackage(false);
@@ -1358,17 +1490,107 @@ export default function AdminPanel() {
       return;
     }
 
+    const duplicateCourses = selectedEnrollmentCourses.filter((course) => selectedStudentEnrollmentByCourseId.has(course.id));
+    if (duplicateCourses.length > 0) {
+      showError(`L’allievo ha già questi corsi in scheda: ${duplicateCourses.map((course) => `${course.nome}${course.livello ? ` ${course.livello}` : ""}`).join(", ")}. Gestiscili dalle iscrizioni attuali senza crearli di nuovo.`);
+      return;
+    }
+
     const isAllYouCanDance = enrollmentBillingCycle === "all_you_can_dance";
-    const usesPackage = selectedEnrollmentCourses.length > 1 && (useEnrollmentPackage || isAllYouCanDance);
+    const extendsExistingPackage = Boolean(selectedExistingPackage && enrollmentExistingPackageId && selectedCourseIds.length > 0);
+    const usesPackage = (selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (useEnrollmentPackage || isAllYouCanDance || extendsExistingPackage);
     const packagePrice = Number(enrollmentPackageMonthlyPrice || 0);
-    const packageId = usesPackage && typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null;
-    const packageName = isAllYouCanDance ? "All You Can Dance" : (enrollmentPackageName.trim() || "Pacchetto multicorso");
-    const allocation = usesPackage ? allocatePackagePrices(selectedEnrollmentCourses, packagePrice) : {};
-    const baseTotal = packageBaseTotal(selectedEnrollmentCourses);
+    const packageId = usesPackage
+      ? extendsExistingPackage
+        ? selectedExistingPackage.id
+        : typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${selectedStudentId}-package-${Date.now()}`
+      : null;
+    const packageName = usesPackage
+      ? isAllYouCanDance
+        ? "All You Can Dance"
+        : (extendsExistingPackage ? selectedExistingPackage.name : enrollmentPackageName).trim() || "Pacchetto multicorso"
+      : null;
+
+    const existingPackageRows = extendsExistingPackage
+      ? selectedExistingPackage.rows.filter((row) => row.stato === "attivo")
+      : [];
+    const allocationCourses = extendsExistingPackage
+      ? [
+          ...existingPackageRows.map((row) => ({
+            ...(row.corsi || {}),
+            id: row.corso_id,
+            nome: row.corsi?.nome || "Corso",
+            livello: row.corsi?.livello || "",
+            prezzo_mensile: enrollmentBasePriceForPackage(row),
+          })),
+          ...selectedEnrollmentCourses,
+        ]
+      : selectedEnrollmentCourses;
+    const allocation = usesPackage ? allocatePackagePrices(allocationCourses, packagePrice) : {};
+    const baseTotal = packageBaseTotal(allocationCourses);
+    const cycle = isAllYouCanDance ? "all_you_can_dance" : enrollmentBillingCycle;
+    const months = billingMonths(cycle);
+    const { start: applyStart } = monthBounds(enrollmentStartDate || paymentMonth || currentMonthValue());
+    const futurePaymentEnd = periodEndFromStart(applyStart, months);
 
     if (usesPackage && packagePrice <= 0) {
       showError("Inserisci il totale mensile del pacchetto multicorso.");
       return;
+    }
+
+    if (extendsExistingPackage) {
+      for (const row of existingPackageRows) {
+        const allocated = allocation[row.corso_id];
+        const monthlyAmount = Number(allocated?.amount || row.tariffa_mensile || 0);
+        const { error: existingUpdateError } = await supabase
+          .from("iscrizioni_corsi")
+          .update({
+            tipo_pagamento: cycle,
+            tariffa_mensile: monthlyAmount,
+            pacchetto_id: packageId,
+            pacchetto_nome: packageName,
+            pacchetto_totale_mensile: packagePrice,
+            pacchetto_base_totale: baseTotal,
+            quota_pacchetto_percentuale: Number(allocated?.percent || 0),
+            prezzo_personalizzato: true,
+            genera_pagamento: true,
+            rinnovo_attivo: true,
+          })
+          .eq("id", row.id);
+
+        if (existingUpdateError) {
+          showError(existingUpdateError.message);
+          return;
+        }
+
+        const { error: existingPaymentError } = await supabase
+          .from("pagamenti")
+          .update({
+            importo: Number((monthlyAmount * months).toFixed(2)),
+            billing_cycle: cycle,
+            periodo_inizio: applyStart,
+            periodo_fine: futurePaymentEnd,
+            copertura_mesi: months,
+            periodo: buildPaymentPeriodLabel(applyStart, futurePaymentEnd, cycle),
+            scadenza: applyStart,
+            pacchetto_id: packageId,
+            pacchetto_nome: packageName,
+            pacchetto_totale_mensile: packagePrice,
+            quota_pacchetto_percentuale: Number(allocated?.percent || 0),
+            descrizione: `${packageName} - ${row.corsi?.nome || "corso"} - ${billingLabel(cycle)}`,
+          })
+          .eq("iscrizione_id", row.id)
+          .neq("stato", "pagato")
+          .eq("periodo_inizio", applyStart)
+          .eq("periodo_fine", futurePaymentEnd);
+
+        if (existingPaymentError) {
+          showError(existingPaymentError.message);
+          return;
+        }
+      }
     }
 
     const payloads = selectedEnrollmentCourses.map((course) => {
@@ -1382,7 +1604,7 @@ export default function AdminPanel() {
         corso_id: course.id,
         stato: "attivo",
         note: enrollmentNote.trim() || null,
-        tipo_pagamento: enrollmentBillingCycle,
+        tipo_pagamento: usesPackage ? cycle : enrollmentBillingCycle,
         tariffa_mensile: monthlyPrice,
         data_inizio: enrollmentStartDate || todayIso(),
         data_fine: null,
@@ -1399,7 +1621,7 @@ export default function AdminPanel() {
 
     const { error: enrollError } = await supabase
       .from("iscrizioni_corsi")
-      .upsert(payloads, { onConflict: "tesseramento_id,corso_id" });
+      .insert(payloads);
 
     if (enrollError) {
       showError(enrollError.message);
@@ -1417,9 +1639,10 @@ export default function AdminPanel() {
     setEnrollmentPackageMonthlyPrice("70");
     setUseEnrollmentPackage(false);
     setEnrollmentPackageName("Pacchetto multicorso");
+    setEnrollmentExistingPackageId("");
     setEnrollmentStartDate(todayIso());
     setEnrollmentRenewalActive(true);
-    showSuccess(selectedEnrollmentCourses.length > 1 ? "Allievo iscritto ai corsi selezionati." : "Allievo iscritto al corso.");
+    showSuccess(extendsExistingPackage ? "Corsi aggiunti al pacchetto esistente e ripartizione aggiornata." : selectedEnrollmentCourses.length > 1 ? "Allievo iscritto ai corsi selezionati." : "Allievo iscritto al corso.");
     await loadAdminData();
   }
 
@@ -1541,6 +1764,70 @@ export default function AdminPanel() {
     await loadAdminData();
   }
 
+  function paymentPayloadKey(payload) {
+    return [
+      payload?.iscrizione_id || "",
+      payload?.periodo_inizio || "",
+      payload?.periodo_fine || "",
+      payload?.tipo_quota || "corso",
+    ].join("|");
+  }
+
+  async function filterNewCoursePaymentPayloads(payloads) {
+    const list = (Array.isArray(payloads) ? payloads : [payloads]).filter(Boolean);
+    const dedupedMap = new Map();
+
+    list.forEach((payload) => {
+      const key = paymentPayloadKey(payload);
+      if (!dedupedMap.has(key)) dedupedMap.set(key, payload);
+    });
+
+    const deduped = Array.from(dedupedMap.values());
+    const enrollmentIds = [...new Set(deduped.map((payload) => payload.iscrizione_id).filter(Boolean))];
+    const periodStarts = [...new Set(deduped.map((payload) => payload.periodo_inizio).filter(Boolean))];
+    const periodEnds = [...new Set(deduped.map((payload) => payload.periodo_fine).filter(Boolean))];
+
+    if (enrollmentIds.length === 0 || periodStarts.length === 0 || periodEnds.length === 0) {
+      return deduped;
+    }
+
+    const { data, error: existingError } = await supabase
+      .from("pagamenti")
+      .select("iscrizione_id, periodo_inizio, periodo_fine, tipo_quota")
+      .in("iscrizione_id", enrollmentIds)
+      .eq("tipo_quota", "corso")
+      .in("periodo_inizio", periodStarts)
+      .in("periodo_fine", periodEnds);
+
+    if (existingError) {
+      showError(existingError.message);
+      return null;
+    }
+
+    const existingKeys = new Set((data || []).map((item) => paymentPayloadKey(item)));
+    return deduped.filter((payload) => !existingKeys.has(paymentPayloadKey(payload)));
+  }
+
+  async function insertCoursePaymentsSafely(payloads) {
+    const newPayloads = await filterNewCoursePaymentPayloads(payloads);
+    if (newPayloads === null) return { ok: false, inserted: 0, skipped: 0 };
+
+    const total = (Array.isArray(payloads) ? payloads : [payloads]).filter(Boolean).length;
+    const skipped = Math.max(0, total - newPayloads.length);
+
+    if (newPayloads.length === 0) {
+      return { ok: true, inserted: 0, skipped };
+    }
+
+    const { error: insertError } = await supabase.from("pagamenti").insert(newPayloads);
+    if (insertError) {
+      showError(insertError.message);
+      return { ok: false, inserted: 0, skipped };
+    }
+
+    return { ok: true, inserted: newPayloads.length, skipped };
+  }
+
   async function handleGenerateMonthlyDues() {
     const rowsToGenerate = monthlyPaymentRows.filter((row) => row.status === "da_generare" && row.billable);
 
@@ -1583,15 +1870,16 @@ export default function AdminPanel() {
       };
     });
 
-    const { error: insertError } = await supabase.from("pagamenti").insert(payloads);
+    const result = await insertCoursePaymentsSafely(payloads);
     setGeneratingMonthlyDues(false);
 
-    if (insertError) {
-      showError(insertError.message);
-      return;
-    }
+    if (!result.ok) return;
 
-    showSuccess(`Quote generate per ${monthHumanLabel(paymentMonth)}.`);
+    showSuccess(
+      result.inserted > 0
+        ? `Quote generate per ${monthHumanLabel(paymentMonth)}.${result.skipped ? ` ${result.skipped} quota/e erano già presenti.` : ""}`
+        : "Le quote selezionate erano già presenti: nessun doppione creato."
+    );
     await loadAdminData();
   }
 
@@ -1643,13 +1931,10 @@ export default function AdminPanel() {
       quota_pacchetto_percentuale: row.packagePercent || row.enrollment?.quota_pacchetto_percentuale || null,
     };
 
-    const { error: insertError } = await supabase.from("pagamenti").insert(payload);
-    if (insertError) {
-      showError(insertError.message);
-      return false;
-    }
+    const result = await insertCoursePaymentsSafely(payload);
+    if (!result.ok) return false;
 
-    showSuccess("Quota generata per la riga selezionata.");
+    showSuccess(result.inserted > 0 ? "Quota generata per la riga selezionata." : "Quota già presente: non ho creato doppioni.");
     await loadAdminData();
     return true;
   }
@@ -1694,13 +1979,14 @@ export default function AdminPanel() {
       };
     });
 
-    const { error: insertError } = await supabase.from("pagamenti").insert(payloads);
-    if (insertError) {
-      showError(insertError.message);
-      return false;
-    }
+    const result = await insertCoursePaymentsSafely(payloads);
+    if (!result.ok) return false;
 
-    showSuccess("Quote del pacchetto multicorso generate.");
+    showSuccess(
+      result.inserted > 0
+        ? `Quote del pacchetto multicorso generate.${result.skipped ? ` ${result.skipped} quota/e erano già presenti.` : ""}`
+        : "Le quote del pacchetto erano già presenti: nessun doppione creato."
+    );
     await loadAdminData();
     return true;
   }
@@ -2516,7 +2802,7 @@ export default function AdminPanel() {
     const allocatedTotal = includedRows.reduce((sum, row) => sum + Number(allocation[row.id]?.amount || 0), 0);
 
     return (
-      <div className="admin-modal-backdrop" role="presentation" onMouseDown={closeStudentPackageManager}>
+      <div className="admin-modal-backdrop package-manager-backdrop" role="presentation" onMouseDown={closeStudentPackageManager}>
         <div className="admin-modal package-manager-modal" role="dialog" aria-modal="true" aria-label="Gestione pacchetto allievo" onMouseDown={(e) => e.stopPropagation()}>
           <div className="modal-head">
             <div>
@@ -2779,9 +3065,18 @@ export default function AdminPanel() {
       goToSection("students");
     }
 
+    const visual = getCourseVisual(course);
+
     return (
       <div className="admin-modal-backdrop" role="presentation" onMouseDown={() => setCourseDetail(null)}>
-        <div className="admin-modal course-detail-modal course-detail-modal-v2" role="dialog" aria-modal="true" aria-label={`Dettagli corso ${course.nome || ""}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div
+          className="admin-modal course-detail-modal course-detail-modal-v2"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Dettagli corso ${course.nome || ""}`}
+          style={{ "--admin-course-poster": `url(${visual.image})` }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <div className="modal-head course-detail-hero">
             <div className="course-detail-title-row">
               <div className="course-detail-icon">◷</div>
@@ -2955,8 +3250,13 @@ export default function AdminPanel() {
                 const activeEnrollments = allEnrollments.filter((item) => item.stato === "attivo");
                 const suspendedEnrollments = allEnrollments.filter((item) => item.stato === "sospeso");
                 const isEditing = editingCourse?.id === course.id;
+                const visual = getCourseVisual(course);
                 return (
-                  <article className={`course-management-card course-management-card-v2 ${isEditing ? "editing" : ""} ${course.attivo ? "" : "inactive"}`} key={course.id}>
+                  <article
+                    className={`course-management-card course-management-card-v2 ${isEditing ? "editing" : ""} ${course.attivo ? "" : "inactive"}`}
+                    key={course.id}
+                    style={{ "--admin-course-poster": `url(${visual.image})` }}
+                  >
                     <div className="course-management-head course-management-head-v2">
                       <div className="course-day-badge">
                         <strong>{dayShort(course.giorno_settimana)}</strong>
@@ -3007,8 +3307,10 @@ export default function AdminPanel() {
 
   function renderEnrollments() {
     const isAllYouCanDance = enrollmentBillingCycle === "all_you_can_dance";
-    const usesPackage = selectedEnrollmentCourses.length > 1 && (useEnrollmentPackage || isAllYouCanDance);
+    const extendsExistingPackage = Boolean(selectedExistingPackage && selectedCourseIds.length > 0);
+    const usesPackage = (selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (useEnrollmentPackage || isAllYouCanDance || extendsExistingPackage);
     const packageAllocationTotal = Object.values(selectedPackageAllocation).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const packagePreviewCourses = usesPackage ? packageCoursesForEnrollmentPreview : selectedEnrollmentCourses;
 
     return (
       <div className="admin-section-layout">
@@ -3024,6 +3326,101 @@ export default function AdminPanel() {
             helpText="Niente menu infinito: cerca l'allievo e selezionalo dai risultati."
           />
 
+          {selectedStudent && (
+            <div className="selected-enrollments-panel">
+              <div className="mini-section-head">
+                <div>
+                  <strong>Iscrizioni attuali</strong>
+                  <small>Prima controlla cosa frequenta già: puoi aggiungere corsi nuovi o gestire quelli esistenti senza creare doppioni.</small>
+                </div>
+                <span className="status-pill neutral">{selectedStudentEnrollments.length} corsi in scheda</span>
+              </div>
+
+              {selectedStudentEnrollments.length === 0 ? (
+                <div className="selected-enrollments-empty">
+                  <strong>Nessun corso assegnato</strong>
+                  <span>Puoi selezionare i corsi qui sotto e procedere con l’iscrizione.</span>
+                </div>
+              ) : (
+                <div className="selected-enrollment-list">
+                  {selectedStudentEnrollments.map((item) => (
+                    <article className={`selected-enrollment-card is-${item.stato || "attivo"}`} key={item.id}>
+                      <div className="selected-enrollment-main">
+                        <span className={item.stato === "attivo" ? "status-pill ok" : item.stato === "terminato" ? "status-pill warn" : "status-pill neutral"}>
+                          {item.stato || "attivo"}
+                        </span>
+                        <strong>{item.corsi?.nome || "Corso"}</strong>
+                        <small>
+                          {item.corsi?.livello || "Livello non impostato"} · {billingLabel(item.tipo_pagamento || "mensile")} · {formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese
+                        </small>
+                        {item.pacchetto_nome && <em>{item.pacchetto_nome}</em>}
+                      </div>
+                      <div className="selected-enrollment-actions">
+                        <button className="mini-btn" type="button" onClick={() => setEditingStudentEnrollment(item)}>Gestisci corso</button>
+                        <button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(item)}>{item.stato === "attivo" ? "Sospendi" : "Riattiva"}</button>
+                        {item.pacchetto_id && <button className="mini-btn package-manage-btn" type="button" onClick={() => { openStudentDetail(selectedStudent); openStudentPackageManager(item.pacchetto_id, selectedStudent); }}>Gestisci pacchetto</button>}
+                        {item.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(item)}>Chiudi</button>}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedStudent && selectedStudentPackageGroups.length > 0 && selectedCourseIds.length > 0 && (
+            <div className="existing-package-extend-card">
+              <div className="mini-section-head">
+                <div>
+                  <strong>Pacchetto multicorso già presente</strong>
+                  <small>Puoi aggiungere i nuovi corsi al pacchetto esistente: il prezzo totale verrà ridistribuito su tutti i corsi, non solo su quelli nuovi.</small>
+                </div>
+                <span className="status-pill package-pill">Consigliato</span>
+              </div>
+
+              <div className="form-row">
+                <label>Come vuoi gestire i nuovi corsi?
+                  <select
+                    value={enrollmentExistingPackageId || "new"}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEnrollmentExistingPackageId(value === "new" ? "" : value);
+                      const group = selectedStudentPackageGroups.find((entry) => entry.id === value);
+                      if (group) {
+                        setUseEnrollmentPackage(true);
+                        setEnrollmentPackageName(group.name || "Pacchetto multicorso");
+                        setEnrollmentPackageMonthlyPrice(String(group.totalMonthly || 0));
+                        setEnrollmentBillingCycle(group.billingCycle || "mensile");
+                      }
+                    }}
+                  >
+                    <option value="new">Crea un nuovo pacchetto separato</option>
+                    {selectedStudentPackageGroups.map((group) => (
+                      <option key={group.id} value={group.id}>{group.name} · {formatMoney(group.totalMonthly)} · {group.rows.length} corsi</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Totale mensile del pacchetto aggiornato
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={enrollmentPackageMonthlyPrice}
+                    onChange={(e) => setEnrollmentPackageMonthlyPrice(e.target.value)}
+                    disabled={!selectedExistingPackage}
+                  />
+                </label>
+              </div>
+
+              {selectedExistingPackage && (
+                <div className="package-extension-preview">
+                  <span>Pacchetto aggiornato</span>
+                  <strong>{selectedExistingPackage.rows.length} corsi attuali + {selectedEnrollmentCourses.length} nuovi</strong>
+                  <small>Somma prezzi pieni {formatMoney(enrollmentPackageBaseTotal)} · totale pacchetto {formatMoney(enrollmentPackageMonthlyPrice)}</small>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="multi-course-picker">
             <div className="mini-section-head">
               <div>
@@ -3035,17 +3432,19 @@ export default function AdminPanel() {
             <div className="course-choice-grid">
               {activeCourses.map((course) => {
                 const checked = selectedCourseIds.includes(course.id);
+                const existingEnrollment = selectedStudentEnrollmentByCourseId.get(course.id);
                 return (
                   <button
                     type="button"
-                    className={`course-choice-card ${checked ? "selected" : ""}`}
+                    className={`course-choice-card ${checked ? "selected" : ""} ${existingEnrollment ? "already-assigned" : ""}`}
                     key={course.id}
+                    disabled={Boolean(existingEnrollment)}
                     onClick={() => toggleSelectedCourse(course)}
                   >
-                    <span>{checked ? "✓" : "+"}</span>
+                    <span>{existingEnrollment ? "✓" : checked ? "✓" : "+"}</span>
                     <strong>{course.nome}</strong>
                     <small>{course.livello || "Livello da definire"}</small>
-                    <em>{formatMoney(course.prezzo_mensile)} / mese</em>
+                    <em>{existingEnrollment ? `Già ${existingEnrollment.stato || "in scheda"}` : `${formatMoney(course.prezzo_mensile)} / mese`}</em>
                   </button>
                 );
               })}
@@ -3066,7 +3465,7 @@ export default function AdminPanel() {
             </label>
           </div>
 
-          {selectedEnrollmentCourses.length > 1 && (
+          {(selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (
             <div className="package-builder-card">
               <div className="mini-section-head">
                 <div>
@@ -3106,17 +3505,17 @@ export default function AdminPanel() {
 
                   <div className="package-allocation-box">
                     <div className="package-allocation-summary">
-                      <span>Somma prezzi pieni: <strong>{formatMoney(selectedCoursesBaseTotal)}</strong></span>
+                      <span>Somma prezzi pieni: <strong>{formatMoney(enrollmentPackageBaseTotal)}</strong></span>
                       <span>Totale pacchetto: <strong>{formatMoney(enrollmentPackageMonthlyPrice)}</strong></span>
                       <span>Ripartito: <strong>{formatMoney(packageAllocationTotal)}</strong></span>
                     </div>
-                    {selectedEnrollmentCourses.map((course) => {
+                    {packagePreviewCourses.map((course) => {
                       const allocated = selectedPackageAllocation[course.id] || { amount: 0, percent: 0 };
                       return (
-                        <div className="allocation-row" key={course.id}>
+                        <div className={`allocation-row ${course.alreadyInPackage ? "already-in-package" : "new-in-package"}`} key={course.id}>
                           <div>
                             <strong>{course.nome}</strong>
-                            <small>{course.livello || "—"} · prezzo pieno {formatMoney(course.prezzo_mensile)}</small>
+                            <small>{course.livello || "—"} · prezzo pieno {formatMoney(course.prezzo_mensile)}{course.alreadyInPackage ? " · già nel pacchetto" : " · nuovo corso"}</small>
                           </div>
                           <span>{formatPercent(allocated.percent)}</span>
                           <strong>{formatMoney(allocated.amount)} / mese</strong>
@@ -3455,6 +3854,22 @@ export default function AdminPanel() {
                         </div>
                       </div>
 
+                      <div className={`monthly-payment-status-banner ${isPaidOrCovered ? "is-paid" : isDue ? "is-due" : row.status === "sospeso" ? "is-paused" : "is-neutral"}`}>
+                        <span>{isPaidOrCovered ? "Situazione ok" : isDue ? "Attenzione segreteria" : row.status === "sospeso" ? "Non incassare" : "Da controllare"}</span>
+                        <strong>{isPaidOrCovered ? "Pagato / coperto" : isDue ? "Da incassare" : paymentStatusLabels[row.status] || row.status}</strong>
+                        <small>
+                          {isPaidOrCovered
+                            ? row.payment?.pagato_il
+                              ? `Pagato il ${formatDate(row.payment.pagato_il)}`
+                              : "Quota coperta nel mese selezionato"
+                            : isDue
+                              ? `${formatMoney(row.totalAmount)} ancora da incassare${isPackage && row.paidAmount > 0 ? ` · già pagati ${formatMoney(row.paidAmount)}` : ""}`
+                              : row.status === "sospeso"
+                                ? "Corso sospeso o chiuso"
+                                : "Controlla la riga"}
+                        </small>
+                      </div>
+
                       <div className="monthly-payment-main-grid">
                         <div className="monthly-info-box course-box monthly-package-box">
                           <span>{isPackage ? "Pacchetto" : "Corso"}</span>
@@ -3499,7 +3914,7 @@ export default function AdminPanel() {
                         <div className="monthly-info-box amount-box">
                           <span>Totale pagamento</span>
                           <strong>{formatMoney(row.totalAmount)}</strong>
-                          <small>{row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : isPackage ? "totale pacchetto mensile" : "mensile"}</small>
+                          <small>{isPackage && row.paidAmount > 0 && !isPaidOrCovered ? `residuo dopo ${formatMoney(row.paidAmount)} già pagati` : row.months > 1 ? `${row.months} mesi × ${formatMoney(row.amount)}` : isPackage ? "totale pacchetto mensile" : "mensile"}</small>
                           {isPackage && <small>{row.memberRows.length} corsi raggruppati in una sola riga</small>}
                           {!isPackage && row.packageTotalMonthly > 0 && <small>pacchetto {formatMoney(row.packageTotalMonthly)} / mese</small>}
                         </div>
@@ -3507,6 +3922,8 @@ export default function AdminPanel() {
 
                       <div className="monthly-payment-note">
                         {row.payment?.pagato_il && <span>Pagato il {formatDate(row.payment.pagato_il)}</span>}
+                        {isPackage && row.paidAmount > 0 && <span>Già pagato {formatMoney(row.paidAmount)}</span>}
+                        {isPackage && row.remainingAmount > 0 && !isPaidOrCovered && <span>Residuo {formatMoney(row.remainingAmount)}</span>}
                         {isPackage && <span>{row.memberRows.length} righe corso accorpate</span>}
                         {row.payment && row.months > 1 && <span>Quota mese {formatMoney(row.amount)} · totale {formatMoney(row.totalAmount)}</span>}
                         {!row.payment && row.status === "da_generare" && <span>{isPackage ? "Pacchetto non ancora generato" : "Quota non ancora creata"}</span>}

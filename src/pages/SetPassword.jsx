@@ -39,17 +39,23 @@ export default function SetPassword() {
   }
 
   return (
-    <div className="auth-page">
-      <form className="auth-card compact-card" onSubmit={handleSubmit}>
+    <div className="auth-page comfort-auth-page set-password-page">
+      <div className="auth-hero comfort-auth-hero password-side-card">
         <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
         <span className="eyebrow">Sicurezza account</span>
-        <h1>Imposta password</h1>
-        <p>Scegli una password personale per accedere alla tua area allievi.</p>
+        <h1>Imposta la tua password in modo sicuro.</h1>
+        <p>Scegli una password personale. Ti servirà per accedere alla tua tessera, ai corsi e ai video riservati.</p>
+      </div>
+
+      <form className="auth-card compact-card comfort-auth-card" onSubmit={handleSubmit}>
+        <span className="eyebrow">Nuova password</span>
+        <h1>Completa l’accesso</h1>
+        <p>Usa almeno 8 caratteri. Meglio ancora se includi lettere, numeri e simboli.</p>
 
         {error && <div className="alert error">{error}</div>}
         {message && <div className="alert success">{message}</div>}
 
-        <label>
+        <label className="comfort-field">
           Nuova password
           <input
             type="password"
@@ -60,7 +66,7 @@ export default function SetPassword() {
           />
         </label>
 
-        <label>
+        <label className="comfort-field">
           Conferma password
           <input
             type="password"
@@ -70,6 +76,11 @@ export default function SetPassword() {
             autoComplete="new-password"
           />
         </label>
+
+        <div className="password-rule-box">
+          <span className={password.length >= 8 ? "is-ok" : ""}>✓ Minimo 8 caratteri</span>
+          <span className={password && password === confirmPassword ? "is-ok" : ""}>✓ Le password coincidono</span>
+        </div>
 
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? "Salvataggio…" : "Salva password"}

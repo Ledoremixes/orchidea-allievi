@@ -285,7 +285,7 @@ export default function Video() {
   }
 
   return (
-    <section className="page-section video-page-v2">
+    <section className="page-section video-page-v2 comfort-page">
       <div className="video-hero-card content-card">
         <div>
           <span className="eyebrow">Video corsi</span>

@@ -5046,3 +5046,1243 @@ input:focus, select:focus, textarea:focus { border-color: rgba(217,164,65,.85); 
     min-width: 0;
   }
 }
+
+/* Step 39 - UX allievi: interfaccia più accogliente, ordinata e confortevole */
+.comfort-page {
+  gap: 18px;
+}
+.comfort-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 22px;
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 92% 18%, rgba(217,164,65,.22), transparent 32%),
+    radial-gradient(circle at 8% 0%, rgba(141,60,255,.24), transparent 38%),
+    linear-gradient(135deg, rgba(255,255,255,.108), rgba(255,255,255,.045));
+  box-shadow: 0 24px 80px rgba(0,0,0,.34);
+  backdrop-filter: blur(18px);
+}
+.comfort-hero::after {
+  content: "";
+  position: absolute;
+  right: -100px;
+  bottom: -120px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(217,164,65,.14), transparent 68%);
+  pointer-events: none;
+}
+.comfort-hero > * {
+  position: relative;
+  z-index: 1;
+}
+.comfort-hero-copy {
+  min-width: 0;
+  max-width: 820px;
+}
+.comfort-hero-copy h2 {
+  margin: 8px 0 12px;
+  font-size: clamp(2.15rem, 4vw, 3.55rem);
+  line-height: .96;
+  letter-spacing: -.065em;
+}
+.comfort-hero-copy p {
+  margin: 0;
+  max-width: 760px;
+  color: rgba(255,248,251,.74);
+  line-height: 1.65;
+}
+.comfort-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+.comfort-action-row .primary-btn,
+.comfort-action-row .ghost-btn {
+  width: auto;
+  min-height: 46px;
+  padding-inline: 20px;
+}
+.comfort-focus-card,
+.comfort-money-card {
+  flex: 0 0 min(330px, 100%);
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  min-height: 170px;
+  padding: 22px;
+  border-radius: 28px;
+  border: 1px solid rgba(217,164,65,.22);
+  background: rgba(0,0,0,.20);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.comfort-focus-card span,
+.comfort-money-card span,
+.comfort-hero-mini-grid span {
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+}
+.comfort-focus-card strong,
+.comfort-money-card strong {
+  color: var(--accent);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -.06em;
+}
+.comfort-focus-card p,
+.comfort-money-card small {
+  margin: 0;
+  color: rgba(255,248,251,.68);
+  line-height: 1.45;
+}
+.comfort-hero-mini-grid {
+  flex: 0 0 min(460px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.comfort-hero-mini-grid > div {
+  min-height: 126px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+}
+.comfort-hero-mini-grid strong {
+  color: var(--text);
+  font-size: 1.65rem;
+  letter-spacing: -.05em;
+}
+.comfort-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.comfort-kpi-card {
+  min-width: 0;
+  min-height: 150px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,.11);
+  background:
+    radial-gradient(circle at top right, rgba(141,60,255,.14), transparent 42%),
+    linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+  box-shadow: 0 18px 54px rgba(0,0,0,.24);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+a.comfort-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217,164,65,.30);
+  background:
+    radial-gradient(circle at top right, rgba(217,164,65,.16), transparent 42%),
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.045));
+}
+.comfort-kpi-card.warning {
+  border-color: rgba(255,209,102,.22);
+}
+.comfort-kpi-card.success {
+  border-color: rgba(70,214,154,.20);
+}
+.comfort-kpi-icon,
+.comfort-round-icon {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #1b0f05;
+  background: linear-gradient(135deg, #fff1b7, var(--accent));
+  font-weight: 1000;
+  box-shadow: 0 14px 34px rgba(217,164,65,.18);
+}
+.comfort-kpi-card small {
+  display: block;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.comfort-kpi-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1;
+  letter-spacing: -.05em;
+  overflow-wrap: anywhere;
+}
+.comfort-kpi-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: .9rem;
+}
+.comfort-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.comfort-panel {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 30px;
+}
+.comfort-panel-head {
+  align-items: flex-start;
+}
+.comfort-panel-head h3 {
+  margin: 6px 0 0;
+  font-size: 1.35rem;
+}
+.comfort-highlight-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(217,164,65,.18);
+  background: linear-gradient(135deg, rgba(217,164,65,.12), rgba(255,255,255,.045));
+}
+.comfort-highlight-row.payment {
+  border-color: rgba(255,209,102,.22);
+}
+.comfort-highlight-row strong,
+.comfort-highlight-row span,
+.comfort-list-row strong,
+.comfort-list-row span {
+  display: block;
+}
+.comfort-highlight-row strong {
+  color: var(--text);
+  font-size: 1.12rem;
+}
+.comfort-highlight-row span:not(.comfort-round-icon) {
+  color: var(--muted);
+  margin-top: 4px;
+}
+.course-visual-highlight {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 220px;
+  padding: 0;
+  background: rgba(0,0,0,.18);
+}
+.course-visual-highlight::before,
+.comfort-course-poster-tile::before,
+.comfort-poster-strip-card::before,
+.comfort-course-date-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgba(10,4,18,.18), rgba(10,4,18,.74)),
+    var(--poster-image);
+  background-size: cover;
+  background-position: center;
+}
+.comfort-course-date-card::before {
+  background-image:
+    linear-gradient(180deg, rgba(10,4,18,.14), rgba(10,4,18,.62)),
+    var(--course-poster);
+}
+.course-visual-highlight::after,
+.comfort-course-poster-tile::after,
+.comfort-poster-strip-card::after,
+.comfort-course-date-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(217,164,65,.18), rgba(141,60,255,.22));
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.comfort-highlight-visual {
+  position: relative;
+  min-height: 220px;
+}
+.comfort-highlight-label {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(14,8,23,.56);
+  color: #fff8ef !important;
+  font-size: .82rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.comfort-highlight-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px;
+}
+.comfort-highlight-copy > div {
+  min-width: 0;
+}
+.comfort-course-showcase,
+.comfort-poster-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.comfort-course-poster-tile,
+.comfort-poster-strip-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 176px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.14);
+  box-shadow: 0 16px 40px rgba(0,0,0,.18);
+}
+.comfort-poster-strip-card {
+  min-height: 210px;
+}
+.comfort-course-poster-overlay,
+.comfort-poster-strip-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 16px;
+}
+.comfort-course-poster-overlay span,
+.comfort-poster-strip-copy span {
+  color: #ffe39a;
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.comfort-course-poster-overlay strong,
+.comfort-poster-strip-copy strong {
+  color: #fff;
+  font-size: 1.1rem;
+}
+.comfort-course-poster-overlay small,
+.comfort-poster-strip-copy small {
+  color: rgba(255,248,251,.82);
+  line-height: 1.35;
+}
+.comfort-poster-strip-panel .small-link.static {
+  color: var(--accent);
+  pointer-events: none;
+}
+.course-posters-panel {
+  padding: 22px;
+}
+.comfort-list,
+.comfort-payment-list,
+.comfort-course-list {
+  display: grid;
+  gap: 12px;
+}
+.comfort-list.compact {
+  gap: 9px;
+}
+.comfort-list-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(0,0,0,.14);
+}
+.comfort-list-row span {
+  color: var(--muted);
+  font-size: .88rem;
+  margin-top: 3px;
+}
+.comfort-list-row em {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+.comfort-empty-state {
+  display: grid;
+  gap: 7px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255,255,255,.15);
+  background: rgba(0,0,0,.14);
+}
+.comfort-empty-state.large {
+  min-height: 180px;
+  align-content: center;
+}
+.comfort-empty-state.success {
+  border-color: rgba(70,214,154,.24);
+  background: rgba(70,214,154,.075);
+}
+.comfort-empty-state strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+.comfort-empty-state span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.comfort-loading-card {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+/* Corsi utente */
+.comfort-course-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px;
+  border-radius: 30px;
+  border: 1px solid rgba(255,255,255,.11);
+  background:
+    radial-gradient(circle at 92% 16%, rgba(141,60,255,.13), transparent 40%),
+    linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.04));
+  box-shadow: 0 18px 56px rgba(0,0,0,.24);
+}
+.comfort-course-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  border-radius: 30px 0 0 30px;
+  background: linear-gradient(180deg, #ffe39a, var(--accent));
+}
+.comfort-course-card.is-paused::before {
+  background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.10));
+}
+.comfort-course-date-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 210px;
+  padding: 18px;
+  border-radius: 24px;
+  color: #fff9f0;
+  text-align: center;
+  box-shadow: 0 18px 46px rgba(217,164,65,.20);
+}
+.comfort-course-date-glass {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 18px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(10,4,18,.34);
+  backdrop-filter: blur(8px);
+}
+.comfort-course-date-card span,
+.comfort-course-date-card small {
+  font-weight: 1000;
+  color: rgba(255,248,251,.88);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.comfort-course-date-card strong {
+  font-size: 2rem;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: -.05em;
+}
+.comfort-course-main {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+.comfort-course-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.comfort-course-title-row h3 {
+  margin: 7px 0 0;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  letter-spacing: -.05em;
+}
+.comfort-course-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.comfort-course-info-grid div,
+.comfort-course-payment {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(0,0,0,.16);
+}
+.comfort-course-info-grid span,
+.comfort-course-payment span {
+  display: block;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.comfort-course-info-grid strong,
+.comfort-course-payment strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+}
+.comfort-course-payment small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.comfort-course-payment.paid {
+  border-color: rgba(70,214,154,.22);
+  background: rgba(70,214,154,.075);
+}
+.comfort-course-payment.paid strong {
+  color: #bdf8da;
+}
+.comfort-course-payment.due {
+  border-color: rgba(255,209,102,.22);
+  background: rgba(255,209,102,.075);
+}
+.comfort-course-payment.due strong {
+  color: #ffe39a;
+}
+.comfort-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.055);
+  color: var(--muted);
+}
+
+/* Pagamenti utente */
+.payments-kpis .comfort-kpi-card {
+  min-height: 132px;
+}
+.payments-comfort-panel {
+  gap: 16px;
+}
+.comfort-payment-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+}
+.comfort-payment-row.is-open {
+  border-color: rgba(255,209,102,.22);
+}
+.comfort-payment-row.is-paid {
+  border-color: rgba(70,214,154,.18);
+}
+.comfort-payment-status-dot {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #1b0f05;
+  background: linear-gradient(135deg, #fff1b7, var(--accent));
+  font-weight: 1000;
+}
+.comfort-payment-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.comfort-payment-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.comfort-payment-title-row h3 {
+  margin: 8px 0 0;
+  font-size: 1.15rem;
+}
+.comfort-payment-title-row > strong {
+  color: var(--accent);
+  font-size: 1.3rem;
+  white-space: nowrap;
+}
+.comfort-payment-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.comfort-payment-meta-grid div {
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.14);
+}
+.comfort-payment-meta-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: .76rem;
+}
+.comfort-payment-meta-grid strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comfort-payment-action {
+  display: grid;
+  justify-items: end;
+}
+.comfort-payment-action .ghost-btn,
+.comfort-payment-action .primary-btn {
+  width: auto;
+  white-space: nowrap;
+}
+.compact-listing .comfort-payment-row {
+  opacity: .9;
+}
+
+/* Auth utente */
+.comfort-auth-page {
+  position: relative;
+  overflow: hidden;
+}
+.comfort-auth-page::before,
+.comfort-auth-page::after {
+  content: "";
+  position: fixed;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  filter: blur(4px);
+  pointer-events: none;
+  opacity: .6;
+}
+.comfort-auth-page::before {
+  left: -160px;
+  top: -120px;
+  background: radial-gradient(circle, rgba(217,164,65,.22), transparent 68%);
+}
+.comfort-auth-page::after {
+  right: -180px;
+  bottom: -160px;
+  background: radial-gradient(circle, rgba(141,60,255,.24), transparent 68%);
+}
+.comfort-auth-hero,
+.comfort-auth-card {
+  position: relative;
+  z-index: 1;
+}
+.comfort-auth-hero h1 {
+  max-width: 720px;
+}
+.auth-benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+.auth-benefit-grid div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+}
+.auth-benefit-grid span {
+  color: var(--accent);
+  font-weight: 1000;
+}
+.auth-benefit-grid strong {
+  color: var(--text);
+}
+.auth-benefit-grid small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+.comfort-auth-card {
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top right, rgba(217,164,65,.14), transparent 38%),
+    linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+}
+.auth-form-intro {
+  margin-top: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.comfort-field input {
+  min-height: 52px;
+  border-radius: 18px;
+}
+.comfort-link-btn {
+  border-radius: 18px;
+  background: rgba(255,255,255,.055);
+  min-height: 44px;
+}
+.auth-safe-note,
+.password-rule-box {
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(217,164,65,.18);
+  background: rgba(217,164,65,.075);
+}
+.auth-safe-note strong {
+  color: var(--accent);
+}
+.auth-safe-note span,
+.password-rule-box span {
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: .88rem;
+}
+.password-rule-box span.is-ok {
+  color: #bdf8da;
+}
+.password-side-card {
+  display: block;
+}
+
+@media (max-width: 1180px) {
+  .course-visual-highlight {
+    grid-template-columns: 1fr;
+  }
+  .comfort-highlight-visual {
+    min-height: 180px;
+  }
+  .comfort-hero,
+  .comfort-two-column {
+    grid-template-columns: 1fr;
+  }
+  .comfort-hero {
+    flex-direction: column;
+  }
+  .comfort-focus-card,
+  .comfort-money-card,
+  .comfort-hero-mini-grid {
+    flex-basis: auto;
+  }
+  .comfort-two-column {
+    display: grid;
+  }
+  .comfort-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .comfort-course-showcase,
+  .comfort-poster-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .comfort-course-card {
+    grid-template-columns: 1fr;
+  }
+  .comfort-course-date-card {
+    min-height: 92px;
+    grid-template-columns: 1fr auto auto;
+    justify-items: start;
+    text-align: left;
+  }
+  .comfort-course-info-grid,
+  .comfort-payment-meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .comfort-payment-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .comfort-payment-action {
+    grid-column: 1 / -1;
+    justify-items: stretch;
+  }
+  .comfort-payment-action .ghost-btn,
+  .comfort-payment-action .primary-btn {
+    width: 100%;
+  }
+  .auth-benefit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .course-visual-highlight {
+    gap: 0;
+  }
+  .comfort-highlight-visual {
+    min-height: 150px;
+  }
+  .comfort-highlight-copy {
+    align-items: flex-start;
+    padding: 18px;
+  }
+  .comfort-course-showcase,
+  .comfort-poster-strip {
+    grid-template-columns: 1fr;
+  }
+  .comfort-hero,
+  .comfort-panel,
+  .comfort-course-card,
+  .comfort-auth-card {
+    border-radius: 24px;
+  }
+  .comfort-hero {
+    padding: 20px;
+  }
+  .comfort-hero-copy h2 {
+    font-size: 2.2rem;
+  }
+  .comfort-action-row,
+  .comfort-course-title-row,
+  .comfort-payment-title-row,
+  .comfort-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .comfort-action-row .primary-btn,
+  .comfort-action-row .ghost-btn,
+  .comfort-panel-head .small-link {
+    width: 100%;
+  }
+  .comfort-hero-mini-grid {
+    grid-template-columns: 1fr;
+  }
+  .comfort-kpi-card {
+    min-height: 128px;
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .comfort-list-row {
+    grid-template-columns: 1fr;
+  }
+  .comfort-list-row em {
+    justify-self: start;
+  }
+  .comfort-course-date-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .comfort-payment-status-dot {
+    width: 42px;
+    height: 42px;
+  }
+  .comfort-payment-title-row > strong {
+    white-space: normal;
+  }
+}
+
+/* Step 41 - Iscrizioni: corsi già assegnati, no doppioni e pacchetto sopra la scheda */
+.selected-enrollments-panel {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 18px;
+  padding: 15px;
+  border-radius: 24px;
+  border: 1px solid rgba(70, 214, 154, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(70, 214, 154, 0.10), transparent 40%),
+    rgba(0,0,0,.14);
+}
+.selected-enrollments-empty {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px dashed rgba(255,255,255,.14);
+  background: rgba(255,255,255,.045);
+}
+.selected-enrollments-empty span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.selected-enrollment-list {
+  display: grid;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217,164,65,.72) rgba(255,255,255,.05);
+}
+.selected-enrollment-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(8,3,12,.34);
+}
+.selected-enrollment-card.is-attivo {
+  border-color: rgba(70,214,154,.22);
+}
+.selected-enrollment-card.is-sospeso {
+  border-color: rgba(255,209,102,.22);
+}
+.selected-enrollment-card.is-terminato {
+  opacity: .78;
+  border-color: rgba(255,107,129,.20);
+}
+.selected-enrollment-main {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.selected-enrollment-main strong,
+.selected-enrollment-main small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-enrollment-main small {
+  color: var(--muted);
+}
+.selected-enrollment-main em {
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #ffe39a;
+  background: rgba(217,164,65,.12);
+  border: 1px solid rgba(217,164,65,.22);
+  font-style: normal;
+  font-size: .76rem;
+  font-weight: 900;
+}
+.selected-enrollment-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.course-choice-card.already-assigned {
+  cursor: not-allowed;
+  opacity: .72;
+  border-color: rgba(70,214,154,.24);
+  background:
+    radial-gradient(circle at top right, rgba(70,214,154,.12), transparent 44%),
+    rgba(255,255,255,.045);
+}
+.course-choice-card.already-assigned > span {
+  color: #dffff1;
+  background: rgba(70,214,154,.18);
+  border: 1px solid rgba(70,214,154,.28);
+}
+.course-choice-card.already-assigned em {
+  color: #bdf8da;
+}
+.package-manager-backdrop {
+  z-index: 120;
+}
+.package-manager-backdrop .package-manager-modal {
+  position: relative;
+  z-index: 121;
+}
+
+@media (max-width: 760px) {
+  .selected-enrollment-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .selected-enrollment-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .selected-enrollment-actions .mini-btn {
+    width: 100%;
+  }
+  .selected-enrollment-main strong,
+  .selected-enrollment-main small {
+    white-space: normal;
+  }
+}
+
+/* Step 42 - Admin UX: pagamenti più leggibili, pacchetti e locandine corsi */
+.monthly-payment-status-banner {
+  display: grid;
+  grid-template-columns: minmax(130px, auto) minmax(170px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 16px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+}
+.monthly-payment-status-banner span {
+  color: rgba(255,248,251,.72);
+  font-size: .76rem;
+  font-weight: 1000;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.monthly-payment-status-banner strong {
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+.monthly-payment-status-banner small {
+  justify-self: end;
+  color: rgba(255,248,251,.76);
+  font-weight: 850;
+  text-align: right;
+}
+.monthly-payment-status-banner.is-paid {
+  border-color: rgba(70,214,154,.34);
+  background: linear-gradient(135deg, rgba(70,214,154,.18), rgba(255,255,255,.045));
+}
+.monthly-payment-status-banner.is-paid strong { color: #aff8d2; }
+.monthly-payment-status-banner.is-due {
+  border-color: rgba(255,209,102,.38);
+  background: linear-gradient(135deg, rgba(255,209,102,.20), rgba(255,255,255,.045));
+  box-shadow: 0 16px 48px rgba(217,164,65,.10);
+}
+.monthly-payment-status-banner.is-due strong { color: #ffe39a; }
+.monthly-payment-status-banner.is-paused {
+  border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.055);
+}
+.monthly-payment-card.is-due {
+  border-color: rgba(255,209,102,.36);
+}
+.monthly-payment-card.is-ok {
+  border-color: rgba(70,214,154,.30);
+}
+.monthly-payment-card.is-due .monthly-student-avatar {
+  background: linear-gradient(135deg, #fff1b7, #d9a441);
+}
+.monthly-payment-card.is-ok .monthly-student-avatar {
+  background: linear-gradient(135deg, #d9ffe9, #46d69a);
+}
+.monthly-payment-stats .clickable-stat:nth-child(2) {
+  border-color: rgba(255,209,102,.26);
+  background: radial-gradient(circle at top right, rgba(255,209,102,.16), transparent 44%), linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+}
+.monthly-payment-stats .clickable-stat:nth-child(3) {
+  border-color: rgba(70,214,154,.24);
+  background: radial-gradient(circle at top right, rgba(70,214,154,.14), transparent 42%), linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+}
+.existing-package-extend-card {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(217,164,65,.26);
+  background: radial-gradient(circle at top right, rgba(217,164,65,.16), transparent 42%), rgba(255,255,255,.055);
+}
+.package-extension-preview {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(70,214,154,.22);
+  background: rgba(70,214,154,.08);
+}
+.package-extension-preview span {
+  color: #aff8d2;
+  font-size: .78rem;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.package-extension-preview strong { color: #fff; }
+.package-extension-preview small { color: var(--muted); }
+.allocation-row.already-in-package {
+  border-color: rgba(70,214,154,.18);
+  background: rgba(70,214,154,.055);
+}
+.allocation-row.new-in-package {
+  border-color: rgba(217,164,65,.24);
+}
+.course-management-card-v2 {
+  isolation: isolate;
+}
+.course-management-card-v2::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: .33;
+  background-image:
+    linear-gradient(135deg, rgba(20,8,27,.78), rgba(20,8,27,.48) 42%, rgba(20,8,27,.86)),
+    var(--admin-course-poster);
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+.course-management-card-v2::before {
+  z-index: 2;
+}
+.course-management-card-v2 > * {
+  position: relative;
+  z-index: 1;
+}
+.course-management-card-v2 .course-time-band,
+.course-management-card-v2 .course-card-info-grid-v2 div {
+  background: rgba(11,5,17,.50);
+  backdrop-filter: blur(8px);
+}
+.course-detail-modal-v2 {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.course-detail-modal-v2::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: .24;
+  background-image:
+    linear-gradient(135deg, rgba(18,9,26,.90), rgba(18,9,26,.64) 45%, rgba(18,9,26,.96)),
+    var(--admin-course-poster);
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+.course-detail-modal-v2 > * {
+  position: relative;
+  z-index: 1;
+}
+.course-detail-modal-v2 .course-detail-hero {
+  background: rgba(12,6,16,.34);
+  border-radius: 22px;
+  padding: 14px;
+  backdrop-filter: blur(8px);
+}
+.course-detail-modal-v2 .course-detail-stats-v2 div,
+.course-detail-modal-v2 .course-detail-actions-v2,
+.course-detail-modal-v2 .course-student-card {
+  background: rgba(10,5,15,.48);
+  backdrop-filter: blur(8px);
+}
+.student-profile-modal-backdrop,
+.package-manager-modal {
+  z-index: 140;
+}
+
+@media (max-width: 820px) {
+  .monthly-payment-status-banner {
+    grid-template-columns: 1fr;
+  }
+  .monthly-payment-status-banner small {
+    justify-self: start;
+    text-align: left;
+  }
+  .existing-package-extend-card .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+.package-manager-backdrop {
+  z-index: 160;
+}
+
+/* Step 44 - Fix pagamenti pacchetto e iscrizioni attuali più pulite */
+.selected-enrollment-card {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+.selected-enrollment-main {
+  padding-right: 0;
+}
+.selected-enrollment-main .status-pill {
+  width: fit-content;
+}
+.selected-enrollment-actions {
+  justify-content: flex-start;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.selected-enrollment-actions .mini-btn {
+  min-height: 38px;
+}
+.monthly-payment-card.is-package .monthly-payment-status-banner.is-due {
+  border-color: rgba(255, 209, 102, 0.44);
+  background:
+    linear-gradient(135deg, rgba(255,209,102,.18), rgba(255,255,255,.055));
+}
+.monthly-payment-card.is-package .monthly-payment-status-banner.is-due strong {
+  color: #ffe39a;
+}
+.monthly-payment-card.is-package .monthly-payment-status-banner small {
+  color: rgba(255,248,251,.86);
+  font-weight: 900;
+}
+.monthly-payment-note span:nth-child(2),
+.monthly-payment-note span:nth-child(3) {
+  border-color: rgba(217,164,65,.18);
+  background: rgba(217,164,65,.10);
+  color: #ffe39a;
+}
+@media (max-width: 760px) {
+  .selected-enrollment-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  .selected-enrollment-actions .package-manage-btn,
+  .selected-enrollment-actions .mini-btn.danger {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 430px) {
+  .selected-enrollment-actions {
+    grid-template-columns: 1fr;
+  }
+}
