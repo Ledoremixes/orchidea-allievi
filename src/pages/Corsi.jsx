@@ -90,6 +90,13 @@ export default function Corsi() {
     0
   );
 
+  const weeklyGroups = useMemo(() => {
+    return DAY_ORDER.map((day) => ({
+      day,
+      items: enrichedCourses.filter((item) => String(item.corsi?.giorno_settimana || "").toLowerCase() === day),
+    })).filter((group) => group.items.length > 0);
+  }, [enrichedCourses]);
+
   return (
     <section className="page-section comfort-page user-courses-page">
       <div className="comfort-hero courses-comfort-hero">
@@ -118,39 +125,7 @@ export default function Corsi() {
         </div>
       </div>
 
-      {!loading && activeCourses.length > 0 && (
-        <div className="content-card comfort-panel comfort-poster-strip-panel course-posters-panel">
-          <div className="card-head comfort-panel-head">
-            <div>
-              <span className="eyebrow">Locandine ufficiali</span>
-              <h3>I tuoi corsi in versione visual</h3>
-            </div>
-            <span className="small-link static">{activeCourses.length} corsi attivi</span>
-          </div>
 
-          <div className="comfort-poster-strip">
-            {activeCourses.map((item) => {
-              const visual = getCourseVisual(item.corsi);
-              return (
-                <article
-                  className="comfort-poster-strip-card"
-                  key={`active-${item.id}`}
-                  style={{ "--poster-image": `url(${visual.image})` }}
-                >
-                  <div className="comfort-poster-strip-copy">
-                    <span>{item.corsi?.nome || "Corso"}</span>
-                    <strong>{item.corsi?.livello || "Livello"}</strong>
-                    <small>
-                      {item.corsi?.giorno_settimana || "—"}
-                      {item.corsi?.ora_inizio ? ` · ${formatTime(item.corsi?.ora_inizio)}` : ""}
-                    </small>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {error && <div className="alert error">{error}</div>}
 
@@ -162,7 +137,96 @@ export default function Corsi() {
           <span>Quando la segreteria ti iscriverà a un corso, lo vedrai qui con giorno, orario e sala.</span>
         </div>
       ) : (
-        <div className="comfort-course-list">
+        <>
+          <div className="content-card weekly-calendar-card">
+            <div className="card-head weekly-calendar-head">
+              <div>
+                <span className="eyebrow">Calendario settimanale</span>
+                <h3>La tua settimana Orchidea</h3>
+                <p>Giorni e orari sono raggruppati come un calendario, così da capire subito quando balli.</p>
+              </div>
+              <span className="section-counter">{enrichedCourses.length}</span>
+            </div>
+
+            <div className="weekly-calendar-grid">
+              {weeklyGroups.map((group) => (
+                <section className="weekly-day-card" key={group.day}>
+                  <div className="weekly-day-head">
+                    <span>{group.day.slice(0, 3).toUpperCase()}</span>
+                    <strong>{group.day}</strong>
+                    <small>{group.items.length} corso/i</small>
+                  </div>
+
+                  <div className="weekly-day-list">
+                    {group.items.map((item) => {
+                      const isActive = item.active;
+                      const amount = item.tariffa_mensile ?? item.corsi?.prezzo_mensile;
+                      return (
+                        <article className={`weekly-course-pill ${isActive ? "is-active" : "is-paused"}`} key={`week-${item.id}`}>
+                          <div className="weekly-course-time">
+                            <strong>{formatTime(item.corsi?.ora_inizio)}</strong>
+                            <small>{formatTime(item.corsi?.ora_fine)}</small>
+                          </div>
+                          <div className="weekly-course-info">
+                            <span>{item.corsi?.nome || "Corso"}</span>
+                            <strong>{item.corsi?.livello || "Livello"}</strong>
+                            <small>{item.corsi?.sala || "Sala da definire"} · {formatMoney(amount)}</small>
+                          </div>
+                          <span className={isActive ? "status-pill ok" : "status-pill warn"}>{isActive ? "attivo" : item.stato}</span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+
+          {activeCourses.length > 0 && (
+            <div className="content-card comfort-panel comfort-poster-strip-panel course-posters-panel">
+              <div className="card-head comfort-panel-head">
+                <div>
+                  <span className="eyebrow">Locandine ufficiali</span>
+                  <h3>I tuoi corsi in versione visual</h3>
+                </div>
+                <span className="small-link static">{activeCourses.length} corsi attivi</span>
+              </div>
+
+              <div className="comfort-poster-strip">
+                {activeCourses.map((item) => {
+                  const visual = getCourseVisual(item.corsi);
+                  return (
+                    <article
+                      className="comfort-poster-strip-card poster-card-safe"
+                      key={`active-${item.id}`}
+                      style={{ "--poster-image": `url(${visual.image})` }}
+                    >
+                      <div className="poster-image-shell">
+                        <img className="comfort-poster-full-img" src={visual.image} alt={`${item.corsi?.nome || "Corso"} ${item.corsi?.livello || ""}`} />
+                      </div>
+                      <div className="comfort-poster-strip-copy">
+                        <span>{item.corsi?.nome || "Corso"}</span>
+                        <strong>{item.corsi?.livello || "Livello"}</strong>
+                        <small>
+                          {item.corsi?.giorno_settimana || "—"}
+                          {item.corsi?.ora_inizio ? ` · ${formatTime(item.corsi?.ora_inizio)}` : ""}
+                        </small>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="card-head comfort-panel-head detail-course-head">
+            <div>
+              <span className="eyebrow">Dettaglio iscrizioni</span>
+              <h3>Quote, sala e copertura</h3>
+            </div>
+          </div>
+
+          <div className="comfort-course-list detail-course-list">
           {enrichedCourses.map((item) => {
             const isActive = item.active;
             const amount = item.tariffa_mensile ?? item.corsi?.prezzo_mensile;
@@ -227,7 +291,8 @@ export default function Corsi() {
               </article>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </section>
   );

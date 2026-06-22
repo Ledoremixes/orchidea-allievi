@@ -5,45 +5,30 @@ function normalize(value = "") {
     .toLowerCase();
 }
 
-const POSTER_MAP = [
-  {
-    match: ["bachata fusion", "fusion"],
-    image: "/assets/corsi/bachata-fusion.png",
-    accent: "fusion",
-  },
-  {
-    match: ["bachata",],
-    image: "/assets/corsi/bachata.png",
-    accent: "latin",
-  },
-    {
-    match: ["salsa",],
-    image: "/assets/corsi/salsa.png",
-    accent: "latin",
-  },
-    {
-    match: ["primi passi",],
-    image: "/assets/corsi/primi-passi.png",
-    accent: "beginner",
-  },
-  {
-    match: ["country"],
-    image: "/assets/corsi/country.png",
-    accent: "country",
-  },
-  {
-    match: ["kizomba"],
-    image: "/assets/corsi/kizomba.png",
-    accent: "kizomba",
-  },
-];
-
 export function getCourseVisual(course = {}) {
   const haystack = normalize(`${course?.nome || ""} ${course?.livello || ""}`);
-  const matched = POSTER_MAP.find((item) => item.match.some((token) => haystack.includes(token)));
 
-  return {
-    image: matched?.image || "/assets/logo.png",
-    accent: matched?.accent || "default",
-  };
+  if (haystack.includes("country") && haystack.includes("base")) {
+    return { image: "/assets/corsi/country-base.png", accent: "country-base" };
+  }
+  if (haystack.includes("country")) {
+    return { image: "/assets/corsi/country.png", accent: "country" };
+  }
+  if (haystack.includes("bachata fusion") || haystack.includes("fusion")) {
+    return { image: "/assets/corsi/bachata-fusion.png", accent: "fusion" };
+  }
+  if (haystack.includes("kizomba")) {
+    return { image: "/assets/corsi/kizomba.png", accent: "kizomba" };
+  }
+  if (haystack.includes("bachata") || haystack.includes("bachata") || haystack.includes("caraibico")) {
+    return { image: "/assets/corsi/bachata.png", accent: "latin" };
+  }
+
+  if (haystack.includes("salsa") || haystack.includes("salsa") || haystack.includes("caraibico")) {
+    return { image: "/assets/corsi/salsa.png", accent: "latin" };
+  }
+  if (haystack.includes("primi passi") || haystack.includes("caraibico")) {
+    return { image: "/assets/corsi/primi-passi.png", accent: "latin" };
+  }
+  return { image: "/assets/logo.png", accent: "default" };
 }
