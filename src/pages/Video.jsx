@@ -246,7 +246,7 @@ export default function Video() {
           aria-label={`Guarda ${video.titolo}`}
         >
           {video.thumbnail_url ? (
-            <img src={video.thumbnail_url} alt="" />
+            <img src={video.thumbnail_url} alt="" loading="lazy" decoding="async" />
           ) : video.play_url ? (
             <video
               className="video-card-preview-video"

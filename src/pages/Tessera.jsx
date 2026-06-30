@@ -29,42 +29,24 @@ export default function Tessera() {
   }, [student.qr_token, student.qrToken]);
 
   return (
-    <section className="page-section comfort-page user-card-page">
-      <div className="section-title">
-        <span className="eyebrow">Tessera digitale</span>
-        <h2>La tua Orchidea Card</h2>
-        <p>
-          Qui trovi la visualizzazione della tua tessera digitale fronte e retro, pronta da mostrare all’ingresso con
-          QR code e numero tessera.
-        </p>
+    <section className="page-section orchidea-page orchidea-card-page">
+      <div className="orchidea-section-heading card-heading">
+        <span className="orchidea-heading-flower" aria-hidden="true">✾</span>
+        <div>
+          <span className="orchidea-kicker">Tessera digitale</span>
+          <h2>La tua tessera Orchidea</h2>
+        </div>
       </div>
 
-      <div className="orchidea-tessera-page-grid">
+      <div className="orchidea-tessera-single">
         <OrchideaVirtualCard student={student} tesseramento={tesseramento} qrCodeUrl={qrCodeUrl} showHeading={false} />
+      </div>
 
-        <div className="content-card tessera-helper-card">
-          <span className="eyebrow">Informazioni utili</span>
-          <h3>Tessera unica e riconoscibile</h3>
-          <p>
-            La tessera mostra il numero progressivo del gestionale e il QR code ufficiale del sito, così lo scanner
-            ingressi legge lo stesso codice usato nella tessera digitale web.
-          </p>
-
-          <div className="tessera-helper-list">
-            <div className="info-box">
-              <strong>Mostra il fronte all’ingresso</strong>
-              <span>Il personale può verificare subito numero tessera e QR code ufficiale dal tuo telefono.</span>
-            </div>
-            <div className="info-box">
-              <strong>Retro con dati essenziali</strong>
-              <span>Nel retro trovi i dati principali della card in una visualizzazione pulita e leggibile.</span>
-            </div>
-            <div className="info-box">
-              <strong>Unica per corsi e serate</strong>
-              <span>Se la tessera è attiva, puoi usarla come riferimento sia per l’area corsi sia per gli eventi.</span>
-            </div>
-          </div>
-        </div>
+      <div className="tessera-copy-block">
+        <h3>La tua Orchidea card</h3>
+        <p>
+          Utilizzala per timbrare le presenze ai corsi prima di ogni lezione o per accedere alle serate. Tienila sempre a portata di telefono.
+        </p>
       </div>
     </section>
   );

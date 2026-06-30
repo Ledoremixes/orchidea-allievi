@@ -476,3 +476,439 @@
     transform: rotateY(180deg);
   }
 }
+
+/* Revolution UI 2026 - Tessera digitale più leggibile su desktop e mobile */
+.orchidea-virtual-card-section {
+  gap: clamp(14px, 2vw, 22px);
+}
+
+.orchidea-card-toolbar {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 26px;
+  background: rgba(0, 0, 0, .18);
+}
+
+.orchidea-card-switcher {
+  background: rgba(255, 255, 255, .055);
+}
+
+.orchidea-card-switch.is-active {
+  background: linear-gradient(135deg, #fff8d8 0%, #d9a441 58%, #f3a6e8 130%);
+  box-shadow: 0 14px 34px rgba(217, 164, 65, .20);
+}
+
+.orchidea-pass-card {
+  border-radius: 38px;
+  border-color: rgba(255, 255, 255, .16);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .38);
+}
+
+.orchidea-pass-card-front {
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255,255,255,.92), rgba(255,255,255,.62) 35%, rgba(237,237,237,.96) 68%),
+    #ededed;
+}
+
+.orchidea-pass-lines.left,
+.orchidea-pass-lines.right {
+  opacity: .92;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 0, 250, .60) 0 2px,
+    transparent 2px 17px
+  );
+}
+
+.orchidea-pass-brand {
+  padding: clamp(46px, 8vw, 80px) clamp(32px, 7vw, 78px) 190px;
+}
+
+.orchidea-pass-logo {
+  width: min(76%, 560px);
+  filter: drop-shadow(0 18px 28px rgba(0,0,0,.12));
+}
+
+.orchidea-pass-footer {
+  left: clamp(14px, 3vw, 30px);
+  right: clamp(14px, 3vw, 30px);
+  bottom: clamp(14px, 3vw, 28px);
+  padding: clamp(14px, 2.4vw, 22px);
+  border-radius: 30px;
+  background: rgba(44, 36, 48, .94);
+}
+
+.orchidea-pass-footer-text strong {
+  font-size: clamp(1.45rem, 4.7vw, 3.1rem);
+}
+
+.orchidea-pass-qr-shell {
+  border-radius: clamp(18px, 3vw, 26px);
+}
+
+.orchidea-pass-card-back {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255, 43, 214, .18), transparent 38%),
+    radial-gradient(circle at 10% 0, rgba(217, 164, 65, .22), transparent 34%),
+    linear-gradient(140deg, #130717, #08030c);
+}
+
+.orchidea-pass-back-row {
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, .11);
+  background: rgba(255, 255, 255, .06);
+}
+
+@media (max-width: 1180px) {
+  .orchidea-tessera-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .orchidea-card-toolbar {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .orchidea-card-switcher {
+    width: 100%;
+  }
+
+  .orchidea-card-switch {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .orchidea-card-status {
+    width: 100%;
+  }
+
+  .orchidea-pass-card {
+    min-height: auto;
+    aspect-ratio: 1 / 1.42;
+    border-radius: 28px;
+  }
+
+  .orchidea-pass-brand {
+    padding: 34px 28px 190px;
+  }
+
+  .orchidea-pass-logo {
+    width: min(88%, 360px);
+  }
+
+  .orchidea-pass-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    gap: 14px;
+    text-align: left;
+  }
+
+  .orchidea-pass-footer-text strong {
+    font-size: clamp(1.35rem, 8vw, 2.35rem);
+    word-break: break-word;
+  }
+
+  .orchidea-pass-footer-text small {
+    line-height: 1.35;
+  }
+
+  .orchidea-pass-qr-shell {
+    width: min(178px, 52vw);
+    justify-self: start;
+  }
+
+  .orchidea-pass-lines {
+    width: 36%;
+  }
+
+  .orchidea-pass-back-inner {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .orchidea-pass-card {
+    aspect-ratio: 1 / 1.56;
+  }
+
+  .orchidea-pass-brand {
+    padding: 28px 20px 178px;
+  }
+
+  .orchidea-pass-footer {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 13px;
+    border-radius: 24px;
+  }
+
+  .orchidea-pass-qr-shell {
+    width: min(150px, 50vw);
+  }
+}
+
+/* ORCHIDEA CARD - versione mockup mobile luxury */
+.orchidea-card-page .orchidea-virtual-card-section {
+  gap: clamp(18px, 3vw, 26px);
+}
+
+.orchidea-card-page .orchidea-card-toolbar {
+  width: min(100%, 620px);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 56, 212, .7);
+  background: rgba(8, 3, 12, .74);
+  box-shadow: 0 0 24px rgba(255, 56, 212, .26), inset 0 1px 0 rgba(255,255,255,.1);
+}
+
+.orchidea-card-page .orchidea-card-switcher {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.orchidea-card-page .orchidea-card-switch {
+  min-height: clamp(54px, 10vw, 78px);
+  border-radius: 999px;
+  color: rgba(255,255,255,.5);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-size: clamp(.92rem, 2.8vw, 1.28rem);
+}
+
+.orchidea-card-page .orchidea-card-switch::before {
+  content: "▣";
+  margin-right: 10px;
+  opacity: .75;
+}
+
+.orchidea-card-page .orchidea-card-switch.is-active {
+  color: #14070d;
+  background: linear-gradient(135deg, #ffe78b 0%, #f4c761 55%, #ffc07e 100%);
+  box-shadow: 0 0 18px rgba(242, 201, 97, .38), inset 0 2px 0 rgba(255,255,255,.34);
+}
+
+.orchidea-card-page .orchidea-card-status {
+  display: none;
+}
+
+.orchidea-card-page .orchidea-card-flip-scene {
+  width: min(100%, 840px);
+  margin-inline: auto;
+  aspect-ratio: 1.62;
+  min-height: 0;
+  perspective: 1500px;
+}
+
+.orchidea-card-page .orchidea-card-flip-scene::before {
+  inset: 3% 1% -4%;
+  background: radial-gradient(circle at center, rgba(255, 56, 212, .26), rgba(242, 201, 97, .10) 45%, transparent 70%);
+  filter: blur(24px);
+}
+
+.orchidea-card-page .orchidea-pass-card {
+  border-radius: clamp(24px, 4vw, 38px);
+  border: 0;
+  background: #f8f8f8;
+  box-shadow: 0 26px 90px rgba(0,0,0,.46);
+}
+
+.orchidea-card-page .orchidea-pass-card-front {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.98), rgba(255,255,255,.92) 52%, rgba(240,240,240,.95) 100%);
+}
+
+.orchidea-card-page .orchidea-pass-card-front::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,56,212,.32), rgba(255,255,255,.88));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.orchidea-card-page .orchidea-pass-lines {
+  width: 34%;
+  opacity: .55;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 99, 214, .54) 0 2px,
+    transparent 2px 16px
+  );
+}
+
+.orchidea-card-page .orchidea-pass-lines.left {
+  clip-path: polygon(0 0, 58% 0, 100% 100%, 0 100%);
+}
+
+.orchidea-card-page .orchidea-pass-lines.right {
+  clip-path: polygon(42% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.orchidea-card-page .orchidea-pass-brand-centered {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: clamp(12px, 2.5vw, 22px);
+  padding: clamp(30px, 6vw, 70px);
+}
+
+.orchidea-card-page .orchidea-pass-logo {
+  width: min(48%, 340px);
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,.12));
+}
+
+.orchidea-card-page .orchidea-pass-qr-shell-main {
+  width: min(172px, 24vw);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.orchidea-card-page .orchidea-pass-qr {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+}
+
+.orchidea-card-page .orchidea-pass-front-caption {
+  position: absolute;
+  left: clamp(18px, 4vw, 34px);
+  right: clamp(18px, 4vw, 34px);
+  bottom: clamp(14px, 3vw, 24px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.68);
+  color: #211421;
+  border: 1px solid rgba(0,0,0,.05);
+}
+
+.orchidea-card-page .orchidea-pass-front-caption strong,
+.orchidea-card-page .orchidea-pass-front-caption span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orchidea-card-page .orchidea-pass-front-caption strong {
+  font-weight: 1000;
+}
+
+.orchidea-card-page .orchidea-pass-front-caption span {
+  color: rgba(33, 20, 33, .68);
+}
+
+.orchidea-card-page .orchidea-pass-card-back {
+  background:
+    radial-gradient(circle at 80% 10%, rgba(255, 56, 212, .22), transparent 36%),
+    linear-gradient(135deg, #130616, #050208);
+}
+
+.orchidea-card-page .orchidea-pass-back-row {
+  border-color: rgba(255, 56, 212, .28);
+  background: rgba(255,255,255,.06);
+}
+
+.orchidea-card-page .orchidea-pass-back-row span,
+.orchidea-card-page .orchidea-pass-back-row strong {
+  color: #fff;
+}
+
+@media (max-width: 620px) {
+  .orchidea-card-page .orchidea-card-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .orchidea-card-page .orchidea-card-flip-scene {
+    aspect-ratio: 1.58;
+  }
+
+  .orchidea-card-page .orchidea-pass-brand-centered {
+    padding: 24px 18px 42px;
+  }
+
+  .orchidea-card-page .orchidea-pass-logo {
+    width: min(58%, 250px);
+  }
+
+  .orchidea-card-page .orchidea-pass-qr-shell-main {
+    width: min(128px, 32vw);
+  }
+
+  .orchidea-card-page .orchidea-pass-front-caption {
+    display: none;
+  }
+}
+
+/* QR sempre ancorato al centro della tessera, su mobile e desktop */
+.orchidea-card-page .orchidea-pass-brand-centered {
+  display: block;
+  padding: 0;
+}
+
+.orchidea-card-page .orchidea-pass-brand-centered .orchidea-pass-logo {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: min(46%, 320px);
+  max-height: 34%;
+  object-fit: contain;
+}
+
+.orchidea-card-page .orchidea-pass-qr-shell-main {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  transform: translate(-50%, -50%);
+  width: min(170px, 21%);
+  aspect-ratio: 1;
+}
+
+.orchidea-card-page .orchidea-pass-qr,
+.orchidea-card-page .orchidea-pass-qr-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 620px) {
+  .orchidea-card-page .orchidea-pass-brand-centered .orchidea-pass-logo {
+    top: 38%;
+    width: min(54%, 210px);
+    max-height: 34%;
+  }
+
+  .orchidea-card-page .orchidea-pass-qr-shell-main {
+    top: 67%;
+    width: min(118px, 30%);
+  }
+}

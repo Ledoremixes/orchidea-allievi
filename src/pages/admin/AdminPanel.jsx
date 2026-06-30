@@ -56,6 +56,7 @@ const adminSections = [
   { id: "payments", label: "Pagamenti", icon: "€" },
   { id: "teachers", label: "Insegnanti", icon: "♬" },
   { id: "videos", label: "Video", icon: "▶" },
+  { id: "home_showcase", label: "Home app", icon: "✹" },
 ];
 
 const STUDENT_PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
@@ -511,6 +512,8 @@ export default function AdminPanel() {
   const [courses, setCourses] = useState([]);
   const [payments, setPayments] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [homeShowcaseIds, setHomeShowcaseIds] = useState([]);
+  const [savingHomeShowcase, setSavingHomeShowcase] = useState(false);
   const [enrollments, setEnrollments] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [teacherAssignments, setTeacherAssignments] = useState([]);
@@ -574,7 +577,7 @@ export default function AdminPanel() {
     setLoading(true);
     setError("");
 
-    const [studentsResult, coursesResult, paymentsResult, videosResult, enrollmentsResult, teachersResult, teacherAssignmentsResult] = await Promise.all([
+    const [studentsResult, coursesResult, paymentsResult, videosResult, enrollmentsResult, teachersResult, teacherAssignmentsResult, homeShowcaseResult] = await Promise.all([
       supabase
         .from("tesseramenti")
         .select("id, nome, cognome, nascita, luogo, cf, email, telefono, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
@@ -607,6 +610,11 @@ export default function AdminPanel() {
         .from("insegnanti_corsi")
         .select("id, insegnante_id, corso_id, quota_tipo, quota_valore, attivo, insegnanti(id, nome), corsi(id, nome, livello)")
         .eq("attivo", true),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "home_course_showcase_ids")
+        .maybeSingle(),
     ]);
 
     const firstError = [studentsResult, coursesResult, paymentsResult, videosResult, enrollmentsResult].find((r) => r.error)?.error;
@@ -618,6 +626,11 @@ export default function AdminPanel() {
       setCourses(coursesResult.data || []);
       setPayments(paymentsResult.data || []);
       setVideos(videosResult.data || []);
+      setHomeShowcaseIds(
+        !homeShowcaseResult.error && Array.isArray(homeShowcaseResult.data?.value)
+          ? homeShowcaseResult.data.value
+          : []
+      );
       setEnrollments(enrollmentsResult.data || []);
       setTeachers(teachersResult.error ? [] : teachersResult.data || []);
       setTeacherAssignments(teacherAssignmentsResult.error ? [] : teacherAssignmentsResult.data || []);
@@ -648,6 +661,22 @@ export default function AdminPanel() {
   }, [totalStudentPages]);
 
   const activeCourses = useMemo(() => courses.filter((course) => course.attivo), [courses]);
+  const homeShowcaseCourses = useMemo(() => {
+    function dayWeight(value) {
+      const clean = String(value || "").toLowerCase();
+      const days = ["luned", "marted", "mercoled", "gioved", "venerd", "sabato", "domenica"];
+      const index = days.findIndex((day) => clean.includes(day));
+      return index === -1 ? 99 : index;
+    }
+
+    return [...courses].sort((a, b) => {
+      const byPublished = Number(homeShowcaseIds.includes(b.id)) - Number(homeShowcaseIds.includes(a.id));
+      if (byPublished !== 0) return byPublished;
+      const byDay = dayWeight(a.giorno_settimana) - dayWeight(b.giorno_settimana);
+      if (byDay !== 0) return byDay;
+      return String(a.ora_inizio || "99:99").localeCompare(String(b.ora_inizio || "99:99"));
+    });
+  }, [courses, homeShowcaseIds]);
 
   const selectedStudent = useMemo(
     () => students.find((student) => student.id === selectedStudentId) || null,
@@ -1233,6 +1262,39 @@ export default function AdminPanel() {
   function goToSection(sectionId) {
     setActiveSection(sectionId);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function toggleHomeShowcaseCourse(courseId) {
+    setHomeShowcaseIds((current) => {
+      if (current.includes(courseId)) return current.filter((id) => id !== courseId);
+      return [...current, courseId];
+    });
+  }
+
+  async function handleSaveHomeShowcase() {
+    setSavingHomeShowcase(true);
+
+    const orderedIds = homeShowcaseCourses
+      .filter((course) => homeShowcaseIds.includes(course.id))
+      .map((course) => course.id);
+
+    const { error: saveError } = await supabase
+      .from("app_settings")
+      .upsert({
+        key: "home_course_showcase_ids",
+        value: orderedIds,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+
+    setSavingHomeShowcase(false);
+
+    if (saveError) {
+      showError(`${saveError.message}. Se è la prima volta, esegui lo script SQL supabase/step-13-home-showcase-settings.sql.`);
+      return;
+    }
+
+    setHomeShowcaseIds(orderedIds);
+    showSuccess("Locandine della home aggiornate.");
   }
 
   function openStudentDetail(student) {
@@ -4598,6 +4660,59 @@ export default function AdminPanel() {
     );
   }
 
+  function renderHomeShowcase() {
+    const publishedCount = homeShowcaseIds.length;
+
+    return (
+      <div className="admin-section-stack home-showcase-admin-section">
+        <div className="content-card admin-card home-showcase-admin-hero">
+          <div>
+            <span className="eyebrow">Home app</span>
+            <h3>Locandine pubblicate nel carosello</h3>
+            <p className="admin-help-text">Scegli quali locandine far vedere nella home degli allievi. Se non selezioni nulla, l’app mostra automaticamente i corsi attivi.</p>
+          </div>
+          <div className="home-showcase-admin-actions">
+            <span className="status-pill neutral">{publishedCount} pubblicate</span>
+            <button className="primary-btn slim" type="button" onClick={handleSaveHomeShowcase} disabled={savingHomeShowcase}>
+              {savingHomeShowcase ? "Salvo…" : "Salva home"}
+            </button>
+          </div>
+        </div>
+
+        <div className="home-showcase-admin-toolbar">
+          <button className="mini-btn" type="button" onClick={() => setHomeShowcaseIds(activeCourses.map((course) => course.id))}>Pubblica tutti gli attivi</button>
+          <button className="mini-btn" type="button" onClick={() => setHomeShowcaseIds([])}>Svuota selezione</button>
+        </div>
+
+        <div className="home-showcase-admin-grid">
+          {homeShowcaseCourses.map((course) => {
+            const selected = homeShowcaseIds.includes(course.id);
+            const visual = getCourseVisual(course);
+            return (
+              <article className={`home-showcase-course-card ${selected ? "selected" : ""} ${course.attivo ? "" : "inactive"}`} key={course.id}>
+                <button type="button" className="home-showcase-select-btn" onClick={() => toggleHomeShowcaseCourse(course.id)} aria-pressed={selected}>
+                  <img src={visual.image} alt={`${course.nome || "Corso"} ${course.livello || ""}`} loading="lazy" decoding="async" />
+                  <span className="home-showcase-check">{selected ? "✓ Pubblicata" : "Pubblica"}</span>
+                </button>
+                <div className="home-showcase-course-meta-admin">
+                  <strong>{course.nome || "Corso senza nome"}</strong>
+                  <span>{course.livello || "Livello non impostato"}</span>
+                  <small>{course.giorno_settimana || "Giorno"} · {formatTime(course.ora_inizio)} - {formatTime(course.ora_fine)}</small>
+                </div>
+              </article>
+            );
+          })}
+          {homeShowcaseCourses.length === 0 && (
+            <div className="content-card payments-empty-state">
+              <h4>Nessun corso disponibile</h4>
+              <p>Crea almeno un corso nella sezione Corsi, poi torna qui per scegliere le locandine della home.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function renderActiveSection() {
     switch (activeSection) {
       case "students": return renderStudents();
@@ -4606,6 +4721,7 @@ export default function AdminPanel() {
       case "payments": return renderPayments();
       case "teachers": return renderTeachers();
       case "videos": return renderVideos();
+      case "home_showcase": return renderHomeShowcase();
       default: return renderOverview();
     }
   }

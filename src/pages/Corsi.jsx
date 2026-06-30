@@ -98,54 +98,78 @@ export default function Corsi() {
   }, [enrichedCourses]);
 
   return (
-    <section className="page-section comfort-page user-courses-page">
-      <div className="comfort-hero courses-comfort-hero">
-        <div className="comfort-hero-copy">
-          <span className="eyebrow">Calendario corsi</span>
-          <h2>I tuoi corsi, ordinati e chiari.</h2>
-          <p>
-            Qui trovi solo le informazioni importanti: giorno, orario, sala, quota e copertura del pagamento. Tutto in
-            una visualizzazione comoda anche da telefono.
-          </p>
-        </div>
-
-        <div className="comfort-hero-mini-grid">
-          <div>
-            <span>Attivi</span>
-            <strong>{loading ? "…" : activeCourses.length}</strong>
-          </div>
-          <div>
-            <span>Coperti</span>
-            <strong>{loading ? "…" : coveredCourses}</strong>
-          </div>
-          <div>
-            <span>Quota stimata</span>
-            <strong>{loading ? "…" : formatMoney(monthlyTotal)}</strong>
-          </div>
+    <section className="page-section orchidea-page orchidea-courses-page">
+      <div className="orchidea-section-heading">
+        <span className="orchidea-heading-mark" aria-hidden="true" />
+        <div>
+          <span className="orchidea-kicker">Calendario corsi</span>
+          <h2>Tutti i corsi</h2>
         </div>
       </div>
 
-
+      <div className="courses-glow-summary">
+        <div>
+          <span>Attivi</span>
+          <strong>{loading ? "…" : activeCourses.length}</strong>
+        </div>
+        <div>
+          <span>Coperti</span>
+          <strong>{loading ? "…" : coveredCourses}</strong>
+        </div>
+        <div>
+          <span>Quota stimata</span>
+          <strong>{loading ? "…" : formatMoney(monthlyTotal)}</strong>
+        </div>
+      </div>
 
       {error && <div className="alert error">{error}</div>}
 
       {loading ? (
-        <div className="content-card comfort-loading-card">Carico corsi…</div>
+        <div className="neo-panel comfort-loading-card">Carico corsi…</div>
       ) : courses.length === 0 ? (
-        <div className="content-card empty-card comfort-empty-state large">
+        <div className="neo-panel comfort-empty-state large">
           <strong>Nessun corso collegato</strong>
           <span>Quando la segreteria ti iscriverà a un corso, lo vedrai qui con giorno, orario e sala.</span>
         </div>
       ) : (
         <>
-          <div className="content-card weekly-calendar-card">
-            <div className="card-head weekly-calendar-head">
+          <div className="course-poster-gallery">
+            {enrichedCourses.map((item) => {
+              const visual = getCourseVisual(item.corsi);
+              const isActive = item.active;
+              const amount = item.tariffa_mensile ?? item.corsi?.prezzo_mensile;
+
+              return (
+                <article className={`course-poster-card-large ${isActive ? "is-active" : "is-paused"}`} key={item.id}>
+                  <img
+                    src={visual.image}
+                    alt={`${item.corsi?.nome || "Corso"} ${item.corsi?.livello || ""}`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+
+                  <div className="course-poster-info">
+                    <div>
+                      <span>{item.corsi?.nome || "Corso"}</span>
+                      <strong>{item.corsi?.livello || "Livello"}</strong>
+                      <small>
+                        {item.corsi?.giorno_settimana || "Giorno"} · {formatTime(item.corsi?.ora_inizio)} - {formatTime(item.corsi?.ora_fine)}
+                      </small>
+                    </div>
+                    <em>{formatMoney(amount)}</em>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <section className="neo-panel weekly-calendar-card neo-weekly-panel">
+            <div className="neo-panel-title with-link">
               <div>
-                <span className="eyebrow">Calendario settimanale</span>
-                <h3>La tua settimana Orchidea</h3>
-                <p>Giorni e orari sono raggruppati come un calendario, così da capire subito quando balli.</p>
+                <span>◷</span>
+                <h3>La tua settimana</h3>
               </div>
-              <span className="section-counter">{enrichedCourses.length}</span>
+              <small>{enrichedCourses.length} iscrizioni</small>
             </div>
 
             <div className="weekly-calendar-grid">
@@ -180,118 +204,7 @@ export default function Corsi() {
                 </section>
               ))}
             </div>
-          </div>
-
-          {activeCourses.length > 0 && (
-            <div className="content-card comfort-panel comfort-poster-strip-panel course-posters-panel">
-              <div className="card-head comfort-panel-head">
-                <div>
-                  <span className="eyebrow">Locandine ufficiali</span>
-                  <h3>I tuoi corsi in versione visual</h3>
-                </div>
-                <span className="small-link static">{activeCourses.length} corsi attivi</span>
-              </div>
-
-              <div className="comfort-poster-strip">
-                {activeCourses.map((item) => {
-                  const visual = getCourseVisual(item.corsi);
-                  return (
-                    <article
-                      className="comfort-poster-strip-card poster-card-safe"
-                      key={`active-${item.id}`}
-                      style={{ "--poster-image": `url(${visual.image})` }}
-                    >
-                      <div className="poster-image-shell">
-                        <img className="comfort-poster-full-img" src={visual.image} alt={`${item.corsi?.nome || "Corso"} ${item.corsi?.livello || ""}`} />
-                      </div>
-                      <div className="comfort-poster-strip-copy">
-                        <span>{item.corsi?.nome || "Corso"}</span>
-                        <strong>{item.corsi?.livello || "Livello"}</strong>
-                        <small>
-                          {item.corsi?.giorno_settimana || "—"}
-                          {item.corsi?.ora_inizio ? ` · ${formatTime(item.corsi?.ora_inizio)}` : ""}
-                        </small>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="card-head comfort-panel-head detail-course-head">
-            <div>
-              <span className="eyebrow">Dettaglio iscrizioni</span>
-              <h3>Quote, sala e copertura</h3>
-            </div>
-          </div>
-
-          <div className="comfort-course-list detail-course-list">
-          {enrichedCourses.map((item) => {
-            const isActive = item.active;
-            const amount = item.tariffa_mensile ?? item.corsi?.prezzo_mensile;
-            const visual = getCourseVisual(item.corsi);
-
-            return (
-              <article
-                className={`comfort-course-card ${isActive ? "is-active" : "is-paused"}`}
-                key={item.id}
-                style={{ "--course-poster": `url(${visual.image})` }}
-              >
-                <div className="comfort-course-date-card">
-                  <div className="comfort-course-date-glass">
-                    <span>{item.corsi?.giorno_settimana || "Giorno"}</span>
-                    <strong>{formatTime(item.corsi?.ora_inizio)}</strong>
-                    <small>{formatTime(item.corsi?.ora_fine)}</small>
-                  </div>
-                </div>
-
-                <div className="comfort-course-main">
-                  <div className="comfort-course-title-row">
-                    <div>
-                      <span className="eyebrow">{item.corsi?.nome || "Corso"}</span>
-                      <h3>{item.corsi?.livello || "Livello da definire"}</h3>
-                    </div>
-                    <span className={isActive ? "status-pill ok" : "status-pill warn"}>
-                      {isActive ? "attivo" : item.stato}
-                    </span>
-                  </div>
-
-                  <div className="comfort-course-info-grid">
-                    <div>
-                      <span>Sala</span>
-                      <strong>{item.corsi?.sala || "—"}</strong>
-                    </div>
-                    <div>
-                      <span>Quota mese</span>
-                      <strong>{formatMoney(amount)}</strong>
-                    </div>
-                    <div>
-                      <span>Iscrizione</span>
-                      <strong>{formatDate(item.data_iscrizione)}</strong>
-                    </div>
-                  </div>
-
-                  {item.paidPayment ? (
-                    <div className="comfort-course-payment paid">
-                      <span>Copertura pagamento</span>
-                      <strong>Pagato fino al {formatDate(item.paidPayment.periodo_fine)}</strong>
-                      <small>Totale versato {formatMoney(item.paidPayment.importo)} · {item.paidPayment.copertura_mesi || 1} mese/i</small>
-                    </div>
-                  ) : (
-                    <div className="comfort-course-payment due">
-                      <span>Copertura pagamento</span>
-                      <strong>Da verificare in segreteria</strong>
-                      <small>La quota apparirà nei pagamenti appena viene generata.</small>
-                    </div>
-                  )}
-
-                  {item.note && <p className="course-note comfort-note">{item.note}</p>}
-                </div>
-              </article>
-            );
-          })}
-          </div>
+          </section>
         </>
       )}
     </section>

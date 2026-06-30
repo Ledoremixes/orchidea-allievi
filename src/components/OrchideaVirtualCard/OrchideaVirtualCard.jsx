@@ -122,20 +122,10 @@ export default function OrchideaVirtualCard({
               <div className="orchidea-pass-lines right" aria-hidden="true" />
             </div>
 
-            <div className="orchidea-pass-brand">
+            <div className="orchidea-pass-brand orchidea-pass-brand-centered">
               <img src={logoSrc} alt="Orchidea" className="orchidea-pass-logo" />
-            </div>
 
-            <div className="orchidea-pass-footer">
-              <div className="orchidea-pass-footer-text">
-                <span>Tessera digitale</span>
-                <strong>{cardData.cardNumber}</strong>
-                <small>
-                  {cardData.fullName} · Stagione {cardData.season}
-                </small>
-              </div>
-
-              <div className="orchidea-pass-qr-shell">
+              <div className="orchidea-pass-qr-shell orchidea-pass-qr-shell-main">
                 {qrCodeUrl ? (
                   <img src={qrCodeUrl} alt="QR code tessera Orchidea" className="orchidea-pass-qr" />
                 ) : (
@@ -144,6 +134,11 @@ export default function OrchideaVirtualCard({
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="orchidea-pass-front-caption">
+              <strong>{cardData.cardNumber}</strong>
+              <span>{cardData.fullName} · Stagione {cardData.season}</span>
             </div>
           </article>
 

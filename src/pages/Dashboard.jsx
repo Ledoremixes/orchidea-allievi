@@ -11,14 +11,6 @@ function getFirstName(student = {}) {
   return String(fullName).trim().split(" ")[0] || "Allievo";
 }
 
-function getFullName(student = {}) {
-  return `${student.nome || ""} ${student.cognome || ""}`.trim() || student.email || "Allievo Orchidea";
-}
-
-function getCourseTitle(course) {
-  return [course?.nome, course?.livello].filter(Boolean).join(" · ") || "Corso Orchidea";
-}
-
 function courseSortValue(item) {
   const day = String(item.corsi?.giorno_settimana || "").toLowerCase();
   const dayIndex = DAY_ORDER.indexOf(day);
@@ -29,6 +21,9 @@ export default function Dashboard() {
   const { student } = useOutletContext();
   const [courses, setCourses] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [publicCourses, setPublicCourses] = useState([]);
+  const [homeShowcaseIds, setHomeShowcaseIds] = useState([]);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,10 +32,10 @@ export default function Dashboard() {
     async function loadData() {
       setLoading(true);
 
-      const [coursesResult, paymentsResult] = await Promise.all([
+      const [coursesResult, paymentsResult, publicCoursesResult, homeShowcaseResult] = await Promise.all([
         supabase
           .from("iscrizioni_corsi")
-          .select("id, stato, data_iscrizione, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)")
+          .select("id, stato, rinnovo_attivo, data_iscrizione, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)")
           .eq("tesseramento_id", student.id)
           .eq("stato", "attivo"),
         supabase
@@ -48,11 +43,26 @@ export default function Dashboard() {
           .select("id, descrizione, importo, periodo, scadenza, stato, metodo, pagato_il")
           .eq("tesseramento_id", student.id)
           .order("scadenza", { ascending: true }),
+        supabase
+          .from("corsi")
+          .select("id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile, attivo")
+          .eq("attivo", true),
+        supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "home_course_showcase_ids")
+          .maybeSingle(),
       ]);
 
       if (!mounted) return;
       setCourses(coursesResult.data || []);
       setPayments(paymentsResult.data || []);
+      setPublicCourses(publicCoursesResult.error ? [] : publicCoursesResult.data || []);
+      setHomeShowcaseIds(
+        !homeShowcaseResult.error && Array.isArray(homeShowcaseResult.data?.value)
+          ? homeShowcaseResult.data.value
+          : []
+      );
       setLoading(false);
     }
 
@@ -68,189 +78,152 @@ export default function Dashboard() {
     [courses]
   );
 
-  const openPayments = useMemo(
-    () => payments.filter((payment) => payment.stato !== "pagato"),
-    [payments]
-  );
-
-  const paidPayments = useMemo(
-    () => payments.filter((payment) => payment.stato === "pagato"),
-    [payments]
-  );
-
-  const totalOpen = useMemo(
-    () => openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0),
-    [openPayments]
-  );
-
+  const activeCourses = sortedCourses.filter((course) => course.stato === "attivo" && course.rinnovo_attivo !== false);
+  const openPayments = useMemo(() => payments.filter((payment) => payment.stato !== "pagato"), [payments]);
+  const paidPayments = useMemo(() => payments.filter((payment) => payment.stato === "pagato"), [payments]);
+  const totalOpen = useMemo(() => openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0), [openPayments]);
   const nextPayment = openPayments[0] || null;
-  const nextCourse = sortedCourses[0] || null;
-  const featuredCourses = sortedCourses.slice(0, 5);
+  const fallbackShowcaseCourses = publicCourses.length
+    ? [...publicCourses].sort((a, b) => courseSortValue({ corsi: a }).localeCompare(courseSortValue({ corsi: b })))
+    : sortedCourses.map((item) => item.corsi).filter(Boolean);
+  const publishedShowcaseCourses = homeShowcaseIds.length
+    ? homeShowcaseIds.map((id) => fallbackShowcaseCourses.find((course) => course.id === id)).filter(Boolean)
+    : [];
+  const showcaseCourses = publishedShowcaseCourses.length ? publishedShowcaseCourses : fallbackShowcaseCourses;
+  const featuredCourse = showcaseCourses.length ? showcaseCourses[carouselIndex % showcaseCourses.length] : null;
+  const featuredVisual = getCourseVisual(featuredCourse);
   const firstName = getFirstName(student);
-  const fullName = getFullName(student);
-  const nextVisual = getCourseVisual(nextCourse?.corsi);
+  const monthLabel = new Intl.DateTimeFormat("it-IT", { month: "long" }).format(new Date()).toUpperCase();
+
+  useEffect(() => {
+    setCarouselIndex(0);
+  }, [homeShowcaseIds.join("|"), publicCourses.length, courses.length]);
+
+  function goToPreviousShowcase() {
+    setCarouselIndex((index) => (showcaseCourses.length ? (index - 1 + showcaseCourses.length) % showcaseCourses.length : 0));
+  }
+
+  function goToNextShowcase() {
+    setCarouselIndex((index) => (showcaseCourses.length ? (index + 1) % showcaseCourses.length : 0));
+  }
 
   return (
-    <section className="page-section user-dashboard-page home-v2">
-      <div className="home-hero-v2">
-        <div className="home-hero-main-v2">
-          <div className="home-logo-card-v2">
-            <img src="/assets/logo.png" alt="Orchidea" />
-            <span>Area Allievi</span>
-          </div>
-
-          <div className="home-hero-copy-v2">
-            <span className="eyebrow">Benvenuto nel club</span>
-            <h2>Ciao {firstName}, bentornato.</h2>
-            <p>
-              Tutto quello che ti serve è qui: tessera digitale, corsi, pagamenti e video in un’app più semplice,
-              ordinata e bella da usare.
-            </p>
-          </div>
-
-          <div className="home-primary-actions-v2">
-            <Link to="/tessera" className="primary-btn home-main-btn">Mostra tessera</Link>
-            <Link to="/corsi" className="ghost-btn home-main-btn">Vedi calendario</Link>
-            <Link to="/video" className="ghost-btn home-main-btn">Ripassa video</Link>
-          </div>
-        </div>
-
-        <div className="home-status-card-v2">
-          <span>{totalOpen > 0 ? "Da controllare" : "Situazione"}</span>
-          <strong>{loading ? "…" : totalOpen > 0 ? formatMoney(totalOpen) : "Tutto ok"}</strong>
-          <p>
-            {totalOpen > 0
-              ? nextPayment
-                ? `Prossima quota: ${nextPayment.descrizione || "pagamento"}`
-                : "Hai quote aperte nella sezione pagamenti."
-              : "Non risultano pagamenti aperti."}
-          </p>
-          <Link to="/pagamenti" className={totalOpen > 0 ? "primary-btn slim" : "ghost-btn"}>
-            {totalOpen > 0 ? "Apri pagamenti" : "Storico pagamenti"}
-          </Link>
-        </div>
+    <section className="page-section orchidea-page orchidea-home-page">
+      <div className="home-welcome-block">
+        <span className="orchidea-kicker">Benvenuto nel club</span>
+        <h2>Ciao {firstName},<br /><span>bentornato</span></h2>
       </div>
 
-      <div className="home-quick-grid-v2">
-        <Link to="/corsi" className="home-quick-card-v2">
-          <span className="home-quick-icon">◷</span>
-          <div>
-            <small>Corsi attivi</small>
-            <strong>{loading ? "…" : sortedCourses.length}</strong>
-            <p>Orari e sala sempre disponibili.</p>
-          </div>
+      <div className="home-action-grid">
+        <Link to="/tessera" className="home-action-card">
+          <span className="home-action-icon">▣</span>
+          <strong>Mostra<br />tessera</strong>
+          <em>›</em>
         </Link>
-        <Link to="/pagamenti" className={`home-quick-card-v2 ${openPayments.length ? "is-warning" : "is-ok"}`}>
-          <span className="home-quick-icon">€</span>
-          <div>
-            <small>Pagamenti</small>
-            <strong>{loading ? "…" : openPayments.length ? openPayments.length : "Ok"}</strong>
-            <p>{openPayments.length ? "Quote da verificare." : "Nessuna quota aperta."}</p>
-          </div>
+        <Link to="/corsi" className="home-action-card">
+          <span className="home-action-icon">◷</span>
+          <strong>Calendario</strong>
+          <em>›</em>
         </Link>
-        <Link to="/tessera" className="home-quick-card-v2 is-card">
-          <span className="home-quick-icon">◆</span>
-          <div>
-            <small>Tessera</small>
-            <strong>{student.numero_tessera || "Attiva"}</strong>
-            <p>{fullName}</p>
-          </div>
+        <Link to="/video" className="home-action-card">
+          <span className="home-action-icon">▶</span>
+          <strong>Video<br />lezioni</strong>
+          <em>›</em>
         </Link>
       </div>
 
-      <div className="home-main-grid-v2">
-        <div className="content-card home-panel-v2 home-next-course-v2">
-          <div className="home-panel-head-v2">
-            <div>
-              <span className="eyebrow">Prossimo corso</span>
-              <h3>Il tuo appuntamento</h3>
-            </div>
-            <Link to="/corsi" className="small-link">Calendario</Link>
-          </div>
-
-          {nextCourse ? (
-            <div className="home-next-course-card-v2" style={{ "--poster-image": `url(${nextVisual.image})` }}>
-              <div className="home-next-course-poster-v2" />
-              <div className="home-next-course-info-v2">
-                <span>{nextCourse.corsi?.giorno_settimana || "Giorno"}</span>
-                <strong>{formatTime(nextCourse.corsi?.ora_inizio)} - {formatTime(nextCourse.corsi?.ora_fine)}</strong>
-                <h4>{getCourseTitle(nextCourse.corsi)}</h4>
-                <p>{nextCourse.corsi?.sala || "Sala da definire"}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="comfort-empty-state">
-              <strong>Nessun corso attivo</strong>
-              <span>Quando sarai iscritto a un corso, lo vedrai subito qui.</span>
-            </div>
-          )}
+      <section className="neo-panel home-payments-panel">
+        <div className="neo-panel-title">
+          <span>▣</span>
+          <h3>Gestione pagamenti</h3>
         </div>
 
-        <div className="content-card home-panel-v2 home-payment-panel-v2">
-          <div className="home-panel-head-v2">
-            <div>
-              <span className="eyebrow">Pagamenti</span>
-              <h3>Le tue quote</h3>
-            </div>
-            <Link to="/pagamenti" className="small-link">Apri</Link>
+        <div className="home-stat-grid">
+          <div className="home-stat-card magenta">
+            <span>🎓</span>
+            <strong>{loading ? "…" : activeCourses.length}</strong>
+            <small>Corsi<br />attivi</small>
           </div>
-
-          <div className={`home-payment-state-v2 ${openPayments.length ? "has-open" : "is-clear"}`}>
-            <span>{openPayments.length ? "Da saldare" : "Tutto saldato"}</span>
-            <strong>{openPayments.length ? formatMoney(totalOpen) : "0,00 €"}</strong>
-            <small>
-              {openPayments.length
-                ? nextPayment
-                  ? `Scadenza ${formatDate(nextPayment.scadenza)}`
-                  : "Controlla la sezione pagamenti"
-                : `${paidPayments.length} pagamenti in storico`}
-            </small>
-          </div>
-
-          <div className="home-mini-list-v2">
-            {(openPayments.length ? openPayments : paidPayments).slice(0, 3).map((payment) => (
-              <div className="home-mini-row-v2" key={payment.id}>
-                <div>
-                  <strong>{payment.descrizione || "Pagamento"}</strong>
-                  <span>{payment.stato === "pagato" ? `Pagato il ${formatDate(payment.pagato_il)}` : `Scadenza ${formatDate(payment.scadenza)}`}</span>
-                </div>
-                <em>{formatMoney(payment.importo)}</em>
-              </div>
-            ))}
+          <div className="home-stat-card gold">
+            <span>€</span>
+            <strong>{loading ? "…" : openPayments.length || paidPayments.length}</strong>
+            <small>Quote<br />{openPayments.length ? "aperte" : "attive"}</small>
           </div>
         </div>
-      </div>
 
-      {featuredCourses.length > 0 && (
-        <div className="content-card home-panel-v2 home-posters-panel-v2">
-          <div className="home-panel-head-v2">
+        <div className={`payment-status-ribbon ${openPayments.length ? "is-warning" : "is-ok"}`}>
+          <span>{openPayments.length ? "!" : "✓"}</span>
+          <strong>
+            {openPayments.length
+              ? `${formatMoney(totalOpen)} da saldare`
+              : `Quote saldate per il mese di ${monthLabel}`}
+          </strong>
+        </div>
+
+        <Link to="/pagamenti" className="home-payments-cta">
+          <span>▣</span>
+          <strong>Pagamenti</strong>
+          <em>›</em>
+        </Link>
+      </section>
+
+      {featuredCourse ? (
+        <section className="neo-panel home-course-showcase">
+          <div className="neo-panel-title with-link">
             <div>
-              <span className="eyebrow">Orchidea visual</span>
+              <span>🏆</span>
               <h3>I tuoi corsi</h3>
             </div>
-            <Link to="/corsi" className="small-link">Vedi tutti</Link>
+            <Link to="/corsi">Vedi tutti</Link>
           </div>
 
-          <div className="home-poster-strip-v2">
-            {featuredCourses.map((item) => {
-              const visual = getCourseVisual(item.corsi);
-              return (
-                <article
-                  className="home-poster-card-v2"
-                  key={`home-poster-${item.id}`}
-                  style={{ "--poster-image": `url(${visual.image})` }}
-                >
-                  <div>
-                    <span>{item.corsi?.nome || "Corso"}</span>
-                    <strong>{item.corsi?.livello || "Livello"}</strong>
-                    <small>{item.corsi?.giorno_settimana || "—"} · {formatTime(item.corsi?.ora_inizio)}</small>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="showcase-poster-wrap">
+            {showcaseCourses.length > 1 && (
+              <button type="button" className="showcase-arrow left" aria-label="Corso precedente" onClick={goToPreviousShowcase}>‹</button>
+            )}
+            <img
+              src={featuredVisual.image}
+              alt={`${featuredCourse.nome || "Corso"} ${featuredCourse.livello || ""}`}
+              className="showcase-course-poster"
+              loading="lazy"
+              decoding="async"
+            />
+            {showcaseCourses.length > 1 && (
+              <button type="button" className="showcase-arrow right" aria-label="Corso successivo" onClick={goToNextShowcase}>›</button>
+            )}
           </div>
-        </div>
+
+          <div className="showcase-course-meta">
+            <strong>{featuredCourse.nome || "Corso Orchidea"}</strong>
+            <span>{featuredCourse.livello || "Livello"} · {featuredCourse.giorno_settimana || "Giorno"} {formatTime(featuredCourse.ora_inizio)}</span>
+          </div>
+
+          <div className="showcase-dots" aria-label="Locandine pubblicate">
+            {showcaseCourses.map((item, index) => (
+              <button
+                key={item.id || index}
+                type="button"
+                className={index === carouselIndex % showcaseCourses.length ? "active" : ""}
+                aria-label={`Mostra locandina ${index + 1}`}
+                onClick={() => setCarouselIndex(index)}
+              />
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="neo-panel comfort-empty-state large">
+          <strong>Nessun corso attivo</strong>
+          <span>Quando sarai iscritto a un corso, lo vedrai subito qui.</span>
+        </section>
       )}
+
+      {nextPayment ? (
+        <section className="neo-panel home-next-payment-mini">
+          <span>Prossima scadenza</span>
+          <strong>{formatMoney(nextPayment.importo)}</strong>
+          <small>{nextPayment.descrizione || "Quota Orchidea"} · {formatDate(nextPayment.scadenza)}</small>
+        </section>
+      ) : null}
     </section>
   );
 }

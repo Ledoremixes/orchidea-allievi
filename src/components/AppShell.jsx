@@ -1,17 +1,87 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
-import { initials } from "../lib/format.js";
 
 const studentNavItems = [
-  { to: "/", label: "Home", icon: "✦", end: true },
-  { to: "/tessera", label: "Tessera", icon: "◆" },
-  { to: "/corsi", label: "Corsi", icon: "◷" },
-  { to: "/pagamenti", label: "Pagamenti", icon: "€" },
-  { to: "/video", label: "Video", icon: "▶" },
+  { to: "/", label: "Home", icon: "home", end: true },
+  { to: "/tessera", label: "Tessera", icon: "card" },
+  { to: "/corsi", label: "Corsi", icon: "courses" },
+  { to: "/pagamenti", label: "Quote", icon: "euro" },
+  { to: "/video", label: "Video", icon: "play" },
 ];
 
-const adminNavItem = { to: "/admin", label: "Admin", icon: "⚙" };
+const adminNavItem = { to: "/admin", label: "Admin", icon: "admin" };
+
+function NavIcon({ name }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.9",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+  };
+
+  switch (name) {
+    case "home":
+      return (
+        <svg {...common}>
+          <path d="M3 11.5 12 4l9 7.5" />
+          <path d="M5.5 10.5V20h4.8v-5.4h3.4V20h4.8v-9.5" />
+        </svg>
+      );
+    case "card":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="5.5" width="17" height="13" rx="2.3" />
+          <path d="M3.5 9h17" />
+          <path d="M7 14h4" />
+          <path d="M15 14h2" />
+        </svg>
+      );
+    case "courses":
+      return (
+        <svg {...common}>
+          <path d="M4 7.5 12 4l8 3.5-8 3.5-8-3.5Z" />
+          <path d="M7 10v4.2c0 1.35 2.25 2.8 5 2.8s5-1.45 5-2.8V10" />
+          <path d="M20 8.2v5.3" />
+        </svg>
+      );
+    case "euro":
+      return (
+        <svg {...common}>
+          <path d="M17.5 6.2A6.6 6.6 0 0 0 12.4 4C8.9 4 6.2 6.7 6.2 12s2.7 8 6.2 8a6.6 6.6 0 0 0 5.1-2.2" />
+          <path d="M4 10h10.3" />
+          <path d="M4 14h9.3" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="m10 8.7 5.2 3.3-5.2 3.3V8.7Z" />
+        </svg>
+      );
+    case "admin":
+      return (
+        <svg {...common}>
+          <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .35 1.86l.05.05a2.05 2.05 0 0 1-2.9 2.9l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .36 1.7 1.7 0 0 0-.7 1.38V21a2.05 2.05 0 0 1-4.1 0v-.08a1.7 1.7 0 0 0-.7-1.38 1.7 1.7 0 0 0-1-.36 1.7 1.7 0 0 0-1.86.35l-.05.05a2.05 2.05 0 0 1-2.9-2.9l.05-.05A1.7 1.7 0 0 0 3.1 15a1.7 1.7 0 0 0-.36-1A1.7 1.7 0 0 0 1.36 13H1.3a2.05 2.05 0 0 1 0-4.1h.08A1.7 1.7 0 0 0 2.76 8.2a1.7 1.7 0 0 0 .36-1 1.7 1.7 0 0 0-.35-1.86l-.05-.05a2.05 2.05 0 0 1 2.9-2.9l.05.05A1.7 1.7 0 0 0 7.5 2.8a1.7 1.7 0 0 0 1-.36A1.7 1.7 0 0 0 9.2 1.06V1a2.05 2.05 0 0 1 4.1 0v.08a1.7 1.7 0 0 0 .7 1.38 1.7 1.7 0 0 0 1 .36 1.7 1.7 0 0 0 1.86-.35l.05-.05a2.05 2.05 0 0 1 2.9 2.9l-.05.05A1.7 1.7 0 0 0 19.4 7.2a1.7 1.7 0 0 0 .36 1 1.7 1.7 0 0 0 1.38.7H21a2.05 2.05 0 0 1 0 4.1h-.08a1.7 1.7 0 0 0-1.38.7 1.7 1.7 0 0 0-.14 1.3Z" />
+        </svg>
+      );
+    case "logout":
+      return (
+        <svg {...common}>
+          <path d="M10 17.5H6.8A2.8 2.8 0 0 1 4 14.7V9.3a2.8 2.8 0 0 1 2.8-2.8H10" />
+          <path d="M14 8l4 4-4 4" />
+          <path d="M8.5 12H18" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -75,45 +145,21 @@ export default function AppShell() {
   }
 
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <img src="/assets/logo.png" alt="Orchidea" className="brand-logo" />
-          <div>
-            <span className="eyebrow">Area riservata</span>
-            <strong>Orchidea Allievi</strong>
+    <div className="app-layout app-layout-revolution orchidea-native-shell">
+      <main className={`main-area ${isAdminPath ? "is-admin-area" : "is-student-area"}`}>
+        <header className="orchidea-app-header" aria-label="Intestazione Orchidea">
+          <div className="orchidea-header-logo">
+            <img src="/assets/logo.png" alt="Orchidea" />
           </div>
-        </div>
 
-        <nav className="side-nav" aria-label="Menu principale">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <span>{item.icon}</span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="sidebar-profile">
-          <div className="avatar">{initials(student?.nome, student?.cognome)}</div>
-          <div className="profile-text">
-            <strong>{displayName}</strong>
-            <span>{isAdmin ? "Admin abilitato" : student?.email || sessionUser?.email || "Accesso allievo"}</span>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main-area">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">Benvenuto nel club</span>
-            <h1>{isAdminPath ? "Pannello admin" : displayName}</h1>
-          </div>
-          <button type="button" className="ghost-btn" onClick={handleLogout}>Esci</button>
+          <button type="button" className="orchidea-logout-button" onClick={handleLogout}>
+            <NavIcon name="logout" />
+            <span>Esci</span>
+          </button>
         </header>
 
         {loading ? (
-          <div className="content-card">Sto caricando il mondo Orchidea…</div>
+          <div className="content-card app-loading-card">Sto caricando il mondo Orchidea…</div>
         ) : studentError ? (
           <div className="content-card error-card">
             <h2>Errore collegamento tesserato</h2>
@@ -130,14 +176,14 @@ export default function AppShell() {
             {isAdmin && <button className="primary-btn slim" type="button" onClick={() => navigate("/admin")}>Vai al pannello admin</button>}
           </div>
         ) : (
-          <Outlet context={{ student, isAdmin, sessionUser }} />
+          <Outlet context={{ student, isAdmin, sessionUser, displayName }} />
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="Menu mobile">
+      <nav className="bottom-nav orchidea-bottom-nav" aria-label="Menu principale">
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} className="bottom-link">
-            <span>{item.icon}</span>
+            <NavIcon name={item.icon} />
             <small>{item.label}</small>
           </NavLink>
         ))}
