@@ -11330,3 +11330,240 @@ body::before {
   background: var(--orchidea-pink-soft);
   box-shadow: 0 0 16px rgba(255, 56, 212, .7);
 }
+
+/* ==========================================================
+   STEP 52 - Pagamenti sincronizzati + dock mobile centrato
+   ========================================================== */
+.orchidea-native-shell,
+.orchidea-native-shell .main-area,
+.orchidea-page {
+  max-width: 100%;
+}
+
+.payments-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.payments-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid rgba(100, 255, 141, .24);
+  border-radius: 999px;
+  color: rgba(218, 255, 232, .88);
+  background: rgba(38, 164, 83, .10);
+  font-size: .72rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.payments-live-badge i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #70f5a5;
+  box-shadow: 0 0 12px rgba(112, 245, 165, .78);
+}
+
+.payment-due-panel {
+  border-color: rgba(255, 208, 90, .28);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 185, 43, .11), transparent 34%),
+    linear-gradient(145deg, rgba(34, 14, 38, .86), rgba(10, 5, 16, .82));
+}
+
+.payment-due-panel .neo-panel-title > span {
+  color: #ffe18e;
+  border-color: rgba(255, 208, 90, .28);
+  background: rgba(255, 185, 43, .10);
+}
+
+.payment-history-row.is-open {
+  background: linear-gradient(90deg, rgba(255, 185, 43, .065), transparent 46%);
+}
+
+.payment-history-row.is-open .payment-history-check {
+  color: #ffe18e;
+  border-color: rgba(255, 208, 90, .74);
+  box-shadow: 0 0 14px rgba(255, 208, 90, .13);
+}
+
+.payment-history-row.is-open em {
+  color: #ffe18e;
+  font-weight: 900;
+}
+
+.payment-history-row.is-paid .payment-history-check {
+  color: #70f5a5;
+  border-color: rgba(112, 245, 165, .68);
+}
+
+.payment-history-empty {
+  padding: 18px;
+  border: 1px dashed rgba(255,255,255,.13);
+  border-radius: 18px;
+  color: rgba(255,248,255,.62);
+  text-align: center;
+  background: rgba(0,0,0,.14);
+}
+
+/* Inset laterali al posto di left:50%: resta centrata anche con 6 voci admin,
+   viewport Android ridimensionata e safe-area. */
+.orchidea-bottom-nav.bottom-nav,
+.bottom-nav.orchidea-bottom-nav {
+  left: max(8px, env(safe-area-inset-left)) !important;
+  right: max(8px, env(safe-area-inset-right)) !important;
+  width: auto !important;
+  max-width: 780px;
+  margin-inline: auto;
+  transform: none !important;
+  display: grid !important;
+  grid-template-columns: repeat(var(--nav-items, 5), minmax(0, 1fr));
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.orchidea-bottom-nav .bottom-link {
+  width: 100%;
+  max-width: none;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+@media (max-width: 760px) {
+  html {
+    scroll-padding-bottom: calc(var(--mobile-nav-height) + 24px + env(safe-area-inset-bottom));
+  }
+
+  .orchidea-native-shell .main-area {
+    overflow-x: clip;
+    padding-bottom: calc(var(--mobile-nav-height) + 30px + env(safe-area-inset-bottom));
+  }
+
+  .payments-heading-row {
+    align-items: flex-start;
+  }
+
+  .payments-live-badge {
+    min-height: 30px;
+    padding: 7px 9px;
+    font-size: .62rem;
+  }
+
+  .payment-history-row strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.2;
+  }
+
+  .payment-history-row small {
+    line-height: 1.25;
+  }
+}
+
+@media (max-width: 520px) {
+  .payments-heading-row {
+    display: grid;
+    gap: 9px;
+  }
+
+  .payments-live-badge {
+    width: fit-content;
+  }
+
+  .current-month-card {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center;
+    justify-items: stretch !important;
+    gap: 12px;
+    text-align: left !important;
+  }
+
+  .current-month-card h3 {
+    margin-bottom: 9px;
+    line-height: 1.08;
+  }
+
+  .current-month-status {
+    justify-content: flex-start;
+    min-height: 48px;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+
+  .current-month-status span {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+    font-size: .8rem;
+  }
+
+  .current-month-status strong {
+    font-size: .7rem;
+    line-height: 1.15;
+  }
+
+  .payment-history-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 11px;
+  }
+
+  .payment-history-row em {
+    display: block;
+    font-size: .78rem;
+  }
+
+  .payment-history-row a,
+  .payment-history-row > span:last-child {
+    display: none;
+  }
+
+  .orchidea-bottom-nav.bottom-nav,
+  .bottom-nav.orchidea-bottom-nav {
+    left: max(7px, env(safe-area-inset-left)) !important;
+    right: max(7px, env(safe-area-inset-right)) !important;
+    max-width: none;
+  }
+
+  .orchidea-bottom-nav .bottom-link {
+    padding-inline: 1px;
+  }
+}
+
+@media (max-width: 380px) {
+  .orchidea-bottom-nav.bottom-nav,
+  .bottom-nav.orchidea-bottom-nav {
+    left: max(5px, env(safe-area-inset-left)) !important;
+    right: max(5px, env(safe-area-inset-right)) !important;
+    padding-inline: 4px;
+  }
+
+  .orchidea-bottom-nav .bottom-link small {
+    font-size: .46rem;
+  }
+}
+
+
+/* Step 46 - Piccole rifiniture quote e icona admin mobile */
+.orchidea-bottom-nav .bottom-link.is-admin-link svg {
+  transform: scale(0.9);
+  transform-origin: center;
+}
+
+.home-next-payment-mini.is-empty strong {
+  font-size: clamp(1.15rem, 2.5vw, 1.55rem);
+}
+
+.home-next-payment-mini.is-empty small,
+.next-payment-card p {
+  line-height: 1.35;
+}

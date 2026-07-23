@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatDate, formatMoney, formatTime } from "../lib/format.js";
 import { getCourseVisual } from "../lib/courseVisuals.js";
+import { buildStudentPaymentView } from "../lib/payments.js";
+import { useStudentLiveRefresh } from "../lib/useStudentLiveRefresh.js";
 
 const DAY_ORDER = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
 
@@ -26,52 +28,47 @@ export default function Dashboard() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
 
-    async function loadData() {
-      setLoading(true);
+    const [coursesResult, paymentsResult, publicCoursesResult, homeShowcaseResult] = await Promise.all([
+      supabase
+        .from("iscrizioni_corsi")
+        .select("id, corso_id, stato, rinnovo_attivo, data_iscrizione, tariffa_mensile, tipo_pagamento, pacchetto_id, pacchetto_totale_mensile, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile)")
+        .eq("tesseramento_id", student.id)
+        .eq("stato", "attivo"),
+      supabase
+        .from("pagamenti")
+        .select("id, tesseramento_id, corso_id, iscrizione_id, descrizione, importo, periodo, scadenza, stato, metodo, pagato_il, created_at, updated_at, tipo_quota, billing_cycle, periodo_inizio, periodo_fine, copertura_mesi, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, sumup_payment_url")
+        .eq("tesseramento_id", student.id)
+        .order("scadenza", { ascending: true }),
+      supabase
+        .from("corsi")
+        .select("id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile, attivo")
+        .eq("attivo", true),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "home_course_showcase_ids")
+        .maybeSingle(),
+    ]);
 
-      const [coursesResult, paymentsResult, publicCoursesResult, homeShowcaseResult] = await Promise.all([
-        supabase
-          .from("iscrizioni_corsi")
-          .select("id, stato, rinnovo_attivo, data_iscrizione, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)")
-          .eq("tesseramento_id", student.id)
-          .eq("stato", "attivo"),
-        supabase
-          .from("pagamenti")
-          .select("id, descrizione, importo, periodo, scadenza, stato, metodo, pagato_il")
-          .eq("tesseramento_id", student.id)
-          .order("scadenza", { ascending: true }),
-        supabase
-          .from("corsi")
-          .select("id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile, attivo")
-          .eq("attivo", true),
-        supabase
-          .from("app_settings")
-          .select("value")
-          .eq("key", "home_course_showcase_ids")
-          .maybeSingle(),
-      ]);
-
-      if (!mounted) return;
-      setCourses(coursesResult.data || []);
-      setPayments(paymentsResult.data || []);
-      setPublicCourses(publicCoursesResult.error ? [] : publicCoursesResult.data || []);
-      setHomeShowcaseIds(
-        !homeShowcaseResult.error && Array.isArray(homeShowcaseResult.data?.value)
-          ? homeShowcaseResult.data.value
-          : []
-      );
-      setLoading(false);
-    }
-
-    loadData();
-
-    return () => {
-      mounted = false;
-    };
+    setCourses(coursesResult.data || []);
+    setPayments(paymentsResult.data || []);
+    setPublicCourses(publicCoursesResult.error ? [] : publicCoursesResult.data || []);
+    setHomeShowcaseIds(
+      !homeShowcaseResult.error && Array.isArray(homeShowcaseResult.data?.value)
+        ? homeShowcaseResult.data.value
+        : []
+    );
+    setLoading(false);
   }, [student.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useStudentLiveRefresh(student.id, loadData);
 
   const sortedCourses = useMemo(
     () => [...courses].sort((a, b) => courseSortValue(a).localeCompare(courseSortValue(b))),
@@ -79,10 +76,17 @@ export default function Dashboard() {
   );
 
   const activeCourses = sortedCourses.filter((course) => course.stato === "attivo" && course.rinnovo_attivo !== false);
-  const openPayments = useMemo(() => payments.filter((payment) => payment.stato !== "pagato"), [payments]);
-  const paidPayments = useMemo(() => payments.filter((payment) => payment.stato === "pagato"), [payments]);
-  const totalOpen = useMemo(() => openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0), [openPayments]);
-  const nextPayment = openPayments[0] || null;
+  const paymentView = useMemo(
+    () => buildStudentPaymentView(payments, activeCourses),
+    [payments, activeCourses]
+  );
+  const {
+    currentMonthOpenPayments,
+    currentMonthPaidPayments,
+    currentMonthOpenTotal,
+    nextPayment,
+    hasCurrentMonthPaymentContext,
+  } = paymentView;
   const fallbackShowcaseCourses = publicCourses.length
     ? [...publicCourses].sort((a, b) => courseSortValue({ corsi: a }).localeCompare(courseSortValue({ corsi: b })))
     : sortedCourses.map((item) => item.corsi).filter(Boolean);
@@ -94,6 +98,7 @@ export default function Dashboard() {
   const featuredVisual = getCourseVisual(featuredCourse);
   const firstName = getFirstName(student);
   const monthLabel = new Intl.DateTimeFormat("it-IT", { month: "long" }).format(new Date()).toUpperCase();
+  const hasCurrentMonthQuote = currentMonthOpenPayments.length > 0 || currentMonthPaidPayments.length > 0;
 
   useEffect(() => {
     setCarouselIndex(0);
@@ -146,17 +151,19 @@ export default function Dashboard() {
           </div>
           <div className="home-stat-card gold">
             <span>€</span>
-            <strong>{loading ? "…" : openPayments.length || paidPayments.length}</strong>
-            <small>Quote<br />{openPayments.length ? "aperte" : "attive"}</small>
+            <strong>{loading ? "…" : currentMonthOpenPayments.length || currentMonthPaidPayments.length}</strong>
+            <small>Quote<br />{currentMonthOpenPayments.length ? "aperte" : hasCurrentMonthQuote ? "in regola" : "attive"}</small>
           </div>
         </div>
 
-        <div className={`payment-status-ribbon ${openPayments.length ? "is-warning" : "is-ok"}`}>
-          <span>{openPayments.length ? "!" : "✓"}</span>
+        <div className={`payment-status-ribbon ${currentMonthOpenPayments.length ? "is-warning" : "is-ok"}`}>
+          <span>{currentMonthOpenPayments.length ? "!" : "✓"}</span>
           <strong>
-            {openPayments.length
-              ? `${formatMoney(totalOpen)} da saldare`
-              : `Quote saldate per il mese di ${monthLabel}`}
+            {currentMonthOpenPayments.length
+              ? `${formatMoney(currentMonthOpenTotal)} da saldare`
+              : hasCurrentMonthQuote
+                ? `Quote saldate per il mese di ${monthLabel}`
+                : "Nessuna quota attiva al momento"}
           </strong>
         </div>
 
@@ -221,9 +228,15 @@ export default function Dashboard() {
         <section className="neo-panel home-next-payment-mini">
           <span>Prossima scadenza</span>
           <strong>{formatMoney(nextPayment.importo)}</strong>
-          <small>{nextPayment.descrizione || "Quota Orchidea"} · {formatDate(nextPayment.scadenza)}</small>
+          <small>{nextPayment.descrizione || "Quota Orchidea"} · {formatDate(nextPayment.scadenza || nextPayment.periodo_inizio)}</small>
         </section>
-      ) : null}
+      ) : hasCurrentMonthPaymentContext ? null : (
+        <section className="neo-panel home-next-payment-mini is-empty">
+          <span>Situazione quote</span>
+          <strong>Nessuna quota attiva</strong>
+          <small>Non risultano pagamenti aperti collegati a corsi attivi.</small>
+        </section>
+      )}
     </section>
   );
 }
