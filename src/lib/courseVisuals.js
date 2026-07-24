@@ -30,5 +30,10 @@ export function getCourseVisual(course = {}) {
   if (haystack.includes("primi passi") || haystack.includes("caraibico")) {
     return { image: "/assets/corsi/primi-passi.png", accent: "latin" };
   }
+    if (haystack.includes("lady style") || haystack.includes("caraibico")) {
+    return { image: "/assets/corsi/lady-style.png", accent: "latin" };
+  }
+
+
   return { image: "/assets/logo.png", accent: "default" };
 }

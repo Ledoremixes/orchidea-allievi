@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import { formatDate, formatMoney, formatTime } from "../../lib/format.js";
 import { membershipCode, hasCustomMembershipNumber } from "../../lib/membership.js";
 import { getCourseVisual } from "../../lib/courseVisuals.js";
+import AttendanceAdmin from "./AttendanceAdmin.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 
 const emptyCourse = {
@@ -37,6 +38,7 @@ const emptyStudentForm = {
   cognome: "",
   email: "",
   telefono: "",
+  sesso: "",
   cf: "",
   nascita: "",
   luogo: "",
@@ -51,11 +53,10 @@ const emptyStudentForm = {
 
 const adminSections = [
   { id: "overview", label: "Dashboard", icon: "✦" },
+  { id: "attendance", label: "Presenze", icon: "✓" },
   { id: "students", label: "Tesserati", icon: "◆" },
   { id: "courses", label: "Corsi", icon: "◷" },
   { id: "enrollments", label: "Iscrizioni", icon: "+" },
-  { id: "payments", label: "Pagamenti", icon: "€" },
-  { id: "teachers", label: "Insegnanti", icon: "♬" },
   { id: "videos", label: "Video", icon: "▶" },
   { id: "home_showcase", label: "Home app", icon: "✹" },
 ];
@@ -144,6 +145,7 @@ function buildStudentForm(student) {
     cognome: student.cognome || "",
     email: student.email || "",
     telefono: student.telefono || "",
+    sesso: student.sesso || "",
     cf: student.cf || "",
     nascita: student.nascita || "",
     luogo: student.luogo || "",
@@ -514,6 +516,8 @@ export default function AdminPanel() {
   const [payments, setPayments] = useState([]);
   const [videos, setVideos] = useState([]);
   const [homeShowcaseIds, setHomeShowcaseIds] = useState([]);
+  const [homeShowcaseOrderIds, setHomeShowcaseOrderIds] = useState([]);
+  const [draggedShowcaseCourseId, setDraggedShowcaseCourseId] = useState("");
   const [savingHomeShowcase, setSavingHomeShowcase] = useState(false);
   const [enrollments, setEnrollments] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -580,7 +584,7 @@ export default function AdminPanel() {
     const [studentsResult, coursesResult, paymentsResult, videosResult, enrollmentsResult, teachersResult, teacherAssignmentsResult, homeShowcaseResult] = await Promise.all([
       supabase
         .from("tesseramenti")
-        .select("id, nome, cognome, nascita, luogo, cf, email, telefono, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
+        .select("id, nome, cognome, nascita, luogo, cf, email, telefono, sesso, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
         .order("created_at", { ascending: false })
         .limit(800),
       supabase
@@ -612,9 +616,8 @@ export default function AdminPanel() {
         .eq("attivo", true),
       supabase
         .from("app_settings")
-        .select("value")
-        .eq("key", "home_course_showcase_ids")
-        .maybeSingle(),
+        .select("key, value")
+        .in("key", ["home_course_showcase_ids", "home_course_admin_order_ids"]),
     ]);
 
     const firstError = [studentsResult, coursesResult, paymentsResult, videosResult, enrollmentsResult].find((r) => r.error)?.error;
@@ -626,11 +629,18 @@ export default function AdminPanel() {
       setCourses(coursesResult.data || []);
       setPayments(paymentsResult.data || []);
       setVideos(videosResult.data || []);
-      setHomeShowcaseIds(
-        !homeShowcaseResult.error && Array.isArray(homeShowcaseResult.data?.value)
-          ? homeShowcaseResult.data.value
-          : []
-      );
+      const settingRows = homeShowcaseResult.error ? [] : (homeShowcaseResult.data || []);
+      const showcaseSetting = settingRows.find((row) => row.key === "home_course_showcase_ids");
+      const orderSetting = settingRows.find((row) => row.key === "home_course_admin_order_ids");
+      const selectedIds = Array.isArray(showcaseSetting?.value) ? showcaseSetting.value : [];
+      const savedOrderIds = Array.isArray(orderSetting?.value) ? orderSetting.value : [];
+      const availableCourseIds = (coursesResult.data || []).map((course) => course.id);
+      const cleanSavedOrder = savedOrderIds.filter((id) => availableCourseIds.includes(id));
+      const initialOrder = cleanSavedOrder.length
+        ? [...cleanSavedOrder, ...availableCourseIds.filter((id) => !cleanSavedOrder.includes(id))]
+        : [...selectedIds.filter((id) => availableCourseIds.includes(id)), ...availableCourseIds.filter((id) => !selectedIds.includes(id))];
+      setHomeShowcaseIds(selectedIds.filter((id) => availableCourseIds.includes(id)));
+      setHomeShowcaseOrderIds(initialOrder);
       setEnrollments(enrollmentsResult.data || []);
       setTeachers(teachersResult.error ? [] : teachersResult.data || []);
       setTeacherAssignments(teacherAssignmentsResult.error ? [] : teacherAssignmentsResult.data || []);
@@ -662,21 +672,14 @@ export default function AdminPanel() {
 
   const activeCourses = useMemo(() => courses.filter((course) => course.attivo), [courses]);
   const homeShowcaseCourses = useMemo(() => {
-    function dayWeight(value) {
-      const clean = String(value || "").toLowerCase();
-      const days = ["luned", "marted", "mercoled", "gioved", "venerd", "sabato", "domenica"];
-      const index = days.findIndex((day) => clean.includes(day));
-      return index === -1 ? 99 : index;
-    }
-
+    const orderIndex = new Map(homeShowcaseOrderIds.map((id, index) => [id, index]));
     return [...courses].sort((a, b) => {
-      const byPublished = Number(homeShowcaseIds.includes(b.id)) - Number(homeShowcaseIds.includes(a.id));
-      if (byPublished !== 0) return byPublished;
-      const byDay = dayWeight(a.giorno_settimana) - dayWeight(b.giorno_settimana);
-      if (byDay !== 0) return byDay;
-      return String(a.ora_inizio || "99:99").localeCompare(String(b.ora_inizio || "99:99"));
+      const aIndex = orderIndex.has(a.id) ? orderIndex.get(a.id) : Number.MAX_SAFE_INTEGER;
+      const bIndex = orderIndex.has(b.id) ? orderIndex.get(b.id) : Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return String(a.nome || "").localeCompare(String(b.nome || ""));
     });
-  }, [courses, homeShowcaseIds]);
+  }, [courses, homeShowcaseOrderIds]);
 
   const selectedStudent = useMemo(
     () => students.find((student) => student.id === selectedStudentId) || null,
@@ -1229,20 +1232,61 @@ export default function AdminPanel() {
     });
   }
 
+  function moveHomeShowcaseCourse(courseId, offset) {
+    setHomeShowcaseOrderIds((current) => {
+      const completeOrder = [
+        ...current.filter((id) => courses.some((course) => course.id === id)),
+        ...courses.map((course) => course.id).filter((id) => !current.includes(id)),
+      ];
+      const index = completeOrder.indexOf(courseId);
+      const nextIndex = Math.max(0, Math.min(completeOrder.length - 1, index + offset));
+      if (index < 0 || index === nextIndex) return completeOrder;
+      const next = [...completeOrder];
+      const [moved] = next.splice(index, 1);
+      next.splice(nextIndex, 0, moved);
+      return next;
+    });
+  }
+
+  function dropHomeShowcaseCourse(targetCourseId) {
+    if (!draggedShowcaseCourseId || draggedShowcaseCourseId === targetCourseId) return;
+    setHomeShowcaseOrderIds((current) => {
+      const completeOrder = [
+        ...current.filter((id) => courses.some((course) => course.id === id)),
+        ...courses.map((course) => course.id).filter((id) => !current.includes(id)),
+      ];
+      const sourceIndex = completeOrder.indexOf(draggedShowcaseCourseId);
+      const targetIndex = completeOrder.indexOf(targetCourseId);
+      if (sourceIndex < 0 || targetIndex < 0) return completeOrder;
+      const next = [...completeOrder];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+    setDraggedShowcaseCourseId("");
+  }
+
   async function handleSaveHomeShowcase() {
     setSavingHomeShowcase(true);
 
-    const orderedIds = homeShowcaseCourses
-      .filter((course) => homeShowcaseIds.includes(course.id))
-      .map((course) => course.id);
+    const fullOrderIds = homeShowcaseCourses.map((course) => course.id);
+    const orderedIds = fullOrderIds.filter((id) => homeShowcaseIds.includes(id));
+    const updatedAt = new Date().toISOString();
 
     const { error: saveError } = await supabase
       .from("app_settings")
-      .upsert({
-        key: "home_course_showcase_ids",
-        value: orderedIds,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "key" });
+      .upsert([
+        {
+          key: "home_course_showcase_ids",
+          value: orderedIds,
+          updated_at: updatedAt,
+        },
+        {
+          key: "home_course_admin_order_ids",
+          value: fullOrderIds,
+          updated_at: updatedAt,
+        },
+      ], { onConflict: "key" });
 
     setSavingHomeShowcase(false);
 
@@ -1252,7 +1296,8 @@ export default function AdminPanel() {
     }
 
     setHomeShowcaseIds(orderedIds);
-    showSuccess("Locandine della home aggiornate.");
+    setHomeShowcaseOrderIds(fullOrderIds);
+    showSuccess("Locandine e ordine della home aggiornati.");
   }
 
   function openStudentDetail(student) {
@@ -1281,6 +1326,7 @@ export default function AdminPanel() {
       cognome: studentForm.cognome.trim(),
       email: studentForm.email.trim().toLowerCase() || null,
       telefono: studentForm.telefono.trim() || null,
+      sesso: studentForm.sesso || null,
       cf: studentForm.cf.trim().toUpperCase() || null,
       nascita: studentForm.nascita || null,
       luogo: studentForm.luogo.trim() || null,
@@ -1298,7 +1344,7 @@ export default function AdminPanel() {
       .from("tesseramenti")
       .update(payload)
       .eq("id", editingStudent.id)
-      .select("id, nome, cognome, nascita, luogo, cf, email, telefono, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
+      .select("id, nome, cognome, nascita, luogo, cf, email, telefono, sesso, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
       .single();
 
     setSavingStudent(false);
@@ -1323,7 +1369,7 @@ export default function AdminPanel() {
       .from("tesseramenti")
       .update({ numero_tessera: nextNumber, updated_at: new Date().toISOString() })
       .eq("id", student.id)
-      .select("id, nome, cognome, nascita, luogo, cf, email, telefono, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
+      .select("id, nome, cognome, nascita, luogo, cf, email, telefono, sesso, residenza, status, payment_status, valid_from, valid_until, qr_token, numero_tessera, tessera_attiva, is_corsista, stagione, auth_user_id, created_at, updated_at")
       .single();
 
     if (updateError) {
@@ -1490,21 +1536,12 @@ export default function AdminPanel() {
   }
 
   async function handleSaveEnrollmentSettings(item) {
-    const tariffaMensile = Number(item.tariffa_mensile ?? item.corsi?.prezzo_mensile ?? 0);
     const payload = {
-      tipo_pagamento: item.tipo_pagamento || "mensile",
-      tariffa_mensile: tariffaMensile,
       stato: item.stato || "attivo",
-      rinnovo_attivo: item.rinnovo_attivo !== false,
-      genera_pagamento: item.genera_pagamento !== false,
-      pacchetto_id: item.pacchetto_id || null,
-      pacchetto_nome: item.pacchetto_nome || null,
-      pacchetto_totale_mensile: item.pacchetto_totale_mensile ? Number(item.pacchetto_totale_mensile) : null,
-      pacchetto_base_totale: item.pacchetto_base_totale ? Number(item.pacchetto_base_totale) : null,
-      quota_pacchetto_percentuale: item.quota_pacchetto_percentuale ? Number(item.quota_pacchetto_percentuale) : null,
-      prezzo_personalizzato: true,
-      note: item.note || null,
-      data_inizio: item.data_inizio || null,
+      rinnovo_attivo: item.stato === "attivo" && item.rinnovo_attivo !== false,
+      note: item.note?.trim() || null,
+      data_inizio: item.data_inizio || item.data_iscrizione || null,
+      data_fine: item.stato === "terminato" ? (item.data_fine || todayIso()) : (item.data_fine || null),
     };
 
     const { error: updateError } = await supabase
@@ -1517,7 +1554,7 @@ export default function AdminPanel() {
       return false;
     }
 
-    showSuccess("Dettagli corso dell’allievo aggiornati. Le quote future useranno questi importi.");
+    showSuccess("Iscrizione aggiornata. Il tablet userà subito il nuovo stato.");
     await loadAdminData();
     return true;
   }
@@ -1710,138 +1747,25 @@ export default function AdminPanel() {
 
     const duplicateCourses = selectedEnrollmentCourses.filter((course) => selectedStudentEnrollmentByCourseId.has(course.id));
     if (duplicateCourses.length > 0) {
-      showError(`L’allievo ha già questi corsi in scheda: ${duplicateCourses.map((course) => `${course.nome}${course.livello ? ` ${course.livello}` : ""}`).join(", ")}. Gestiscili dalle iscrizioni attuali senza crearli di nuovo.`);
+      showError(`L’allievo ha già questi corsi in scheda: ${duplicateCourses.map((course) => `${course.nome}${course.livello ? ` ${course.livello}` : ""}`).join(", ")}.`);
       return;
     }
 
-    const isAllYouCanDance = enrollmentBillingCycle === "all_you_can_dance";
-    const extendsExistingPackage = Boolean(selectedExistingPackage && enrollmentExistingPackageId && selectedCourseIds.length > 0);
-    const usesPackage = (selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (useEnrollmentPackage || isAllYouCanDance || extendsExistingPackage);
-    const packagePrice = Number(enrollmentPackageMonthlyPrice || 0);
-    const packageId = usesPackage
-      ? extendsExistingPackage
-        ? selectedExistingPackage.id
-        : typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${selectedStudentId}-package-${Date.now()}`
-      : null;
-    const packageName = usesPackage
-      ? isAllYouCanDance
-        ? "All You Can Dance"
-        : (extendsExistingPackage ? selectedExistingPackage.name : enrollmentPackageName).trim() || "Pacchetto multicorso"
-      : null;
+    const payloads = selectedEnrollmentCourses.map((course) => ({
+      tesseramento_id: selectedStudentId,
+      corso_id: course.id,
+      stato: "attivo",
+      note: enrollmentNote.trim() || null,
+      data_inizio: enrollmentStartDate || todayIso(),
+      data_fine: null,
+      rinnovo_attivo: true,
+      // I dati economici restano disponibili a Nova, ma non vengono più gestiti da questa interfaccia.
+      tipo_pagamento: "mensile",
+      tariffa_mensile: Number(course.prezzo_mensile || 0),
+      genera_pagamento: true,
+    }));
 
-    const existingPackageRows = extendsExistingPackage
-      ? selectedExistingPackage.rows.filter((row) => row.stato === "attivo")
-      : [];
-    const allocationCourses = extendsExistingPackage
-      ? [
-          ...existingPackageRows.map((row) => ({
-            ...(row.corsi || {}),
-            id: row.corso_id,
-            nome: row.corsi?.nome || "Corso",
-            livello: row.corsi?.livello || "",
-            prezzo_mensile: enrollmentBasePriceForPackage(row),
-          })),
-          ...selectedEnrollmentCourses,
-        ]
-      : selectedEnrollmentCourses;
-    const allocation = usesPackage ? allocatePackagePrices(allocationCourses, packagePrice) : {};
-    const baseTotal = packageBaseTotal(allocationCourses);
-    const cycle = isAllYouCanDance ? "all_you_can_dance" : enrollmentBillingCycle;
-    const { start: applyStart } = monthBounds(enrollmentStartDate || paymentMonth || currentMonthValue());
-    const applyPeriod = paymentPeriodForCycle(cycle, applyStart);
-    const months = applyPeriod.months;
-    const futurePaymentEnd = applyPeriod.end;
-
-    if (usesPackage && packagePrice <= 0) {
-      showError("Inserisci il totale mensile del pacchetto multicorso.");
-      return;
-    }
-
-    if (extendsExistingPackage) {
-      for (const row of existingPackageRows) {
-        const allocated = allocation[row.corso_id];
-        const monthlyAmount = Number(allocated?.amount || row.tariffa_mensile || 0);
-        const { error: existingUpdateError } = await supabase
-          .from("iscrizioni_corsi")
-          .update({
-            tipo_pagamento: cycle,
-            tariffa_mensile: monthlyAmount,
-            pacchetto_id: packageId,
-            pacchetto_nome: packageName,
-            pacchetto_totale_mensile: packagePrice,
-            pacchetto_base_totale: baseTotal,
-            quota_pacchetto_percentuale: Number(allocated?.percent || 0),
-            prezzo_personalizzato: true,
-            genera_pagamento: true,
-            rinnovo_attivo: true,
-          })
-          .eq("id", row.id);
-
-        if (existingUpdateError) {
-          showError(existingUpdateError.message);
-          return;
-        }
-
-        const { error: existingPaymentError } = await supabase
-          .from("pagamenti")
-          .update({
-            importo: Number((monthlyAmount * months).toFixed(2)),
-            billing_cycle: cycle,
-            periodo_inizio: applyStart,
-            periodo_fine: futurePaymentEnd,
-            copertura_mesi: months,
-            periodo: buildPaymentPeriodLabel(applyStart, futurePaymentEnd, cycle),
-            scadenza: applyStart,
-            pacchetto_id: packageId,
-            pacchetto_nome: packageName,
-            pacchetto_totale_mensile: packagePrice,
-            quota_pacchetto_percentuale: Number(allocated?.percent || 0),
-            descrizione: `${packageName} - ${row.corsi?.nome || "corso"} - ${billingLabel(cycle)}`,
-          })
-          .eq("iscrizione_id", row.id)
-          .neq("stato", "pagato")
-          .eq("periodo_inizio", applyStart)
-          .eq("periodo_fine", futurePaymentEnd);
-
-        if (existingPaymentError) {
-          showError(existingPaymentError.message);
-          return;
-        }
-      }
-    }
-
-    const payloads = selectedEnrollmentCourses.map((course) => {
-      const allocated = allocation[course.id];
-      const monthlyPrice = usesPackage
-        ? Number(allocated?.amount || 0)
-        : Number(enrollmentCoursePrices[course.id] ?? course.prezzo_mensile ?? enrollmentMonthlyPrice ?? 0);
-
-      return {
-        tesseramento_id: selectedStudentId,
-        corso_id: course.id,
-        stato: "attivo",
-        note: enrollmentNote.trim() || null,
-        tipo_pagamento: usesPackage ? cycle : enrollmentBillingCycle,
-        tariffa_mensile: monthlyPrice,
-        data_inizio: enrollmentStartDate || todayIso(),
-        data_fine: null,
-        rinnovo_attivo: Boolean(enrollmentRenewalActive),
-        genera_pagamento: true,
-        pacchetto_id: packageId,
-        pacchetto_nome: usesPackage ? packageName : null,
-        pacchetto_totale_mensile: usesPackage ? packagePrice : null,
-        pacchetto_base_totale: usesPackage ? baseTotal : null,
-        quota_pacchetto_percentuale: usesPackage ? Number(allocated?.percent || 0) : null,
-        prezzo_personalizzato: true,
-      };
-    });
-
-    const { error: enrollError } = await supabase
-      .from("iscrizioni_corsi")
-      .insert(payloads);
-
+    const { error: enrollError } = await supabase.from("iscrizioni_corsi").insert(payloads);
     if (enrollError) {
       showError(enrollError.message);
       return;
@@ -1851,17 +1775,9 @@ export default function AdminPanel() {
 
     setSelectedStudentId("");
     setSelectedCourseIds([]);
-    setEnrollmentCoursePrices({});
     setEnrollmentNote("");
-    setEnrollmentBillingCycle("mensile");
-    setEnrollmentMonthlyPrice("40");
-    setEnrollmentPackageMonthlyPrice("70");
-    setUseEnrollmentPackage(false);
-    setEnrollmentPackageName("Pacchetto multicorso");
-    setEnrollmentExistingPackageId("");
     setEnrollmentStartDate(todayIso());
-    setEnrollmentRenewalActive(true);
-    showSuccess(extendsExistingPackage ? "Corsi aggiunti al pacchetto esistente e ripartizione aggiornata." : selectedEnrollmentCourses.length > 1 ? "Allievo iscritto ai corsi selezionati." : "Allievo iscritto al corso.");
+    showSuccess(selectedEnrollmentCourses.length > 1 ? "Allievo iscritto ai corsi selezionati." : "Allievo iscritto al corso.");
     await loadAdminData();
   }
 
@@ -1935,39 +1851,11 @@ export default function AdminPanel() {
 
     const student = enrollment.tesseramenti || students.find((item) => item.id === enrollment.tesseramento_id) || {};
     const course = enrollment.corsi || courses.find((item) => item.id === enrollment.corso_id) || {};
-    const relatedPayments = payments.filter((payment) => {
-      const sameEnrollment = payment.iscrizione_id === enrollment.id;
-      const legacySameCourse = !payment.iscrizione_id
-        && payment.tesseramento_id === enrollment.tesseramento_id
-        && payment.corso_id === enrollment.corso_id
-        && payment.tipo_quota === "corso";
-      return sameEnrollment || legacySameCourse;
-    });
-    const paidCount = relatedPayments.filter((payment) => payment.stato === "pagato").length;
-    const unpaidPaymentIds = relatedPayments
-      .filter((payment) => payment.stato !== "pagato")
-      .map((payment) => payment.id)
-      .filter(Boolean);
-
     const confirmed = window.confirm(
-      `Eliminare la riga ${fullName(student)} / ${course.nome || "corso"}?\n\n` +
-      "Questa azione rimuove l'iscrizione al corso e cancella le quote non pagate collegate.\n" +
-      (paidCount > 0 ? `${paidCount} pagamento/i già pagato/i rimarranno nello storico.\n` : "") +
-      "Se vuoi solo fermare le quote future senza perdere il collegamento, usa invece ‘Chiudi corso’."
+      `Eliminare l’iscrizione di ${fullName(student)} al corso ${course.nome || "corso"}?\n\n` +
+      "La gestione economica e lo storico dei pagamenti in Nova non verranno modificati."
     );
     if (!confirmed) return;
-
-    if (unpaidPaymentIds.length > 0) {
-      const { error: paymentDeleteError } = await supabase
-        .from("pagamenti")
-        .delete()
-        .in("id", unpaidPaymentIds);
-
-      if (paymentDeleteError) {
-        showError(paymentDeleteError.message);
-        return;
-      }
-    }
 
     const { error: enrollmentDeleteError } = await supabase
       .from("iscrizioni_corsi")
@@ -1979,7 +1867,7 @@ export default function AdminPanel() {
       return;
     }
 
-    showSuccess("Riga eliminata: l'allievo non risulta più iscritto a quel corso e le quote aperte sono state rimosse.");
+    showSuccess("Iscrizione eliminata. Eventuali dati economici restano gestiti da Nova.");
     await loadAdminData();
   }
 
@@ -2643,182 +2531,16 @@ export default function AdminPanel() {
   }
 
   function renderOverview() {
-    const openPayments = payments.filter(isPaymentOpen);
-    const overduePayments = openPayments.filter((payment) => payment.scadenza && payment.scadenza < todayIso());
-    const latestStudents = students.slice(0, 5);
-    const nextPayments = openPayments.slice(0, 5);
+    return <AttendanceAdmin students={students} courses={courses} enrollments={enrollments} mode="dashboard" />;
+  }
 
-    return (
-      <div className="admin-section-stack admin-overview-v2">
-        <div className="content-card overview-command-center">
-          <div>
-            <span className="eyebrow">Dashboard operativa</span>
-            <h3>Gestione rapida del club</h3>
-            <p>
-              I dati importanti sono in alto, le azioni frequenti subito sotto. Così trovi velocemente allievi,
-              corsi, iscrizioni, pagamenti e video senza passare da schermate confusionarie.
-            </p>
-          </div>
-          <div className="overview-command-actions">
-            <button className="primary-btn slim" type="button" onClick={() => goToSection("students")}>
-              Gestisci allievi
-            </button>
-            <button className="ghost-btn slim-action" type="button" onClick={() => goToSection("payments")}>
-              Controlla pagamenti
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-stats-grid admin-stats-grid-v2">
-          <article className="stat-card admin-kpi-card highlight">
-            <div className="admin-kpi-icon">◆</div>
-            <span>Tesserati</span>
-            <strong>{students.length}</strong>
-            <small>{stats.activeMemberships} tessere attive</small>
-          </article>
-          <article className="stat-card admin-kpi-card">
-            <div className="admin-kpi-icon">✦</div>
-            <span>Corsisti</span>
-            <strong>{stats.corsisti}</strong>
-            <small>{stats.activeEnrollments} iscrizioni attive</small>
-          </article>
-          <article className="stat-card admin-kpi-card">
-            <div className="admin-kpi-icon">◷</div>
-            <span>Corsi attivi</span>
-            <strong>{activeCourses.length}</strong>
-            <small>{courses.length} corsi totali</small>
-          </article>
-          <article className={`stat-card admin-kpi-card ${stats.missingMembershipNumbers > 0 ? "warning" : "success"}`}>
-            <div className="admin-kpi-icon">#</div>
-            <span>Tessere senza numero</span>
-            <strong>{stats.missingMembershipNumbers}</strong>
-            <small>{stats.missingMembershipNumbers > 0 ? "da assegnare" : "tutto in ordine"}</small>
-          </article>
-        </div>
-
-        {stats.missingMembershipNumbers > 0 && (
-          <div className="content-card warning-card number-warning-card overview-warning-card">
-            <div>
-              <span className="eyebrow">Azione consigliata</span>
-              <h3>Ci sono tessere senza numero progressivo</h3>
-              <p>Genera i numeri mancanti così tessera digitale, QR code e area riservata restano allineati.</p>
-            </div>
-            <button className="primary-btn slim" type="button" onClick={handleGenerateMissingMembershipNumbers} disabled={generatingNumbers}>
-              {generatingNumbers ? "Generazione…" : "Genera numeri"}
-            </button>
-          </div>
-        )}
-
-        <div className="content-card overview-quick-panel">
-          <div className="card-head overview-panel-head">
-            <div>
-              <span className="eyebrow">Scorciatoie</span>
-              <h3>Cosa devi fare?</h3>
-              <p>Scegli l’area da gestire: ogni riquadro porta direttamente alla sezione corretta.</p>
-            </div>
-          </div>
-
-          <div className="admin-action-grid-v2">
-            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("students")}>
-              <span className="action-icon">◆</span>
-              <span className="action-label">Tesserati</span>
-              <strong>Gestisci anagrafiche</strong>
-              <small>Modifica dati, tessera, stato e ruolo corsista.</small>
-            </button>
-            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("courses")}>
-              <span className="action-icon">◷</span>
-              <span className="action-label">Corsi</span>
-              <strong>Organizza calendario</strong>
-              <small>Crea corsi, livelli, orari e sale.</small>
-            </button>
-            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("enrollments")}>
-              <span className="action-icon">+</span>
-              <span className="action-label">Iscrizioni</span>
-              <strong>Iscrivi un allievo</strong>
-              <small>Ricerca rapida e associazione ai corsi.</small>
-            </button>
-            <button type="button" className="admin-action-card-v2 accent" onClick={() => goToSection("payments")}>
-              <span className="action-icon">€</span>
-              <span className="action-label">Pagamenti</span>
-              <strong>Quote e incassi</strong>
-              <small>Controlla scadenze, pacchetti e pagamenti.</small>
-            </button>
-            <button type="button" className="admin-action-card-v2" onClick={() => goToSection("videos")}>
-              <span className="action-icon">▶</span>
-              <span className="action-label">Video</span>
-              <strong>Lezioni riservate</strong>
-              <small>Carica contenuti per gli iscritti ai corsi.</small>
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-overview-grid admin-overview-grid-v2">
-          <div className="content-card admin-card overview-list-card">
-            <div className="overview-list-head">
-              <div>
-                <span className="eyebrow">Ultimi tesserati</span>
-                <h3>Nuove anagrafiche</h3>
-              </div>
-              <button className="mini-btn" type="button" onClick={() => goToSection("students")}>Apri elenco</button>
-            </div>
-            <div className="overview-list-v2">
-              {latestStudents.map((student) => (
-                <button className="overview-list-row" type="button" key={student.id} onClick={() => { goToSection("students"); openStudentDetail(student); }}>
-                  <span className="avatar mini-avatar">{initials(student)}</span>
-                  <span className="overview-row-main">
-                    <strong>{fullName(student)}</strong>
-                    <small>{student.email || "—"} · {student.is_corsista ? "Corsista" : "Tesserato"}</small>
-                  </span>
-                  <em>{membershipNumber(student) || "No tessera"}</em>
-                </button>
-              ))}
-              {latestStudents.length === 0 && <p className="empty-text">Nessun tesserato inserito.</p>}
-            </div>
-          </div>
-
-          <div className="content-card admin-card overview-list-card payments-check-card">
-            <div className="overview-list-head">
-              <div>
-                <span className="eyebrow">Pagamenti aperti</span>
-                <h3>Da controllare</h3>
-              </div>
-              <div className="overview-count-pill">
-                <strong>{openPayments.length}</strong>
-                <span>aperti</span>
-              </div>
-            </div>
-
-            {overduePayments.length > 0 && (
-              <div className="overview-alert-strip">
-                <strong>{overduePayments.length}</strong>
-                <span>{overduePayments.length === 1 ? "quota scaduta" : "quote scadute"}</span>
-              </div>
-            )}
-
-            <div className="overview-list-v2">
-              {nextPayments.map((payment) => (
-                <button className="overview-list-row payment-row" type="button" key={payment.id} onClick={() => goToSection("payments")}>
-                  <span className="payment-dot">€</span>
-                  <span className="overview-row-main">
-                    <strong>{payment.descrizione} · {formatMoney(payment.importo)}</strong>
-                    <small>{payment.tesseramenti?.nome} {payment.tesseramenti?.cognome} · {formatDate(payment.scadenza)}</small>
-                  </span>
-                  <span className={paymentStatusClass(payment.stato)}>{paymentStatusLabels[payment.stato] || payment.stato || "Da pagare"}</span>
-                </button>
-              ))}
-              {openPayments.length === 0 && <p className="empty-text">Nessun pagamento aperto. Ottimo così.</p>}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  function renderAttendance() {
+    return <AttendanceAdmin students={students} courses={courses} enrollments={enrollments} mode="registry" />;
   }
 
   function renderStudentDetail() {
     if (!editingStudent) return null;
 
-    const openPayments = studentPayments.filter(isPaymentOpen);
-    const paidPayments = studentPayments.filter((payment) => payment.stato === "pagato");
     const activeStudentEnrollments = studentEnrollments.filter((item) => item.stato === "attivo");
 
     return (
@@ -2827,11 +2549,7 @@ export default function AdminPanel() {
           <div className="student-profile-hero">
             <div className="student-profile-identity">
               <span className="avatar student-profile-avatar">{initials(editingStudent)}</span>
-              <div>
-                <span className="eyebrow">Scheda tesserato</span>
-                <h3>{fullName(editingStudent)}</h3>
-                <p>{editingStudent.email || "Email non inserita"}</p>
-              </div>
+              <div><span className="eyebrow">Scheda tesserato</span><h3>{fullName(editingStudent)}</h3><p>{editingStudent.email || "Email non inserita"}</p></div>
             </div>
             <div className="student-profile-actions-head">
               <span className={editingStudent.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{editingStudent.tessera_attiva !== false ? "Tessera attiva" : "Tessera non attiva"}</span>
@@ -2839,173 +2557,51 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          <div className="student-profile-summary-grid">
-            <div>
-              <span>Numero tessera</span>
-              <strong>{membershipNumber(editingStudent) || "Senza numero"}</strong>
-            </div>
-            <div>
-              <span>Corsi collegati</span>
-              <strong>{studentEnrollments.length}</strong>
-              <small>{activeStudentEnrollments.length} attivi</small>
-            </div>
-            <div>
-              <span>Quote aperte</span>
-              <strong>{openPayments.length}</strong>
-              <small>{openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</small>
-            </div>
-            <div>
-              <span>Pagamenti registrati</span>
-              <strong>{paidPayments.length}</strong>
-              <small>{paidPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</small>
-            </div>
+          <div className="student-profile-summary-grid attendance-student-summary-grid">
+            <div><span>Numero tessera</span><strong>{membershipNumber(editingStudent) || "Senza numero"}</strong></div>
+            <div><span>Corsi collegati</span><strong>{studentEnrollments.length}</strong><small>{activeStudentEnrollments.length} attivi</small></div>
+            <div><span>Cellulare check-in</span><strong>{editingStudent.telefono || "Non inserito"}</strong><small>alternativa al numero tessera</small></div>
+            <div><span>Stagione</span><strong>{editingStudent.stagione || "2026/2027"}</strong><small>{editingStudent.is_corsista ? "Corsista" : "Solo tesserato"}</small></div>
           </div>
 
           <div className="student-profile-modal-body">
             <section className="student-profile-form-card">
-              <div className="mini-section-head compact-head">
-                <div>
-                  <strong>Dati anagrafici</strong>
-                  <small>Modifica i dati principali senza creare doppioni nel sistema.</small>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <label>Nome<input value={studentForm.nome} onChange={(e) => setStudentForm({ ...studentForm, nome: e.target.value })} /></label>
-                <label>Cognome<input value={studentForm.cognome} onChange={(e) => setStudentForm({ ...studentForm, cognome: e.target.value })} /></label>
-              </div>
+              <div className="mini-section-head compact-head"><div><strong>Dati anagrafici</strong><small>Questi dati vengono usati anche per riconoscere l’allievo al check-in.</small></div></div>
+              <div className="form-row"><label>Nome<input value={studentForm.nome} onChange={(e) => setStudentForm({ ...studentForm, nome: e.target.value })} /></label><label>Cognome<input value={studentForm.cognome} onChange={(e) => setStudentForm({ ...studentForm, cognome: e.target.value })} /></label></div>
               <label>Email<input type="email" value={studentForm.email} onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })} /></label>
-              <div className="form-row">
-                <label>Telefono<input value={studentForm.telefono} onChange={(e) => setStudentForm({ ...studentForm, telefono: e.target.value })} /></label>
-                <label>Codice fiscale<input value={studentForm.cf} onChange={(e) => setStudentForm({ ...studentForm, cf: e.target.value })} /></label>
-              </div>
-              <div className="form-row">
-                <label>Data nascita<input type="date" value={studentForm.nascita || ""} onChange={(e) => setStudentForm({ ...studentForm, nascita: e.target.value })} /></label>
-                <label>Luogo nascita<input value={studentForm.luogo} onChange={(e) => setStudentForm({ ...studentForm, luogo: e.target.value })} /></label>
-              </div>
+              <div className="form-row"><label>Telefono<input value={studentForm.telefono} onChange={(e) => setStudentForm({ ...studentForm, telefono: e.target.value })} placeholder="Usabile per il check-in" /></label><label>Codice fiscale<input value={studentForm.cf} onChange={(e) => setStudentForm({ ...studentForm, cf: e.target.value })} /></label></div>
+              <div className="form-row"><label>Data nascita<input type="date" value={studentForm.nascita || ""} onChange={(e) => setStudentForm({ ...studentForm, nascita: e.target.value })} /></label><label>Sesso<select value={studentForm.sesso} onChange={(e) => setStudentForm({ ...studentForm, sesso: e.target.value })}><option value="">Automatico dal codice fiscale</option><option value="M">Maschio</option><option value="F">Femmina</option></select></label></div>
+              <label>Luogo nascita<input value={studentForm.luogo} onChange={(e) => setStudentForm({ ...studentForm, luogo: e.target.value })} /></label>
               <label>Residenza<input value={studentForm.residenza} onChange={(e) => setStudentForm({ ...studentForm, residenza: e.target.value })} /></label>
             </section>
 
             <section className="student-profile-form-card">
-              <div className="mini-section-head compact-head">
-                <div>
-                  <strong>Tessera e stato account</strong>
-                  <small>Gestisci numero tessera, stato pagamento e ruolo corsista.</small>
-                </div>
-              </div>
-
-              <div className="form-row membership-number-row">
-                <label>Numero tessera personalizzato<input value={studentForm.numero_tessera} onChange={(e) => setStudentForm({ ...studentForm, numero_tessera: e.target.value })} placeholder="Lascia vuoto per usare il codice TESS del sito" /></label>
-                <label>Stagione<input value={studentForm.stagione} onChange={(e) => setStudentForm({ ...studentForm, stagione: e.target.value })} /></label>
-              </div>
-              {!studentForm.numero_tessera && (
-                <div className="info-box compact-info">
-                  <strong>Codice tessera attuale: {membershipNumber(editingStudent)}</strong>
-                  <span>È lo stesso codice che vedi nel sito, generato dall’ID tesseramento.</span>
-                  <button className="ghost-btn full-width" type="button" onClick={() => setStudentForm({ ...studentForm, numero_tessera: makeNextMembershipNumber(students) })}>
-                    Suggerisci numero progressivo personalizzato
-                  </button>
-                </div>
-              )}
-
-              <div className="form-row">
-                <label>Stato tessera
-                  <select value={studentForm.status || ""} onChange={(e) => setStudentForm({ ...studentForm, status: e.target.value })}>
-                    <option value="pending_payment">In attesa pagamento</option>
-                    <option value="active">Attiva</option>
-                    <option value="inactive">Non attiva</option>
-                    <option value="blocked">Bloccata</option>
-                  </select>
-                </label>
-                <label>Stato pagamento tessera
-                  <select value={studentForm.payment_status || ""} onChange={(e) => setStudentForm({ ...studentForm, payment_status: e.target.value })}>
-                    <option value="unpaid">Non pagato</option>
-                    <option value="paid">Pagato</option>
-                    <option value="pending">In attesa</option>
-                    <option value="refunded">Rimborsato</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="checkbox-grid student-profile-checks">
-                <label className="check-card"><input type="checkbox" checked={studentForm.tessera_attiva} onChange={(e) => setStudentForm({ ...studentForm, tessera_attiva: e.target.checked })} /> Tessera attiva</label>
-                <label className="check-card"><input type="checkbox" checked={studentForm.is_corsista} onChange={(e) => setStudentForm({ ...studentForm, is_corsista: e.target.checked })} /> Corsista</label>
-              </div>
+              <div className="mini-section-head compact-head"><div><strong>Tessera e accesso</strong><small>Nova gestisce pagamenti e quote; qui controlli identità, tessera e accesso ai corsi.</small></div></div>
+              <div className="form-row membership-number-row"><label>Numero tessera<input value={studentForm.numero_tessera} onChange={(e) => setStudentForm({ ...studentForm, numero_tessera: e.target.value })} placeholder="Numero usato al check-in" /></label><label>Stagione<input value={studentForm.stagione} onChange={(e) => setStudentForm({ ...studentForm, stagione: e.target.value })} /></label></div>
+              {!studentForm.numero_tessera && <div className="info-box compact-info"><strong>Codice attuale: {membershipNumber(editingStudent)}</strong><span>Puoi generare un numero progressivo più semplice da digitare sul tablet.</span><button className="ghost-btn full-width" type="button" onClick={() => setStudentForm({ ...studentForm, numero_tessera: makeNextMembershipNumber(students) })}>Suggerisci numero progressivo</button></div>}
+              <div className="checkbox-grid student-profile-checks"><label className="check-card"><input type="checkbox" checked={studentForm.tessera_attiva} onChange={(e) => setStudentForm({ ...studentForm, tessera_attiva: e.target.checked })} /> Tessera attiva e abilitata al check-in</label><label className="check-card"><input type="checkbox" checked={studentForm.is_corsista} onChange={(e) => setStudentForm({ ...studentForm, is_corsista: e.target.checked })} /> Corsista</label></div>
             </section>
 
             <section className="student-profile-form-card student-profile-wide-card">
-              <div className="mini-section-head compact-head">
-                <div>
-                  <strong>Iscrizioni e prezzi</strong>
-                  <small>Apri una riga per modificare formula, importo e stato del singolo corso.</small>
-                </div>
-                <div className="mini-section-actions">
-                  <span className="status-pill neutral">{studentEnrollments.length} corsi</span>
-                  {studentEnrollments.length > 1 && (
-                    <button className="mini-btn package-manage-btn" type="button" onClick={() => openStudentPackageManager()}>Gestisci pacchetto</button>
-                  )}
-                </div>
-              </div>
-
+              <div className="mini-section-head compact-head"><div><strong>Corsi dell’allievo</strong><small>Il tablet accetta il check-in soltanto per un corso con iscrizione attiva.</small></div><span className="status-pill neutral">{studentEnrollments.length} corsi</span></div>
               {studentEnrollments.length ? (
                 <div className="student-profile-course-grid">
                   {studentEnrollments.map((item) => (
-                    <button
-                      className="student-course-summary-row student-profile-course-card"
-                      key={item.id}
-                      type="button"
-                      onClick={() => setEditingStudentEnrollment(item)}
-                    >
-                      <div>
-                        <strong className="student-course-title">{item.corsi?.nome || "Corso"}</strong>
-                        <small>
-                          {item.corsi?.livello || "Livello non impostato"} · {billingLabel(item.tipo_pagamento || "mensile")} · {formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese
-                        </small>
-                        {item.pacchetto_nome && (
-                          <small className="package-inline-label">
-                            Pacchetto · {formatPercent(item.quota_pacchetto_percentuale)} · {formatMoney(item.pacchetto_totale_mensile)} / mese
-                          </small>
-                        )}
-                      </div>
+                    <div className="student-course-summary-row student-profile-course-card attendance-course-card" key={item.id}>
+                      <div><strong className="student-course-title">{item.corsi?.nome || "Corso"}</strong><small>{item.corsi?.livello || "Livello non impostato"} · {item.corsi?.giorno_settimana || "Giorno"} {formatTime(item.corsi?.ora_inizio)}</small></div>
                       <span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato || "attivo"}</span>
-                      <span className="edit-pencil" aria-label="Modifica corso">✎</span>
-                    </button>
-                  ))}
-                </div>
-              ) : <div className="payments-empty-state"><h4>Nessun corso collegato</h4><p>Quando il tesserato verrà iscritto a un corso, lo vedrai qui.</p></div>}
-            </section>
-
-            <section className="student-profile-form-card student-profile-wide-card">
-              <div className="student-payments-head">
-                <div>
-                  <strong>Pagamenti</strong>
-                  <small>Ultimi movimenti collegati al tesserato.</small>
-                </div>
-                <span className="status-pill neutral">{studentPayments.length}</span>
-              </div>
-              {studentPayments.length ? (
-                <div className="student-payment-list student-profile-payment-list">
-                  {studentPayments.slice(0, 8).map((payment) => (
-                    <div className="student-payment-row" key={payment.id}>
-                      <span>{payment.descrizione}</span>
-                      <strong>{formatMoney(payment.importo)}</strong>
-                      <small>{payment.stato}</small>
                     </div>
                   ))}
                 </div>
-              ) : <div className="payments-empty-state"><h4>Nessun pagamento creato</h4><p>Le quote create dal pannello pagamenti appariranno qui.</p></div>}
+              ) : <div className="payments-empty-state"><h4>Nessun corso collegato</h4><p>Iscrivi l’allievo a un corso per abilitare la registrazione della presenza.</p></div>}
             </section>
           </div>
 
-          <div className="student-profile-footer-actions">
-            <button className="ghost-btn" type="button" onClick={closeStudentDetail}>Annulla</button>
-            <button className="primary-btn" type="submit" disabled={savingStudent}>{savingStudent ? "Salvataggio…" : "Salva scheda tesserato"}</button>
-          </div>
+          <div className="student-profile-savebar"><span>Le modifiche all’anagrafica sono usate subito dal tablet.</span><div className="form-actions-row"><button className="primary-btn" type="submit" disabled={savingStudent}>{savingStudent ? "Salvataggio…" : "Salva modifiche"}</button><button className="ghost-btn" type="button" onClick={closeStudentDetail}>Annulla</button></div></div>
         </form>
       </div>
     );
   }
-
 
   function renderStudentEnrollmentModal() {
     if (!editingStudentEnrollment) return null;
@@ -3022,85 +2618,29 @@ export default function AdminPanel() {
       <div className="admin-modal-backdrop" role="presentation" onMouseDown={() => setEditingStudentEnrollment(null)}>
         <div className="admin-modal student-course-edit-modal" role="dialog" aria-modal="true" aria-label={`Modifica iscrizione ${item.corsi?.nome || "corso"}`} onMouseDown={(e) => e.stopPropagation()}>
           <div className="modal-head">
-            <div>
-              <span className="eyebrow">Dettaglio iscrizione</span>
-              <h3>{item.corsi?.nome || "Corso"}</h3>
-              <p className="admin-help-text">
-                {fullName(student)} · {membershipNumber(student)} · {item.corsi?.livello || "Livello non impostato"}
-              </p>
-            </div>
+            <div><span className="eyebrow">Dettaglio iscrizione</span><h3>{item.corsi?.nome || "Corso"}</h3><p className="admin-help-text">{fullName(student)} · {membershipNumber(student)} · {item.corsi?.livello || "Livello non impostato"}</p></div>
             <button className="mini-btn" type="button" onClick={() => setEditingStudentEnrollment(null)}>Chiudi</button>
           </div>
 
-          <div className="course-edit-summary-grid">
-            <div>
-              <span>Formula attuale</span>
-              <strong>{billingLabel(item.tipo_pagamento || "mensile")}</strong>
-            </div>
-            <div>
-              <span>Importo mensile</span>
-              <strong>{formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)}</strong>
-            </div>
-            {item.pacchetto_nome && (
-              <div>
-                <span>Pacchetto</span>
-                <strong>{item.pacchetto_nome}</strong>
-              </div>
-            )}
-            <div>
-              <span>Stato iscrizione</span>
-              <strong>{item.stato || "attivo"}</strong>
-            </div>
+          <div className="course-edit-summary-grid attendance-enrollment-summary">
+            <div><span>Giorno</span><strong>{item.corsi?.giorno_settimana || "—"}</strong></div>
+            <div><span>Orario</span><strong>{formatTime(item.corsi?.ora_inizio)} - {formatTime(item.corsi?.ora_fine)}</strong></div>
+            <div><span>Stato iscrizione</span><strong>{item.stato || "attivo"}</strong></div>
           </div>
 
           <div className="student-course-modal-grid">
-            <label>Formula pagamento
-              <select value={item.tipo_pagamento || "mensile"} onChange={(e) => updateEnrollmentLocal(item.id, { tipo_pagamento: e.target.value, pacchetto_nome: e.target.value === "all_you_can_dance" ? "All You Can Dance" : null })}>
-                <option value="mensile">Mensile</option>
-                <option value="trimestrale">Trimestrale</option>
-                <option value="annuale">Annuale</option>
-                <option value="all_you_can_dance">All You Can Dance</option>
-              </select>
-            </label>
-            <label>Importo mensile personalizzato
-              <input type="number" step="0.01" value={item.tariffa_mensile ?? item.corsi?.prezzo_mensile ?? 0} onChange={(e) => updateEnrollmentLocal(item.id, { tariffa_mensile: e.target.value })} />
-            </label>
-            <label>Nome pacchetto
-              <input value={item.pacchetto_nome || ""} onChange={(e) => updateEnrollmentLocal(item.id, { pacchetto_nome: e.target.value || null })} placeholder="Es. Pacchetto multicorso" />
-            </label>
-            <label>Totale mensile pacchetto
-              <input type="number" step="0.01" value={item.pacchetto_totale_mensile || ""} onChange={(e) => updateEnrollmentLocal(item.id, { pacchetto_totale_mensile: e.target.value })} placeholder="Es. 120" />
-            </label>
-            <label>% ripartizione pacchetto
-              <input type="number" step="0.01" value={item.quota_pacchetto_percentuale || ""} onChange={(e) => updateEnrollmentLocal(item.id, { quota_pacchetto_percentuale: e.target.value })} placeholder="Calcolata in fase iscrizione" />
-            </label>
             <label>Stato corso dell’allievo
-              <select value={item.stato || "attivo"} onChange={(e) => updateEnrollmentLocal(item.id, { stato: e.target.value, rinnovo_attivo: e.target.value === "attivo" })}>
-                <option value="attivo">Attivo</option>
-                <option value="sospeso">Sospeso</option>
-                <option value="terminato">Terminato</option>
+              <select value={item.stato || "attivo"} onChange={(e) => updateEnrollmentLocal(item.id, { stato: e.target.value, rinnovo_attivo: e.target.value === "attivo", data_fine: e.target.value === "terminato" ? todayIso() : null })}>
+                <option value="attivo">Attivo</option><option value="sospeso">Sospeso</option><option value="terminato">Terminato</option>
               </select>
             </label>
-            <label>Data inizio
-              <input type="date" value={item.data_inizio || item.data_iscrizione || ""} onChange={(e) => updateEnrollmentLocal(item.id, { data_inizio: e.target.value })} />
-            </label>
+            <label>Data inizio<input type="date" value={item.data_inizio || item.data_iscrizione || ""} onChange={(e) => updateEnrollmentLocal(item.id, { data_inizio: e.target.value })} /></label>
+            <label>Data fine<input type="date" value={item.data_fine || ""} onChange={(e) => updateEnrollmentLocal(item.id, { data_fine: e.target.value || null })} /></label>
+            <label>Note<input value={item.note || ""} onChange={(e) => updateEnrollmentLocal(item.id, { note: e.target.value })} placeholder="Note interne sull’iscrizione" /></label>
           </div>
 
-          <div className="checkbox-grid modal-check-grid">
-            <label className="check-card"><input type="checkbox" checked={item.rinnovo_attivo !== false} onChange={(e) => updateEnrollmentLocal(item.id, { rinnovo_attivo: e.target.checked })} /> Genera quote future</label>
-            <label className="check-card"><input type="checkbox" checked={item.genera_pagamento !== false} onChange={(e) => updateEnrollmentLocal(item.id, { genera_pagamento: e.target.checked })} /> Questo corso genera pagamento</label>
-          </div>
-
-          {item.stato !== "attivo" && (
-            <div className="alert warning compact-alert">
-              Video bloccati per questo corso finché l’iscrizione non torna attiva.
-            </div>
-          )}
-
-          <div className="form-actions-row modal-actions-row">
-            <button className="primary-btn" type="button" onClick={saveAndClose}>Salva modifiche</button>
-            <button className="ghost-btn" type="button" onClick={() => setEditingStudentEnrollment(null)}>Annulla</button>
-          </div>
+          {item.stato !== "attivo" && <div className="alert warning compact-alert">L’allievo non potrà registrare la presenza a questo corso finché l’iscrizione non torna attiva.</div>}
+          <div className="form-actions-row modal-actions-row"><button className="primary-btn" type="button" onClick={saveAndClose}>Salva modifiche</button><button className="ghost-btn" type="button" onClick={() => setEditingStudentEnrollment(null)}>Annulla</button></div>
         </div>
       </div>
     );
@@ -3292,7 +2832,6 @@ export default function AdminPanel() {
           <div className="students-card-list-v2">
             {paginatedStudents.map((student) => {
               const studentEnrollmentCount = enrollments.filter((item) => item.tesseramento_id === student.id).length;
-              const studentOpenPayments = payments.filter((item) => item.tesseramento_id === student.id && isPaymentOpen(item)).length;
               return (
                 <article className="student-list-card-v2" key={student.id}>
                   <div className="student-list-card-identity">
@@ -3318,15 +2857,15 @@ export default function AdminPanel() {
                       <strong>{studentEnrollmentCount}</strong>
                     </div>
                     <div>
-                      <span>Quote aperte</span>
-                      <strong>{studentOpenPayments}</strong>
+                      <span>Check-in</span>
+                      <strong>{student.telefono || membershipNumber(student) ? "Abilitato" : "Da completare"}</strong>
                     </div>
                   </div>
 
                   <div className="student-list-card-statuses">
                     <span className={student.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{student.tessera_attiva !== false ? "Tessera attiva" : "Non attiva"}</span>
                     <span className={student.is_corsista ? "status-pill ok" : "status-pill neutral"}>{student.is_corsista ? "Corsista" : "Tesserato"}</span>
-                    <span className={tesseramentoStatusClass(student.status)}>{student.status || "—"}</span>
+                    <span className={student.tessera_attiva !== false ? "status-pill ok" : "status-pill warn"}>{student.tessera_attiva !== false ? "Accesso consentito" : "Accesso bloccato"}</span>
                   </div>
 
                   <div className="student-list-card-actions">
@@ -3363,9 +2902,9 @@ export default function AdminPanel() {
     const activeCount = courseDetailEnrollments.filter((item) => item.stato === "attivo").length;
     const suspendedCount = courseDetailEnrollments.filter((item) => item.stato === "sospeso").length;
     const endedCount = courseDetailEnrollments.filter((item) => item.stato === "terminato").length;
-    const coursePaidTotal = courseDetailPayments
-      .filter((payment) => payment.stato === "pagato")
-      .reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
+    const startMinutes = Number(String(course.ora_inizio || "0:0").slice(0, 2)) * 60 + Number(String(course.ora_inizio || "0:0").slice(3, 5));
+    const endMinutes = Number(String(course.ora_fine || "0:0").slice(0, 2)) * 60 + Number(String(course.ora_fine || "0:0").slice(3, 5));
+    const durationHours = Math.max(0, endMinutes >= startMinutes ? endMinutes - startMinutes : endMinutes + 1440 - startMinutes) / 60;
 
     function openStudentFromCourse(enrollment) {
       const student = students.find((item) => item.id === enrollment.tesseramento_id);
@@ -3409,20 +2948,19 @@ export default function AdminPanel() {
             <div><span>Attivi</span><strong>{activeCount}</strong></div>
             <div><span>Sospesi</span><strong>{suspendedCount}</strong></div>
             <div><span>Terminati</span><strong>{endedCount}</strong></div>
-            <div><span>Prezzo base</span><strong>{formatMoney(course.prezzo_mensile)}</strong></div>
-            <div><span>Incassato corso</span><strong>{formatMoney(coursePaidTotal)}</strong></div>
+            <div><span>Durata lezione</span><strong>{durationHours.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h</strong></div>
+            <div><span>Check-in</span><strong>{course.attivo ? "Abilitato" : "Disattivato"}</strong></div>
           </div>
 
           <div className="course-detail-actions course-detail-actions-v2">
             <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); startEditCourse(course); }}>✎ Modifica corso</button>
             <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); goToSection("enrollments"); }}>+ Iscrivi allievi</button>
-            <button className="mini-btn" type="button" onClick={() => { setCourseDetail(null); goToSection("payments"); setPaymentCourseFilter(course.id); }}>€ Pagamenti corso</button>
           </div>
 
           <div className="modal-subhead course-students-subhead">
             <div>
               <strong>Iscritti al corso</strong>
-              <small>Vista pulita per controllare velocemente allievi, quota, stato e azioni principali.</small>
+              <small>Vista rapida per controllare allievi, stato iscrizione e accesso al check-in.</small>
             </div>
             <span className="section-counter">{courseDetailEnrollments.length}</span>
           </div>
@@ -3430,7 +2968,7 @@ export default function AdminPanel() {
           {courseDetailEnrollments.length === 0 ? (
             <div className="payments-empty-state">
               <h4>Nessun allievo iscritto</h4>
-              <p>Quando iscrivi un allievo a questo corso, lo vedrai qui con quota e stato iscrizione.</p>
+              <p>Quando iscrivi un allievo a questo corso, lo vedrai qui con lo stato di accesso.</p>
             </div>
           ) : (
             <div className="course-student-list">
@@ -3448,9 +2986,9 @@ export default function AdminPanel() {
                     </div>
 
                     <div className="course-student-meta-grid">
-                      <div><span>Pagamento</span><strong>{billingLabel(enrollment.tipo_pagamento || "mensile")}</strong><small>{enrollment.genera_pagamento === false ? "Incluso in pacchetto" : "Genera quote"}</small></div>
-                      <div><span>Quota mese</span><strong>{formatMoney(enrollment.tariffa_mensile ?? course.prezzo_mensile)}</strong></div>
-                      <div><span>Stato</span><strong>{enrollmentStatus}</strong><small>{enrollment.rinnovo_attivo === false ? "quote/video disattivati" : "quote attive"}</small></div>
+                      <div><span>Giorno</span><strong>{course.giorno_settimana || "—"}</strong><small>{formatTime(course.ora_inizio)} - {formatTime(course.ora_fine)}</small></div>
+                      <div><span>Sala</span><strong>{course.sala || "—"}</strong></div>
+                      <div><span>Stato</span><strong>{enrollmentStatus}</strong><small>{enrollmentStatus === "attivo" ? "check-in consentito" : "check-in bloccato"}</small></div>
                       <div><span>Inizio</span><strong>{formatDate(enrollment.data_inizio || enrollment.data_iscrizione)}</strong></div>
                     </div>
 
@@ -3475,9 +3013,12 @@ export default function AdminPanel() {
     const courseIds = new Set(courses.map((course) => course.id));
     const courseEnrollments = enrollments.filter((item) => courseIds.has(item.corso_id));
     const activeEnrollmentCount = courseEnrollments.filter((item) => item.stato === "attivo").length;
-    const averagePrice = activeCourseCount
-      ? courses.filter((course) => course.attivo).reduce((sum, course) => sum + Number(course.prezzo_mensile || 0), 0) / activeCourseCount
-      : 0;
+    const weeklyHours = courses.filter((course) => course.attivo).reduce((sum, course) => {
+      const start = Number(String(course.ora_inizio || "0:0").slice(0, 2)) * 60 + Number(String(course.ora_inizio || "0:0").slice(3, 5));
+      const end = Number(String(course.ora_fine || "0:0").slice(0, 2)) * 60 + Number(String(course.ora_fine || "0:0").slice(3, 5));
+      const minutes = end >= start ? end - start : end + 1440 - start;
+      return sum + Math.max(0, minutes) / 60;
+    }, 0);
 
     function dayWeight(value) {
       const clean = String(value || "").toLowerCase();
@@ -3510,13 +3051,13 @@ export default function AdminPanel() {
           <div className="courses-hero-copy">
             <span className="eyebrow">Corsi</span>
             <h3>Calendario corsi</h3>
-            <p>Gestisci corsi, orari, sale, prezzi base e iscritti con una vista più semplice e ordinata.</p>
+            <p>Gestisci calendario, sale e iscritti. Gli orari impostati qui guidano automaticamente il check-in del tablet.</p>
           </div>
 
           <div className="courses-overview-grid">
             <div><span>Corsi attivi</span><strong>{activeCourseCount}</strong><small>{inactiveCourseCount} disattivi</small></div>
             <div><span>Iscrizioni attive</span><strong>{activeEnrollmentCount}</strong><small>{courseEnrollments.length} totali</small></div>
-            <div><span>Prezzo medio</span><strong>{formatMoney(averagePrice)}</strong><small>base mensile</small></div>
+            <div><span>Ore settimanali</span><strong>{weeklyHours.toLocaleString("it-IT", { maximumFractionDigits: 1 })}</strong><small>calendario attivo</small></div>
           </div>
         </div>
 
@@ -3526,7 +3067,7 @@ export default function AdminPanel() {
               <div>
                 <span className="eyebrow">{editingCourse ? "Modifica" : "Nuovo corso"}</span>
                 <h3>{editingCourse ? "Aggiorna corso" : "Crea corso"}</h3>
-                <p className="admin-help-text">Inserisci solo i dati essenziali: nome, livello, orario, sala e prezzo base. I pacchetti si gestiscono poi nella scheda allievo.</p>
+                <p className="admin-help-text">Inserisci nome, livello, giorno, orario e sala: sono i dati usati per riconoscere automaticamente la lezione sul tablet.</p>
               </div>
               {editingCourse && <span className="status-pill warn">In modifica</span>}
             </div>
@@ -3538,7 +3079,6 @@ export default function AdminPanel() {
               <label>Sala<input value={courseForm.sala} onChange={(e) => setCourseForm({ ...courseForm, sala: e.target.value })} placeholder="Sala 1" /></label>
               <label>Inizio<input type="time" value={courseForm.ora_inizio} onChange={(e) => setCourseForm({ ...courseForm, ora_inizio: e.target.value })} /></label>
               <label>Fine<input type="time" value={courseForm.ora_fine} onChange={(e) => setCourseForm({ ...courseForm, ora_fine: e.target.value })} /></label>
-              <label>Prezzo mensile base<input type="number" step="0.01" value={courseForm.prezzo_mensile} onChange={(e) => setCourseForm({ ...courseForm, prezzo_mensile: e.target.value })} /></label>
             </div>
 
             <div className="form-actions-row course-form-actions">
@@ -3552,7 +3092,7 @@ export default function AdminPanel() {
               <div>
                 <span className="eyebrow">Lista corsi</span>
                 <h3>Corsi creati</h3>
-                <p className="admin-help-text">Le schede sono ordinate per giorno e orario. Apri i dettagli per vedere iscritti, pagamenti e azioni veloci.</p>
+                <p className="admin-help-text">Le schede sono ordinate per giorno e orario. Apri i dettagli per vedere iscritti e stato del check-in.</p>
               </div>
               <span className="status-pill neutral">{courses.length} corsi</span>
             </div>
@@ -3589,7 +3129,7 @@ export default function AdminPanel() {
                     </div>
 
                     <div className="course-card-info-grid course-card-info-grid-v2">
-                      <div><span>Prezzo base</span><strong>{formatMoney(course.prezzo_mensile)}</strong></div>
+                      <div><span>Sala</span><strong>{course.sala || "—"}</strong></div>
                       <div><span>Iscritti</span><strong>{allEnrollments.length}</strong></div>
                       <div><span>Attivi</span><strong>{activeEnrollments.length}</strong></div>
                       <div><span>Sospesi</span><strong>{suspendedEnrollments.length}</strong></div>
@@ -3619,309 +3159,73 @@ export default function AdminPanel() {
   }
 
   function renderEnrollments() {
-    const isAllYouCanDance = enrollmentBillingCycle === "all_you_can_dance";
-    const extendsExistingPackage = Boolean(selectedExistingPackage && selectedCourseIds.length > 0);
-    const usesPackage = (selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (useEnrollmentPackage || isAllYouCanDance || extendsExistingPackage);
-    const packageAllocationTotal = Object.values(selectedPackageAllocation).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const packagePreviewCourses = usesPackage ? packageCoursesForEnrollmentPreview : selectedEnrollmentCourses;
+    const selectedStudentCurrentEnrollments = selectedStudentId
+      ? enrollments.filter((item) => item.tesseramento_id === selectedStudentId)
+      : [];
 
     return (
-      <div className="admin-section-layout">
-        <form className="content-card admin-card" onSubmit={handleEnroll}>
-          <span className="eyebrow">Iscrizioni</span>
-          <h3>Iscrivi allievo a uno o più corsi</h3>
-          <SearchableStudentField
-            label="Allievo"
-            students={students}
-            value={selectedStudentId}
-            onChange={setSelectedStudentId}
-            placeholder="Scrivi nome, cognome, email, CF o numero tessera"
-            helpText="Niente menu infinito: cerca l'allievo e selezionalo dai risultati."
-          />
+      <div className="admin-section-stack attendance-enrollments-page">
+        <div className="content-card admin-card enrollment-clean-hero">
+          <div><span className="eyebrow">Iscrizioni corsi</span><h3>Abilita gli allievi al check-in</h3><p className="admin-help-text">Qui colleghi l’allievo ai corsi e gestisci soltanto stato e periodo di frequenza. Prezzi, quote e pagamenti restano in Nova.</p></div>
+          <span className="status-pill neutral">{enrollments.filter((item) => item.stato === "attivo").length} attive</span>
+        </div>
 
-          {selectedStudent && (
-            <div className="selected-enrollments-panel">
-              <div className="mini-section-head">
-                <div>
-                  <strong>Iscrizioni attuali</strong>
-                  <small>Prima controlla cosa frequenta già: puoi aggiungere corsi nuovi o gestire quelli esistenti senza creare doppioni.</small>
-                </div>
-                <span className="status-pill neutral">{selectedStudentEnrollments.length} corsi in scheda</span>
+        <div className="admin-section-layout enrollment-clean-layout">
+          <form className="content-card admin-card" onSubmit={handleEnroll}>
+            <span className="eyebrow">Nuova iscrizione</span>
+            <h3>Associa allievo e corsi</h3>
+
+            <label>Allievo
+              <select value={selectedStudentId} onChange={(e) => { setSelectedStudentId(e.target.value); setSelectedCourseIds([]); }} required>
+                <option value="">Seleziona allievo</option>
+                {students.map((student) => <option key={student.id} value={student.id}>{studentSearchLabel(student)}</option>)}
+              </select>
+            </label>
+
+            {selectedStudentId && (
+              <div className="selected-student-enrollments-clean">
+                <strong>Corsi già collegati</strong>
+                {selectedStudentCurrentEnrollments.length ? selectedStudentCurrentEnrollments.map((item) => (
+                  <div key={item.id}>
+                    <span>{item.corsi?.nome || "Corso"} · {item.corsi?.livello || "Livello"}</span>
+                    <span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato}</span>
+                    <button className="mini-btn" type="button" onClick={() => setEditingStudentEnrollment(item)}>Modifica</button>
+                  </div>
+                )) : <small>Nessun corso ancora collegato.</small>}
               </div>
+            )}
 
-              {selectedStudentEnrollments.length === 0 ? (
-                <div className="selected-enrollments-empty">
-                  <strong>Nessun corso assegnato</strong>
-                  <span>Puoi selezionare i corsi qui sotto e procedere con l’iscrizione.</span>
-                </div>
-              ) : (
-                <div className="selected-enrollment-list">
-                  {selectedStudentEnrollments.map((item) => (
-                    <article className={`selected-enrollment-card is-${item.stato || "attivo"}`} key={item.id}>
-                      <div className="selected-enrollment-main">
-                        <span className={item.stato === "attivo" ? "status-pill ok" : item.stato === "terminato" ? "status-pill warn" : "status-pill neutral"}>
-                          {item.stato || "attivo"}
-                        </span>
-                        <strong>{item.corsi?.nome || "Corso"}</strong>
-                        <small>
-                          {item.corsi?.livello || "Livello non impostato"} · {billingLabel(item.tipo_pagamento || "mensile")} · {formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese
-                        </small>
-                        {item.pacchetto_nome && <em>{item.pacchetto_nome}</em>}
-                      </div>
-                      <div className="selected-enrollment-actions">
-                        <button className="mini-btn" type="button" onClick={() => setEditingStudentEnrollment(item)}>Gestisci corso</button>
-                        <button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(item)}>{item.stato === "attivo" ? "Sospendi" : "Riattiva"}</button>
-                        {item.pacchetto_id && <button className="mini-btn package-manage-btn" type="button" onClick={() => { openStudentDetail(selectedStudent); openStudentPackageManager(item.pacchetto_id, selectedStudent); }}>Gestisci pacchetto</button>}
-                        {item.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(item)}>Chiudi</button>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {selectedStudent && selectedStudentPackageGroups.length > 0 && selectedCourseIds.length > 0 && (
-            <div className="existing-package-extend-card">
-              <div className="mini-section-head">
-                <div>
-                  <strong>Pacchetto multicorso già presente</strong>
-                  <small>Puoi aggiungere i nuovi corsi al pacchetto esistente: il prezzo totale verrà ridistribuito su tutti i corsi, non solo su quelli nuovi.</small>
-                </div>
-                <span className="status-pill package-pill">Consigliato</span>
-              </div>
-
-              <div className="form-row">
-                <label>Come vuoi gestire i nuovi corsi?
-                  <select
-                    value={enrollmentExistingPackageId || "new"}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setEnrollmentExistingPackageId(value === "new" ? "" : value);
-                      const group = selectedStudentPackageGroups.find((entry) => entry.id === value);
-                      if (group) {
-                        setUseEnrollmentPackage(true);
-                        setEnrollmentPackageName(group.name || "Pacchetto multicorso");
-                        setEnrollmentPackageMonthlyPrice(String(group.totalMonthly || 0));
-                        setEnrollmentBillingCycle(group.billingCycle || "mensile");
-                      }
-                    }}
-                  >
-                    <option value="new">Crea un nuovo pacchetto separato</option>
-                    {selectedStudentPackageGroups.map((group) => (
-                      <option key={group.id} value={group.id}>{group.name} · {formatMoney(group.totalMonthly)} · {group.rows.length} corsi</option>
-                    ))}
-                  </select>
-                </label>
-                <label>Totale mensile del pacchetto aggiornato
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={enrollmentPackageMonthlyPrice}
-                    onChange={(e) => setEnrollmentPackageMonthlyPrice(e.target.value)}
-                    disabled={!selectedExistingPackage}
-                  />
-                </label>
-              </div>
-
-              {selectedExistingPackage && (
-                <div className="package-extension-preview">
-                  <span>Pacchetto aggiornato</span>
-                  <strong>{selectedExistingPackage.rows.length} corsi attuali + {selectedEnrollmentCourses.length} nuovi</strong>
-                  <small>Somma prezzi pieni {formatMoney(enrollmentPackageBaseTotal)} · totale pacchetto {formatMoney(enrollmentPackageMonthlyPrice)}</small>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="multi-course-picker">
-            <div className="mini-section-head">
-              <div>
-                <strong>Corsi da assegnare</strong>
-                <small>Seleziona anche più corsi insieme.</small>
-              </div>
-              <span className="status-pill neutral">{selectedCourseIds.length} selezionati</span>
-            </div>
-            <div className="course-choice-grid">
+            <div className="course-choice-grid enrollment-course-choice-grid">
               {activeCourses.map((course) => {
-                const checked = selectedCourseIds.includes(course.id);
-                const existingEnrollment = selectedStudentEnrollmentByCourseId.get(course.id);
+                const existing = selectedStudentEnrollmentByCourseId.get(course.id);
+                const selected = selectedCourseIds.includes(course.id);
                 return (
-                  <button
-                    type="button"
-                    className={`course-choice-card ${checked ? "selected" : ""} ${existingEnrollment ? "already-assigned" : ""}`}
-                    key={course.id}
-                    disabled={Boolean(existingEnrollment)}
-                    onClick={() => toggleSelectedCourse(course)}
-                  >
-                    <span>{existingEnrollment ? "✓" : checked ? "✓" : "+"}</span>
+                  <button type="button" key={course.id} disabled={!selectedStudentId || Boolean(existing)} className={`course-choice-card ${selected ? "selected" : ""} ${existing ? "already-assigned" : ""}`} onClick={() => toggleCourseSelection(course)}>
+                    <span>{existing ? "✓" : selected ? "✓" : "+"}</span>
                     <strong>{course.nome}</strong>
-                    <small>{course.livello || "Livello da definire"}</small>
-                    <em>{existingEnrollment ? `Già ${existingEnrollment.stato || "in scheda"}` : `${formatMoney(course.prezzo_mensile)} / mese`}</em>
+                    <small>{course.livello || "Livello"} · {course.giorno_settimana || "Giorno"} {formatTime(course.ora_inizio)}</small>
+                    <em>{existing ? `Già ${existing.stato || "collegato"}` : course.sala || "Sala da definire"}</em>
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          <div className="form-row">
-            <label>Tipo pagamento
-              <select value={enrollmentBillingCycle} onChange={(e) => setEnrollmentBillingCycle(e.target.value)}>
-                <option value="mensile">Mensile</option>
-                <option value="trimestrale">Trimestrale</option>
-                <option value="annuale">Annuale</option>
-                <option value="all_you_can_dance">All You Can Dance</option>
-              </select>
-            </label>
-            <label>Tariffa mensile base rapida
-              <input type="number" step="0.01" value={enrollmentMonthlyPrice} onChange={(e) => setEnrollmentMonthlyPrice(e.target.value)} disabled={usesPackage} />
-            </label>
-          </div>
+            <div className="form-row"><label>Data inizio<input type="date" value={enrollmentStartDate} onChange={(e) => setEnrollmentStartDate(e.target.value)} /></label><label>Note<input value={enrollmentNote} onChange={(e) => setEnrollmentNote(e.target.value)} placeholder="Opzionale" /></label></div>
+            <button className="primary-btn" type="submit" disabled={!selectedStudentId || selectedCourseIds.length === 0}>Iscrivi ai corsi selezionati</button>
+          </form>
 
-          {(selectedEnrollmentCourses.length > 1 || extendsExistingPackage) && (
-            <div className="package-builder-card">
-              <div className="mini-section-head">
-                <div>
-                  <strong>Pacchetto multicorso</strong>
-                  <small>Inserisci il totale mensile realmente pagato: il sistema lo divide in proporzione ai prezzi base dei corsi.</small>
+          <section className="content-card admin-card enrollment-register-clean">
+            <div className="card-head"><div><span className="eyebrow">Registro iscrizioni</span><h3>Stato accessi ai corsi</h3></div></div>
+            <div className="compact-list">
+              {enrollments.slice(0, 120).map((item) => (
+                <div className="compact-row with-action" key={item.id}>
+                  <div><strong>{fullName(item.tesseramenti)}</strong><span>{item.corsi?.nome || "Corso"} · {item.corsi?.livello || "Livello"}</span><small>{item.corsi?.giorno_settimana || "Giorno"} {formatTime(item.corsi?.ora_inizio)} · dal {formatDate(item.data_inizio || item.data_iscrizione)}</small></div>
+                  <div className="row-actions"><span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato || "attivo"}</span><button className="mini-btn" type="button" onClick={() => setEditingStudentEnrollment(item)}>Modifica</button><button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(item)}>{item.stato === "attivo" ? "Sospendi" : "Riattiva"}</button></div>
                 </div>
-                <label className="toggle-inline">
-                  <input
-                    type="checkbox"
-                    checked={usesPackage}
-                    disabled={isAllYouCanDance}
-                    onChange={(e) => setUseEnrollmentPackage(e.target.checked)}
-                  />
-                  Usa pacchetto
-                </label>
-              </div>
-
-              {usesPackage && (
-                <>
-                  <div className="form-row">
-                    <label>Nome pacchetto
-                      <input
-                        value={isAllYouCanDance ? "All You Can Dance" : enrollmentPackageName}
-                        disabled={isAllYouCanDance}
-                        onChange={(e) => setEnrollmentPackageName(e.target.value)}
-                      />
-                    </label>
-                    <label>Totale mensile pacchetto
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={enrollmentPackageMonthlyPrice}
-                        onChange={(e) => setEnrollmentPackageMonthlyPrice(e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="package-allocation-box">
-                    <div className="package-allocation-summary">
-                      <span>Somma prezzi pieni: <strong>{formatMoney(enrollmentPackageBaseTotal)}</strong></span>
-                      <span>Totale pacchetto: <strong>{formatMoney(enrollmentPackageMonthlyPrice)}</strong></span>
-                      <span>Ripartito: <strong>{formatMoney(packageAllocationTotal)}</strong></span>
-                    </div>
-                    {packagePreviewCourses.map((course) => {
-                      const allocated = selectedPackageAllocation[course.id] || { amount: 0, percent: 0 };
-                      return (
-                        <div className={`allocation-row ${course.alreadyInPackage ? "already-in-package" : "new-in-package"}`} key={course.id}>
-                          <div>
-                            <strong>{course.nome}</strong>
-                            <small>{course.livello || "—"} · prezzo pieno {formatMoney(course.prezzo_mensile)}{course.alreadyInPackage ? " · già nel pacchetto" : " · nuovo corso"}</small>
-                          </div>
-                          <span>{formatPercent(allocated.percent)}</span>
-                          <strong>{formatMoney(allocated.amount)} / mese</strong>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {!usesPackage && selectedEnrollmentCourses.length > 0 && (
-            <div className="selected-course-prices">
-              <strong>Prezzi personalizzati per corso</strong>
-              <small>Questi importi rimangono salvati sull’iscrizione e verranno usati anche nei mesi successivi.</small>
-              {selectedEnrollmentCourses.map((course) => (
-                <label key={course.id} className="course-price-row">
-                  <span>{course.nome} {course.livello ? `- ${course.livello}` : ""}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={enrollmentCoursePrices[course.id] ?? course.prezzo_mensile ?? enrollmentMonthlyPrice}
-                    onChange={(e) => setEnrollmentCoursePrices((current) => ({ ...current, [course.id]: e.target.value }))}
-                  />
-                </label>
               ))}
+              {!enrollments.length && <p className="empty-text">Nessuna iscrizione presente.</p>}
             </div>
-          )}
-
-          {usesPackage && (
-            <div className="info-box compact-info">
-              <strong>Come verranno create le quote</strong>
-              <span>La segreteria vedrà una riga per ogni corso, ma la somma delle quote mese sarà uguale al totale pacchetto. Questo servirà anche per ripartire in futuro la quota insegnanti/Orchidea.</span>
-            </div>
-          )}
-
-          <div className="form-row">
-            <label>Data inizio corso<input type="date" value={enrollmentStartDate} onChange={(e) => setEnrollmentStartDate(e.target.value)} /></label>
-            <label className="check-card inline-check"><input type="checkbox" checked={enrollmentRenewalActive} onChange={(e) => setEnrollmentRenewalActive(e.target.checked)} /> Genera quote finché attivo</label>
-          </div>
-          <label>Note<input value={enrollmentNote} onChange={(e) => setEnrollmentNote(e.target.value)} placeholder="Opzionale" /></label>
-          <div className="info-box compact-info">
-            <strong>Come funziona</strong>
-            <span>Mensile genera una quota al mese. Trimestrale e annuale coprono più mesi. Il prezzo personalizzato resta salvato sull’iscrizione, quindi non va reinserito ogni mese.</span>
-          </div>
-          <button className="primary-btn" type="submit">Iscrivi ai corsi selezionati</button>
-          {selectedStudent && <p className="admin-help-text">Stai iscrivendo: <strong>{fullName(selectedStudent)}</strong></p>}
-        </form>
-
-        <div className="content-card admin-card">
-          <div className="card-head">
-            <div>
-              <span className="eyebrow">Elenco iscrizioni</span>
-              <h3>Allievi collegati ai corsi</h3>
-              <p className="admin-help-text">Gli iscritti sospesi o terminati non vedono più né vecchi né nuovi video del corso.</p>
-            </div>
-          </div>
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Allievo</th>
-                  <th>Corso</th>
-                  <th>Orario</th>
-                  <th>Pagamento</th>
-                  <th>Stato</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrollments.map((item) => (
-                  <tr key={item.id}>
-                    <td><strong>{item.tesseramenti?.nome} {item.tesseramenti?.cognome}</strong><small>{item.tesseramenti?.email || "—"} · {membershipNumber(item.tesseramenti)}</small></td>
-                    <td>{item.corsi?.nome || "—"}<small>{item.corsi?.livello || ""}</small></td>
-                    <td>{item.corsi?.giorno_settimana || "—"}<small>{formatTime(item.corsi?.ora_inizio)}-{formatTime(item.corsi?.ora_fine)}</small></td>
-                    <td>{billingLabel(item.tipo_pagamento || "mensile")}<small>{item.genera_pagamento === false ? "Incluso, nessuna quota" : `${formatMoney(item.tariffa_mensile ?? item.corsi?.prezzo_mensile)} / mese`}</small></td>
-                    <td>
-                      <span className={item.stato === "attivo" ? "status-pill ok" : "status-pill neutral"}>{item.stato}</span>
-                      <small>{item.rinnovo_attivo === false ? "quote/video disattivati" : "quote attive"}</small>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="mini-btn" type="button" onClick={() => { openStudentDetail(students.find((student) => student.id === item.tesseramento_id) || item.tesseramenti); goToSection("students"); }}>Scheda</button>
-                        <button className="mini-btn" type="button" onClick={() => handleToggleEnrollment(item)}>{item.stato === "attivo" ? "Sospendi" : "Riattiva"}</button>
-                        {item.stato !== "terminato" && <button className="mini-btn danger" type="button" onClick={() => handleEndEnrollment(item)}>Chiudi corso</button>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          </section>
         </div>
       </div>
     );
@@ -4627,12 +3931,12 @@ export default function AdminPanel() {
           <div>
             <span className="eyebrow">Home app</span>
             <h3>Locandine pubblicate nel carosello</h3>
-            <p className="admin-help-text">Scegli quali locandine far vedere nella home degli allievi. Se non selezioni nulla, l’app mostra automaticamente i corsi attivi.</p>
+            <p className="admin-help-text">Scegli le locandine e trascinale nell’ordine in cui vuoi mostrarle. Su tablet o telefono usa le frecce sotto ogni card. Se non selezioni nulla, l’app mostra automaticamente i corsi attivi.</p>
           </div>
           <div className="home-showcase-admin-actions">
             <span className="status-pill neutral">{publishedCount} pubblicate</span>
             <button className="primary-btn slim" type="button" onClick={handleSaveHomeShowcase} disabled={savingHomeShowcase}>
-              {savingHomeShowcase ? "Salvo…" : "Salva home"}
+              {savingHomeShowcase ? "Salvo…" : "Salva ordine e home"}
             </button>
           </div>
         </div>
@@ -4647,7 +3951,26 @@ export default function AdminPanel() {
             const selected = homeShowcaseIds.includes(course.id);
             const visual = getCourseVisual(course);
             return (
-              <article className={`home-showcase-course-card ${selected ? "selected" : ""} ${course.attivo ? "" : "inactive"}`} key={course.id}>
+              <article
+                className={`home-showcase-course-card ${selected ? "selected" : ""} ${course.attivo ? "" : "inactive"} ${draggedShowcaseCourseId === course.id ? "is-dragging" : ""}`}
+                key={course.id}
+                draggable
+                onDragStart={(event) => {
+                  setDraggedShowcaseCourseId(course.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", course.id);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  dropHomeShowcaseCourse(course.id);
+                }}
+                onDragEnd={() => setDraggedShowcaseCourseId("")}
+              >
+                <span className="home-showcase-drag-handle" title="Trascina per ordinare" aria-hidden="true">⋮⋮</span>
                 <button type="button" className="home-showcase-select-btn" onClick={() => toggleHomeShowcaseCourse(course.id)} aria-pressed={selected}>
                   <img src={visual.image} alt={`${course.nome || "Corso"} ${course.livello || ""}`} loading="lazy" decoding="async" />
                   <span className="home-showcase-check">{selected ? "✓ Pubblicata" : "Pubblica"}</span>
@@ -4656,6 +3979,11 @@ export default function AdminPanel() {
                   <strong>{course.nome || "Corso senza nome"}</strong>
                   <span>{course.livello || "Livello non impostato"}</span>
                   <small>{course.giorno_settimana || "Giorno"} · {formatTime(course.ora_inizio)} - {formatTime(course.ora_fine)}</small>
+                  <div className="home-showcase-order-actions" aria-label={`Sposta ${course.nome || "corso"}`}>
+                    <button type="button" onClick={() => moveHomeShowcaseCourse(course.id, -1)} disabled={homeShowcaseCourses[0]?.id === course.id} aria-label="Sposta indietro">←</button>
+                    <span>Posizione {homeShowcaseCourses.findIndex((item) => item.id === course.id) + 1}</span>
+                    <button type="button" onClick={() => moveHomeShowcaseCourse(course.id, 1)} disabled={homeShowcaseCourses.at(-1)?.id === course.id} aria-label="Sposta avanti">→</button>
+                  </div>
                 </div>
               </article>
             );
@@ -4673,11 +4001,10 @@ export default function AdminPanel() {
 
   function renderActiveSection() {
     switch (activeSection) {
+      case "attendance": return renderAttendance();
       case "students": return renderStudents();
       case "courses": return renderCourses();
       case "enrollments": return renderEnrollments();
-      case "payments": return renderPayments();
-      case "teachers": return renderTeachers();
       case "videos": return renderVideos();
       case "home_showcase": return renderHomeShowcase();
       default: return renderOverview();
@@ -4690,7 +4017,7 @@ export default function AdminPanel() {
         <div>
           <span className="eyebrow">Gestione Orchidea</span>
           <h2>Pannello admin allievi</h2>
-          <p>Dashboard separata per tesserati, corsi, iscrizioni, pagamenti e video dei corsi.</p>
+          <p>Tesseramenti, corsi, iscrizioni e presenze. Pagamenti e contabilità restano centralizzati in Nova.</p>
         </div>
         <button className="primary-btn slim" type="button" onClick={loadAdminData}>Aggiorna dati</button>
       </div>

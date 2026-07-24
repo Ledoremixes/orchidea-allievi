@@ -9,6 +9,8 @@ import Tessera from "./pages/Tessera.jsx";
 import Corsi from "./pages/Corsi.jsx";
 import Pagamenti from "./pages/Pagamenti.jsx";
 import Video from "./pages/Video.jsx";
+import Eventi from "./pages/Eventi.jsx";
+import KioskCheckIn from "./pages/KioskCheckIn.jsx";
 import AdminPanel from "./pages/admin/AdminPanel.jsx";
 
 export default function App() {
@@ -18,12 +20,17 @@ export default function App() {
       <Route path="/set-password" element={<SetPassword />} />
 
       <Route element={<ProtectedRoute />}>
+        <Route element={<AdminRoute />}>
+          <Route path="check-in" element={<KioskCheckIn />} />
+        </Route>
+
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="tessera" element={<Tessera />} />
           <Route path="corsi" element={<Corsi />} />
           <Route path="pagamenti" element={<Pagamenti />} />
           <Route path="video" element={<Video />} />
+          <Route path="eventi" element={<Eventi />} />
 
           <Route element={<AdminRoute />}>
             <Route path="admin" element={<AdminPanel />} />

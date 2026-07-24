@@ -34,7 +34,7 @@ export function useStudentLiveRefresh(studentId, refresh) {
       .channel(`student-live-${studentId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pagamenti", filter: `tesseramento_id=eq.${studentId}` },
+        { event: "*", schema: "public", table: "presenze_corsi", filter: `tesseramento_id=eq.${studentId}` },
         scheduleRefresh
       )
       .on(

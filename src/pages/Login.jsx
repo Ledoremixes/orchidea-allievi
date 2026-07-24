@@ -86,7 +86,7 @@ export default function Login() {
         <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
         <span className="eyebrow">Area riservata allievi</span>
         <h1>La tua Orchidea, sempre con te.</h1>
-        <p>Accedi a tessera digitale, corsi, pagamenti e video riservati in un ambiente semplice e ordinato.</p>
+        <p>Accedi a tessera digitale, corsi, presenze e video riservati in un ambiente semplice e ordinato.</p>
 
         <div className="auth-benefit-grid">
           <div><span>◆</span><strong>Tessera digitale</strong><small>QR code pronto all’ingresso</small></div>

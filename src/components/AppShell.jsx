@@ -8,6 +8,7 @@ const studentNavItems = [
   { to: "/corsi", label: "Corsi", icon: "courses" },
   { to: "/pagamenti", label: "Quote", icon: "euro" },
   { to: "/video", label: "Video", icon: "play" },
+  { to: "/eventi", label: "Eventi", icon: "events" },
 ];
 
 const adminNavItem = { to: "/admin", label: "Admin", icon: "admin" };
@@ -61,6 +62,14 @@ function NavIcon({ name }) {
         <svg {...common}>
           <circle cx="12" cy="12" r="8.5" />
           <path d="m10 8.7 5.2 3.3-5.2 3.3V8.7Z" />
+        </svg>
+      );
+    case "events":
+      return (
+        <svg {...common}>
+          <path d="M5 5.5h14v13H5z" />
+          <path d="M8 3.8v3.4M16 3.8v3.4M5 9h14" />
+          <path d="m9.2 13.1 1.7 1.7 3.8-4" />
         </svg>
       );
     case "admin":

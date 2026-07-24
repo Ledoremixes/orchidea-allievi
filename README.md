@@ -192,3 +192,7 @@ Non serve nuovo SQL rispetto allo step 12.
 ## Step 14 - CSS scheda allievo
 
 La scheda allievo è stata rifinita graficamente: la sezione “Iscrizioni e prezzi” ora usa una lista compatta e leggibile, il pacchetto non viene più mostrato come bolla enorme e il box pagamenti è più ordinato con importi e stati separati.
+
+## Registro presenze e tablet (24/07/2026)
+
+Per attivare il nuovo registro presenze esegui `supabase/step-14-presenze-corsi.sql` nel SQL Editor di Supabase. Le istruzioni complete sono in `MODIFICHE_PRESENZE_24-07-2026.md`.
