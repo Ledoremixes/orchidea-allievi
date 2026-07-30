@@ -912,3 +912,131 @@
     width: min(110px, 28%);
   }
 }
+
+/* ==========================================================
+   STEP 57 - Tessera fedele alla grafica ufficiale Orchidea
+   ========================================================== */
+.orchidea-card-page .orchidea-card-flip-scene {
+  width: min(100%, 900px);
+  aspect-ratio: 1063 / 709;
+}
+
+.orchidea-card-page .orchidea-pass-card {
+  border-radius: clamp(20px, 3vw, 32px);
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  box-shadow: 0 26px 90px rgba(0, 0, 0, .46), 0 0 26px rgba(255, 56, 212, .13);
+}
+
+.orchidea-card-page .orchidea-pass-card-front {
+  background-image: url("/assets/tessera-fronte.png");
+}
+
+.orchidea-card-page .orchidea-pass-card-front::before,
+.orchidea-card-page .orchidea-pass-card-front .orchidea-pass-background,
+.orchidea-card-page .orchidea-pass-brand-centered .orchidea-pass-logo,
+.orchidea-card-page .orchidea-pass-front-caption {
+  display: none;
+}
+
+/* Il QR di esempio presente nel mockup viene coperto dal QR reale dell'allievo. */
+.orchidea-card-page .orchidea-pass-brand-centered {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+}
+
+.orchidea-card-page .orchidea-pass-qr-shell-main {
+  position: absolute;
+  left: 49.91%;
+  top: 70.45%;
+  width: 18.7%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.orchidea-card-page .orchidea-pass-qr,
+.orchidea-card-page .orchidea-pass-qr-placeholder {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #fff;
+}
+
+.orchidea-card-page .orchidea-pass-qr-placeholder {
+  padding: 8%;
+  font-size: clamp(.5rem, 1.5vw, .9rem);
+  overflow-wrap: anywhere;
+}
+
+/* Retro: stessi dati e stessa struttura, con il nuovo sfondo coordinato. */
+.orchidea-card-page .orchidea-pass-card-back {
+  background-image: url("/assets/tessera-retro.png");
+  padding: clamp(26px, 6vw, 72px);
+}
+
+.orchidea-card-page .orchidea-pass-back-inner {
+  width: min(72%, 650px);
+  margin-inline: auto;
+  gap: clamp(14px, 3vw, 28px);
+}
+
+.orchidea-card-page .orchidea-pass-back-row {
+  padding: clamp(10px, 1.8vw, 16px) clamp(12px, 2.2vw, 20px);
+  border: 1px solid rgba(255, 0, 250, .18);
+  border-radius: clamp(14px, 2vw, 22px);
+  background: rgba(255, 255, 255, .88);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .07);
+  backdrop-filter: blur(4px);
+}
+
+.orchidea-card-page .orchidea-pass-back-row span,
+.orchidea-card-page .orchidea-pass-back-row strong {
+  color: #252025;
+}
+
+.orchidea-card-page .orchidea-pass-back-row strong {
+  border-bottom-color: rgba(37, 32, 37, .72);
+}
+
+@media (max-width: 620px) {
+  .orchidea-card-page .orchidea-card-flip-scene {
+    aspect-ratio: 1063 / 709;
+  }
+
+  .orchidea-card-page .orchidea-pass-card-back {
+    padding: 18px;
+  }
+
+  .orchidea-card-page .orchidea-pass-back-inner {
+    width: 78%;
+    gap: 8px;
+    padding: 0;
+  }
+
+  .orchidea-card-page .orchidea-pass-back-row {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 12px;
+  }
+
+  .orchidea-card-page .orchidea-pass-back-row span,
+  .orchidea-card-page .orchidea-pass-back-row strong {
+    font-size: clamp(.58rem, 2.5vw, .82rem);
+  }
+
+  .orchidea-card-page .orchidea-pass-back-row strong {
+    padding-bottom: 3px;
+    border-bottom-width: 2px;
+  }
+}
