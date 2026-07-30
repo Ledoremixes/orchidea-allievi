@@ -5,15 +5,21 @@ import { formatTime } from "../lib/format.js";
 import { genderedText } from "../lib/studentGender.js";
 
 const RESET_DELAY_MS = 6500;
+const SEARCH_DELAY_MS = 260;
 
 function courseLabel(course) {
   return [course?.nome, course?.livello].filter(Boolean).join(" · ") || "Corso Orchidea";
+}
+
+function studentLabel(student) {
+  return [student?.nome, student?.cognome].filter(Boolean).join(" ").trim() || "Allievo Orchidea";
 }
 
 export default function KioskCheckIn() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const resetTimerRef = useRef(null);
+  const searchRequestRef = useRef(0);
   const [courses, setCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -21,6 +27,11 @@ export default function KioskCheckIn() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [courseChoiceMessage, setCourseChoiceMessage] = useState("");
+  const [pendingCheckIn, setPendingCheckIn] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingStudents, setSearchingStudents] = useState(false);
+  const [searchScope, setSearchScope] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
   const [clock, setClock] = useState(new Date());
 
   const selectedCourse = useMemo(
@@ -57,15 +68,63 @@ export default function KioskCheckIn() {
   }, [loadCourses]);
 
   useEffect(() => {
-    if (!result) inputRef.current?.focus();
-  }, [result, courses.length]);
+    if (!result && !courseChoiceMessage) inputRef.current?.focus();
+  }, [result, courseChoiceMessage, courses.length]);
+
+  useEffect(() => {
+    const query = identifier.trim();
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
+
+    if (result || submitting || courses.length === 0 || query.length < 2) {
+      setSearchResults([]);
+      setSearchScope("");
+      setSearchMessage("");
+      setSearchingStudents(false);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearchingStudents(true);
+      setSearchMessage("");
+
+      const { data, error } = await supabase.rpc("cerca_allievi_checkin", {
+        p_query: query,
+        p_corso_id: selectedCourseId || null,
+      });
+
+      if (searchRequestRef.current !== requestId) return;
+
+      if (error) {
+        setSearchResults([]);
+        setSearchScope("");
+        setSearchMessage("La ricerca per nome non è ancora attiva. Esegui il nuovo script SQL su Supabase.");
+      } else {
+        const rows = data || [];
+        setSearchResults(rows);
+        setSearchScope(rows[0]?.ambito || "");
+        setSearchMessage(rows.length === 0 && /[a-zÀ-ÿ]/i.test(query)
+          ? "Nessun corsista trovato con questo nome o cognome."
+          : "");
+      }
+      setSearchingStudents(false);
+    }, SEARCH_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [identifier, selectedCourseId, courses.length, result, submitting]);
 
   function resetCheckIn() {
     window.clearTimeout(resetTimerRef.current);
+    searchRequestRef.current += 1;
     setIdentifier("");
     setSelectedCourseId(courses.length === 1 ? courses[0].id : "");
     setResult(null);
     setCourseChoiceMessage("");
+    setPendingCheckIn(null);
+    setSearchResults([]);
+    setSearchScope("");
+    setSearchMessage("");
+    setSearchingStudents(false);
     setSubmitting(false);
     window.setTimeout(() => inputRef.current?.focus(), 100);
   }
@@ -75,30 +134,81 @@ export default function KioskCheckIn() {
     resetTimerRef.current = window.setTimeout(resetCheckIn, RESET_DELAY_MS);
   }
 
-  async function submitCheckIn(event) {
-    event.preventDefault();
-    if (!identifier.trim() || submitting) return;
+  function handleCheckInResult(nextResult, pending) {
+    if (nextResult?.status === "choose_course") {
+      setPendingCheckIn(pending);
+      setCourseChoiceMessage(nextResult.message || "Seleziona il corso che stai frequentando.");
+      setSubmitting(false);
+      return;
+    }
+
+    setPendingCheckIn(null);
     setCourseChoiceMessage("");
+    setResult(nextResult);
+    setSubmitting(false);
+    scheduleReset();
+  }
+
+  async function registerByIdentifier(value, forcedCourseId = null) {
+    const cleanValue = value.trim();
+    if (!cleanValue || submitting) return;
+
+    setCourseChoiceMessage("");
+    setSearchResults([]);
+    setSearchMessage("");
     setSubmitting(true);
+
     const { data, error } = await supabase.rpc("registra_presenza_corso", {
-      p_identificativo: identifier.trim(),
-      p_corso_id: selectedCourseId || null,
+      p_identificativo: cleanValue,
+      p_corso_id: forcedCourseId || selectedCourseId || null,
     });
 
     const nextResult = error
       ? { status: "error", message: error.message || "Non è stato possibile registrare la presenza." }
       : data;
 
-    if (nextResult?.status === "choose_course") {
-      setCourseChoiceMessage(nextResult.message || "Seleziona il corso che stai frequentando e riprova.");
-      setSubmitting(false);
-      window.setTimeout(() => inputRef.current?.focus(), 100);
-      return;
-    }
+    handleCheckInResult(nextResult, { type: "identifier", value: cleanValue });
+  }
 
-    setResult(nextResult);
-    setSubmitting(false);
-    scheduleReset();
+  async function registerByStudent(student, forcedCourseId = null) {
+    if (!student?.tesseramento_id || submitting) return;
+
+    setIdentifier(studentLabel(student));
+    setCourseChoiceMessage("");
+    setSearchResults([]);
+    setSearchMessage("");
+    setSubmitting(true);
+
+    const { data, error } = await supabase.rpc("registra_presenza_corso_per_allievo", {
+      p_tesseramento_id: student.tesseramento_id,
+      p_corso_id: forcedCourseId || selectedCourseId || null,
+    });
+
+    const nextResult = error
+      ? { status: "error", message: error.message || "Non è stato possibile registrare la presenza." }
+      : data;
+
+    handleCheckInResult(nextResult, { type: "student", student });
+  }
+
+  async function submitCheckIn(event) {
+    event.preventDefault();
+    await registerByIdentifier(identifier);
+  }
+
+  function chooseCourse(course) {
+    setSelectedCourseId(course.id);
+    setCourseChoiceMessage("");
+
+    if (!pendingCheckIn) return;
+
+    const pending = pendingCheckIn;
+    setPendingCheckIn(null);
+    if (pending.type === "student") {
+      registerByStudent(pending.student, course.id);
+    } else {
+      registerByIdentifier(pending.value, course.id);
+    }
   }
 
   async function enterFullscreen() {
@@ -117,6 +227,7 @@ export default function KioskCheckIn() {
     feminine: "Benvenuta",
     neutral: "Che bello vederti",
   });
+  const isNameSearch = /[a-zÀ-ÿ]/i.test(identifier);
 
   return (
     <main className="kiosk-page">
@@ -168,7 +279,7 @@ export default function KioskCheckIn() {
             <div className="kiosk-welcome-copy">
               <span>Check-in Orchidea</span>
               <h1>Benvenuti!</h1>
-              <p>Inserisci il numero della tessera oppure il cellulare usato per il tesseramento.</p>
+              <p>Cerca il tuo nome e tocca il profilo corretto, oppure inserisci numero tessera o cellulare.</p>
             </div>
 
             <div className="kiosk-course-context">
@@ -194,10 +305,8 @@ export default function KioskCheckIn() {
                         type="button"
                         key={course.id}
                         className={selectedCourseId === course.id ? "active" : ""}
-                        onClick={() => {
-                          setSelectedCourseId(course.id);
-                          setCourseChoiceMessage("");
-                        }}
+                        onClick={() => chooseCourse(course)}
+                        disabled={submitting}
                       >
                         <strong>{courseLabel(course)}</strong>
                         <small>{formatTime(course.ora_inizio)} · {course.sala || "Sala"}</small>
@@ -209,7 +318,7 @@ export default function KioskCheckIn() {
                 <div className="kiosk-current-course">
                   <span>Più lezioni sono in corso</span>
                   <strong>Il tuo corso verrà riconosciuto automaticamente</strong>
-                  <small>Inserisci tessera o cellulare: useremo la tua iscrizione per scegliere la lezione corretta.</small>
+                  <small>La ricerca parte dagli iscritti alle lezioni attive in questo momento.</small>
                 </div>
               )}
             </div>
@@ -219,25 +328,76 @@ export default function KioskCheckIn() {
             )}
 
             <form className="kiosk-form" onSubmit={submitCheckIn}>
-              <label htmlFor="kiosk-identifier">Numero tessera o cellulare</label>
+              <label htmlFor="kiosk-identifier">Nome, cognome, numero tessera o cellulare</label>
               <input
                 ref={inputRef}
                 id="kiosk-identifier"
+                className={isNameSearch ? "is-name-search" : ""}
                 value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
-                placeholder="Es. 0123 oppure 3331234567"
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  setPendingCheckIn(null);
+                  setCourseChoiceMessage("");
+                }}
+                placeholder="Es. Giulia Rossi oppure ORC-2026-0123"
                 autoComplete="off"
-                autoCapitalize="characters"
-                enterKeyHint="done"
+                autoCapitalize="words"
+                enterKeyHint="search"
                 disabled={submitting || courses.length === 0}
               />
+
+              {(searchingStudents || searchResults.length > 0 || searchMessage) && (
+                <div className="kiosk-student-search" aria-live="polite">
+                  <div className="kiosk-student-search-head">
+                    <strong>
+                      {searchingStudents
+                        ? "Cerco il tuo profilo…"
+                        : searchScope === "corso_attivo"
+                          ? "Iscritti al corso in programma"
+                          : searchScope === "tutti_corsisti"
+                            ? "Ricerca estesa a tutti i corsisti"
+                            : "Risultati"}
+                    </strong>
+                    <small>Mostriamo solo nome, cognome e numero tessera.</small>
+                  </div>
+
+                  {!searchingStudents && searchResults.length > 0 && (
+                    <div className="kiosk-student-results">
+                      {searchResults.map((student) => (
+                        <button
+                          type="button"
+                          key={student.tesseramento_id}
+                          className="kiosk-student-result"
+                          onClick={() => registerByStudent(student)}
+                          disabled={submitting}
+                          aria-label={`Registra la presenza di ${studentLabel(student)}, tessera ${student.numero_tessera || "non assegnata"}`}
+                        >
+                          <span className="kiosk-student-avatar" aria-hidden="true">
+                            {(student.nome?.[0] || "O").toUpperCase()}{(student.cognome?.[0] || "").toUpperCase()}
+                          </span>
+                          <span className="kiosk-student-result-copy">
+                            <strong>{studentLabel(student)}</strong>
+                            <small>Tessera {student.numero_tessera || "non assegnata"}</small>
+                          </span>
+                          <span className="kiosk-student-result-action">Seleziona ›</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!searchingStudents && searchMessage && (
+                    <div className="kiosk-search-empty">{searchMessage}</div>
+                  )}
+                </div>
+              )}
+
               <button type="submit" disabled={submitting || courses.length === 0 || !identifier.trim()}>
-                {submitting ? "Registro la presenza…" : "Registra presenza"}
+                {submitting ? "Registro la presenza…" : "Registra con tessera o cellulare"}
               </button>
             </form>
 
-            {selectedCourse && courses.length > 1 && (
-              <div className="kiosk-selected-course">Hai selezionato: <strong>{courseLabel(selectedCourse)}</strong></div>
+            {selectedCourse && courses.length > 1 && !courseChoiceMessage && (
+              <div className="kiosk-selected-course">Corso selezionato: <strong>{courseLabel(selectedCourse)}</strong></div>
             )}
           </div>
         )}

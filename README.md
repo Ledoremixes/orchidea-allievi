@@ -196,3 +196,22 @@ La scheda allievo è stata rifinita graficamente: la sezione “Iscrizioni e pre
 ## Registro presenze e tablet (24/07/2026)
 
 Per attivare il nuovo registro presenze esegui `supabase/step-14-presenze-corsi.sql` nel SQL Editor di Supabase. Le istruzioni complete sono in `MODIFICHE_PRESENZE_24-07-2026.md`.
+
+## Step 46 — Check-in con ricerca per nome e cognome (30/07/2026)
+
+La modalità tablet ora permette all'allievo di:
+
+- cercarsi tramite nome o cognome;
+- vedere una lista che mostra esclusivamente nome, cognome e numero tessera;
+- distinguere eventuali omonimi tramite il numero tessera;
+- toccare il proprio profilo per registrare subito la presenza;
+- essere cercato prima tra gli iscritti alle lezioni attualmente in corso;
+- essere cercato automaticamente tra tutti i corsisti attivi quando non ci sono risultati nel corso corrente.
+
+Restano disponibili anche il check-in tramite numero tessera e cellulare. La ricerca è accessibile soltanto dal tablet autenticato con un account admin.
+
+Prima di pubblicare questa versione esegui su Supabase:
+
+```txt
+supabase/step-46-checkin-ricerca-nome.sql
+```
