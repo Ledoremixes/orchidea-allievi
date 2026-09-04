@@ -1,3 +1,52 @@
+-- Orchidea Allievi - Step 47
+-- Finestra check-in corsi definitiva:
+--   * apertura: 30 minuti prima dell'inizio del corso
+--   * chiusura: esattamente alla fine del corso
+--   * corsi consecutivi: possono risultare disponibili contemporaneamente
+--
+-- Esempio:
+--   Corso A 20:30-21:30 -> check-in 20:00-21:30
+--   Corso B 21:30-22:30 -> check-in 21:00-22:30
+--   dalle 21:00 alle 21:30 entrambi risultano disponibili.
+--
+-- Eseguire questo script in Supabase > SQL Editor dopo gli step precedenti.
+
+-- Restituisce tutti i corsi la cui finestra di check-in è aperta adesso.
+create or replace function public.get_checkin_courses()
+returns table (
+  id uuid,
+  nome text,
+  livello text,
+  sala text,
+  giorno_settimana text,
+  ora_inizio time,
+  ora_fine time
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  local_now timestamp := timezone('Europe/Rome', now());
+begin
+  if not public.is_admin() then
+    raise exception 'Permesso negato';
+  end if;
+
+  return query
+  select c.id, c.nome, c.livello, c.sala, c.giorno_settimana, c.ora_inizio, c.ora_fine
+  from public.corsi c
+  where coalesce(c.attivo, true) = true
+    and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
+    and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
+    and local_now::time <= c.ora_fine
+  order by c.ora_inizio, c.nome, c.livello;
+end;
+$$;
+
+grant execute on function public.get_checkin_courses() to authenticated;
+
 -- Orchidea Allievi - Step 46
 -- Check-in tablet con ricerca per nome/cognome e selezione del profilo.
 -- Restituisce al frontend esclusivamente nome, cognome e numero tessera

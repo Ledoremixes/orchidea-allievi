@@ -1,0 +1,18 @@
+CHECK-IN CORSI - FINESTRA ORARIA AGGIORNATA
+
+Nuova logica:
+- Il check-in apre 30 minuti prima dell'inizio del corso.
+- Resta aperto per tutta la durata della lezione.
+- Chiude esattamente all'orario di fine corso.
+- Se due corsi sono consecutivi, durante la sovrapposizione delle finestre risultano entrambi disponibili.
+
+Esempio:
+- Corso 20:30-21:30 -> aperto 20:00-21:30
+- Corso 21:30-22:30 -> aperto 21:00-22:30
+- Tra le 21:00 e le 21:30 sono aperti entrambi.
+
+IMPORTANTE
+Eseguire una volta in Supabase > SQL Editor:
+  supabase/step-47-checkin-finestra-30-minuti.sql
+
+Il frontend del tablet aggiorna ora l'elenco dei corsi disponibili ogni 15 secondi.

@@ -1,0 +1,12 @@
+ORCHIDEA ALLIEVI - CHECK-IN SENZA LAG
+
+- Il controllo dei corsi ogni 15 secondi ora avviene completamente in background.
+- Il loader dei corsi appare solo al primo caricamento della pagina.
+- Un errore di rete durante il controllo automatico non interrompe chi sta facendo check-in.
+- Il testo digitato nel campo ricerca non viene mai cancellato dal refresh automatico.
+- I risultati già trovati restano visibili mentre il sistema aggiorna silenziosamente l'elenco.
+- Se durante la ricerca si apre la finestra di un secondo corso consecutivo, la ricerca viene
+  aggiornata considerando entrambi i corsi senza azzerare il nome già scritto.
+- Quando sono disponibili più corsi, non resta erroneamente bloccato il corso che prima era l'unico attivo.
+
+Non è necessario eseguire nuovo SQL per questa modifica.

@@ -15,11 +15,29 @@ function studentLabel(student) {
   return [student?.nome, student?.cognome].filter(Boolean).join(" ").trim() || "Allievo Orchidea";
 }
 
+function sameCourses(current, next) {
+  if (current === next) return true;
+  if (!Array.isArray(current) || !Array.isArray(next) || current.length !== next.length) return false;
+
+  return current.every((course, index) => {
+    const other = next[index];
+    return course?.id === other?.id
+      && course?.nome === other?.nome
+      && course?.livello === other?.livello
+      && course?.ora_inizio === other?.ora_inizio
+      && course?.ora_fine === other?.ora_fine
+      && course?.sala === other?.sala;
+  });
+}
+
 export default function KioskCheckIn() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const resetTimerRef = useRef(null);
   const searchRequestRef = useRef(0);
+  const courseRefreshInFlightRef = useRef(false);
+  const manualCourseSelectionRef = useRef(false);
+  const lastSearchQueryRef = useRef("");
   const [courses, setCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -39,31 +57,73 @@ export default function KioskCheckIn() {
     [courses, selectedCourseId]
   );
 
-  const loadCourses = useCallback(async () => {
-    setLoadingCourses(true);
-    const { data, error } = await supabase.rpc("get_checkin_courses");
-    if (error) {
-      setCourses([]);
-      setResult({ status: "error", message: error.message || "Impossibile caricare i corsi disponibili." });
-    } else {
+  const loadCourses = useCallback(async ({ initial = false } = {}) => {
+    // Il controllo periodico non deve mai ridisegnare la schermata del kiosk:
+    // mostriamo il loader solo al primissimo caricamento e ignoriamo refresh sovrapposti.
+    if (courseRefreshInFlightRef.current) return;
+    courseRefreshInFlightRef.current = true;
+
+    if (initial) setLoadingCourses(true);
+
+    try {
+      const { data, error } = await supabase.rpc("get_checkin_courses");
+
+      if (error) {
+        // Un errore di rete durante il refresh silenzioso non deve interrompere
+        // una persona che sta già scrivendo o scegliendo il proprio profilo.
+        if (initial) {
+          setCourses([]);
+          setResult({ status: "error", message: error.message || "Impossibile caricare i corsi disponibili." });
+        }
+        return;
+      }
+
       const nextCourses = data || [];
-      setCourses(nextCourses);
+      setCourses((current) => (sameCourses(current, nextCourses) ? current : nextCourses));
       setSelectedCourseId((current) => {
-        if (nextCourses.some((course) => course.id === current)) return current;
-        return nextCourses.length === 1 ? nextCourses[0].id : "";
+        if (nextCourses.length === 0) {
+          manualCourseSelectionRef.current = false;
+          return "";
+        }
+
+        if (nextCourses.length === 1) {
+          manualCourseSelectionRef.current = false;
+          return nextCourses[0].id;
+        }
+
+        // Quando si sovrappongono due finestre di check-in non lasciamo
+        // selezionato automaticamente il vecchio corso: la ricerca deve
+        // considerare entrambi. Manteniamo solo un'eventuale scelta esplicita.
+        if (manualCourseSelectionRef.current && nextCourses.some((course) => course.id === current)) {
+          return current;
+        }
+
+        return "";
       });
+    } finally {
+      courseRefreshInFlightRef.current = false;
+      if (initial) setLoadingCourses(false);
     }
-    setLoadingCourses(false);
   }, []);
 
   useEffect(() => {
-    loadCourses();
-    const coursesTimer = window.setInterval(loadCourses, 60_000);
+    loadCourses({ initial: true });
+
+    // Questo NON è un refresh della pagina: è solo una lettura silenziosa dei corsi.
+    // L'input, la ricerca e i risultati restano montati e non vengono azzerati.
+    const coursesTimer = window.setInterval(() => loadCourses({ initial: false }), 15_000);
     const clockTimer = window.setInterval(() => setClock(new Date()), 1_000);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") loadCourses({ initial: false });
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
     return () => {
       window.clearInterval(coursesTimer);
       window.clearInterval(clockTimer);
       window.clearTimeout(resetTimerRef.current);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [loadCourses]);
 
@@ -73,8 +133,10 @@ export default function KioskCheckIn() {
 
   useEffect(() => {
     const query = identifier.trim();
+    const queryChanged = query !== lastSearchQueryRef.current;
     const requestId = searchRequestRef.current + 1;
     searchRequestRef.current = requestId;
+    lastSearchQueryRef.current = query;
 
     if (result || submitting || courses.length === 0 || query.length < 2) {
       setSearchResults([]);
@@ -84,9 +146,18 @@ export default function KioskCheckIn() {
       return undefined;
     }
 
+    // Se è l'utente a cambiare il testo, togliamo i risultati della ricerca precedente.
+    // Se invece cambia in background la finestra dei corsi, manteniamo a video
+    // ciò che l'utente stava guardando finché arrivano i nuovi risultati.
+    if (queryChanged) {
+      setSearchResults([]);
+      setSearchScope("");
+      setSearchMessage("");
+    }
+
     const timer = window.setTimeout(async () => {
       setSearchingStudents(true);
-      setSearchMessage("");
+      if (queryChanged) setSearchMessage("");
 
       const { data, error } = await supabase.rpc("cerca_allievi_checkin", {
         p_query: query,
@@ -96,7 +167,6 @@ export default function KioskCheckIn() {
       if (searchRequestRef.current !== requestId) return;
 
       if (error) {
-        setSearchResults([]);
         setSearchScope("");
         setSearchMessage("La ricerca per nome non è ancora attiva. Esegui il nuovo script SQL su Supabase.");
       } else {
@@ -116,6 +186,8 @@ export default function KioskCheckIn() {
   function resetCheckIn() {
     window.clearTimeout(resetTimerRef.current);
     searchRequestRef.current += 1;
+    manualCourseSelectionRef.current = false;
+    lastSearchQueryRef.current = "";
     setIdentifier("");
     setSelectedCourseId(courses.length === 1 ? courses[0].id : "");
     setResult(null);
@@ -197,6 +269,7 @@ export default function KioskCheckIn() {
   }
 
   function chooseCourse(course) {
+    manualCourseSelectionRef.current = true;
     setSelectedCourseId(course.id);
     setCourseChoiceMessage("");
 
@@ -288,7 +361,7 @@ export default function KioskCheckIn() {
               ) : courses.length === 0 ? (
                 <div className="kiosk-no-course">
                   <strong>Nessun corso disponibile adesso</strong>
-                  <span>Il check-in si attiverà automaticamente vicino all’orario della prossima lezione.</span>
+                  <span>Il check-in si attiva automaticamente 30 minuti prima dell’inizio della prossima lezione.</span>
                 </div>
               ) : courses.length === 1 ? (
                 <div className="kiosk-current-course">
@@ -316,9 +389,9 @@ export default function KioskCheckIn() {
                 </div>
               ) : (
                 <div className="kiosk-current-course">
-                  <span>Più lezioni sono in corso</span>
+                  <span>Più lezioni disponibili per il check-in</span>
                   <strong>Il tuo corso verrà riconosciuto automaticamente</strong>
-                  <small>La ricerca parte dagli iscritti alle lezioni attive in questo momento.</small>
+                  <small>La ricerca considera sia il corso corrente sia quelli che iniziano entro 30 minuti.</small>
                 </div>
               )}
             </div>
@@ -353,7 +426,7 @@ export default function KioskCheckIn() {
                       {searchingStudents
                         ? "Cerco il tuo profilo…"
                         : searchScope === "corso_attivo"
-                          ? "Iscritti al corso in programma"
+                          ? "Iscritti ai corsi disponibili"
                           : searchScope === "tutti_corsisti"
                             ? "Ricerca estesa a tutti i corsisti"
                             : "Risultati"}
@@ -361,8 +434,8 @@ export default function KioskCheckIn() {
                     <small>Mostriamo solo nome, cognome e numero tessera.</small>
                   </div>
 
-                  {!searchingStudents && searchResults.length > 0 && (
-                    <div className="kiosk-student-results">
+                  {searchResults.length > 0 && (
+                    <div className={`kiosk-student-results${searchingStudents ? " is-refreshing" : ""}`}>
                       {searchResults.map((student) => (
                         <button
                           type="button"
@@ -385,7 +458,7 @@ export default function KioskCheckIn() {
                     </div>
                   )}
 
-                  {!searchingStudents && searchMessage && (
+                  {searchMessage && searchResults.length === 0 && (
                     <div className="kiosk-search-empty">{searchMessage}</div>
                   )}
                 </div>

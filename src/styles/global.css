@@ -13349,3 +13349,12 @@ body,
     top: auto;
   }
 }
+
+/* =========================================================
+   STEP 58 - Check-in: refresh corsi completamente silenzioso
+   I risultati restano visibili durante un aggiornamento in background.
+   ========================================================= */
+.kiosk-student-results.is-refreshing {
+  opacity: 0.82;
+  transition: opacity 140ms ease;
+}
