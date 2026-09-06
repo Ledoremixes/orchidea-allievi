@@ -215,3 +215,23 @@ Prima di pubblicare questa versione esegui su Supabase:
 ```txt
 supabase/step-46-checkin-ricerca-nome.sql
 ```
+
+## Step 17 — "Ci sarò" alle serate e compagni presenti (06/09/2026)
+
+Nella pagina **Eventi e serate** ogni allievo può ora:
+
+- premere **Ci sarò** per confermare la propria presenza prevista alla serata;
+- annullare la conferma premendo nuovamente lo stesso pulsante;
+- vedere quanti suoi compagni di corso hanno confermato;
+- vedere nome e cognome dei compagni che saranno presenti;
+- espandere la lista quando i partecipanti sono numerosi.
+
+Per privacy, un allievo vede soltanto **se stesso e gli allievi con cui condivide almeno un corso attivo**. Gli altri tesserati non vengono mostrati.
+
+Prima di pubblicare questa versione esegui su Supabase:
+
+```txt
+supabase/step-17-partecipazione-serate.sql
+```
+
+Lo script crea la tabella `event_partecipazioni`, le policy RLS per permettere a ciascun allievo di gestire solo il proprio voto e la funzione protetta che restituisce soltanto i compagni visibili.

@@ -57,8 +57,8 @@ begin
   from public.corsi c
   where coalesce(c.attivo, true) = true
     and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
-    and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
-    and local_now::time <= c.ora_fine;
+    and local_now::time >= (c.ora_inizio - interval '45 minutes')::time
+    and local_now::time <= (c.ora_fine + interval '45 minutes')::time;
 
   if current_course_count = 0 then
     return jsonb_build_object(
@@ -76,8 +76,8 @@ begin
     from public.corsi c
     where coalesce(c.attivo, true) = true
       and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
-      and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
-      and local_now::time <= c.ora_fine
+      and local_now::time >= (c.ora_inizio - interval '45 minutes')::time
+      and local_now::time <= (c.ora_fine + interval '45 minutes')::time
       and exists (
         select 1
         from public.iscrizioni_corsi ic
@@ -114,8 +114,8 @@ begin
     from public.corsi c
     where coalesce(c.attivo, true) = true
       and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
-      and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
-      and local_now::time <= c.ora_fine
+      and local_now::time >= (c.ora_inizio - interval '45 minutes')::time
+      and local_now::time <= (c.ora_fine + interval '45 minutes')::time
       and exists (
         select 1
         from public.iscrizioni_corsi ic
@@ -135,8 +135,8 @@ begin
     where c.id = p_corso_id
       and coalesce(c.attivo, true) = true
       and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
-      and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
-      and local_now::time <= c.ora_fine
+      and local_now::time >= (c.ora_inizio - interval '45 minutes')::time
+      and local_now::time <= (c.ora_fine + interval '45 minutes')::time
     limit 1;
 
     if course_row.id is null then
@@ -419,8 +419,8 @@ begin
           and coalesce(c.attivo, true) = true
           and (p_corso_id is null or c.id = p_corso_id)
           and public.orchidea_weekday_number(c.giorno_settimana) = extract(isodow from local_now)::integer
-          and local_now::time >= (c.ora_inizio - interval '30 minutes')::time
-          and local_now::time <= c.ora_fine
+          and local_now::time >= (c.ora_inizio - interval '45 minutes')::time
+          and local_now::time <= (c.ora_fine + interval '45 minutes')::time
       )
   )
   select
