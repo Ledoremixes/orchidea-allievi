@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatTime } from "../lib/format.js";
 import { getCourseVisual } from "../lib/courseVisuals.js";
+import { downloadCoursesCalendar } from "../lib/calendar.js";
+import CourseDiscovery from "../components/CourseDiscovery.jsx";
+import TeacherProfiles from "../components/TeacherProfiles.jsx";
 
 function isActiveCourse(item) {
   return item.stato === "attivo" && item.rinnovo_attivo !== false;
@@ -26,6 +29,7 @@ function durationHours(course) {
   if (minutes <= 0) minutes += 1440;
   return minutes > 0 ? minutes / 60 : 1;
 }
+
 
 export default function Corsi() {
   const { student } = useOutletContext();
@@ -63,7 +67,7 @@ export default function Corsi() {
 
   return (
     <section className="page-section orchidea-page orchidea-courses-page">
-      <div className="orchidea-section-heading"><span className="orchidea-heading-mark" aria-hidden="true" /><div><span className="orchidea-kicker">Calendario corsi</span><h2>Tutti i corsi</h2></div></div>
+      <div className="orchidea-section-heading courses-heading-v2"><span className="orchidea-heading-mark" aria-hidden="true" /><div><span className="orchidea-kicker">Il tuo calendario</span><h2>I tuoi corsi</h2><p>Orari, sale e accesso rapido ai ripassi delle lezioni.</p></div><button type="button" className="courses-calendar-export" onClick={() => downloadCoursesCalendar(activeCourses)} disabled={!activeCourses.length}>+ Calendario</button></div>
 
       <div className="courses-glow-summary">
         <div><span>Attivi</span><strong>{loading ? "…" : activeCourses.length}</strong></div>
@@ -83,11 +87,13 @@ export default function Corsi() {
               return (
                 <article className={`course-poster-card-large ${item.active ? "is-active" : "is-paused"}`} key={item.id}>
                   <img src={visual.image} alt={`${item.corsi?.nome || "Corso"} ${item.corsi?.livello || ""}`} loading="lazy" decoding="async" />
-                  <div className="course-poster-info"><div><span>{item.corsi?.nome || "Corso"}</span><strong>{item.corsi?.livello || "Livello"}</strong><small>{item.corsi?.giorno_settimana || "Giorno"} · {formatTime(item.corsi?.ora_inizio)} - {formatTime(item.corsi?.ora_fine)}</small></div><em>{item.corsi?.sala || "Sala"}</em></div>
+                  <div className="course-poster-info"><div><span>{item.corsi?.nome || "Corso"}</span><strong>{item.corsi?.livello || "Livello"}</strong><small>{item.corsi?.giorno_settimana || "Giorno"} · {formatTime(item.corsi?.ora_inizio)} - {formatTime(item.corsi?.ora_fine)}</small></div><em>{item.corsi?.sala || "Sala"}</em></div><Link to="/video" className="course-recap-link">▶ Ripassa le lezioni</Link>
                 </article>
               );
             })}
           </div>
+
+          <TeacherProfiles courseIds={activeCourses.map((item) => item.corso_id)} />
 
           <section className="neo-panel weekly-calendar-card neo-weekly-panel">
             <div className="neo-panel-title with-link"><div><span>◷</span><h3>La tua settimana</h3></div><small>{enrichedCourses.length} iscrizioni</small></div>
@@ -108,6 +114,8 @@ export default function Corsi() {
               ))}
             </div>
           </section>
+
+          <CourseDiscovery student={student} enrolledCourses={activeCourses} />
         </>
       )}
     </section>

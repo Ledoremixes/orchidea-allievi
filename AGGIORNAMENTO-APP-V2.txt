@@ -1,0 +1,27 @@
+ORCHIDEA ALLIEVI - APP V2
+
+MODIFICHE IMPLEMENTATE
+- Home completamente ripensata come hub personale.
+- Prossima lezione calcolata automaticamente da corsi/giorni/orari reali.
+- Accessi rapidi a Tessera, Ripassi, Serate e Quote.
+- Sezione "Per te" generata automaticamente da quote, video e prossime serate.
+- Ultimo video/ripasso del proprio corso evidenziato in Home.
+- Riepilogo personale del mese: lezioni, ore frequentate e corsi attivi.
+- Prossima serata con numero e avatar dei compagni di corso che hanno confermato.
+- Stato "Hai confermato" se l'allievo ha già selezionato Ci sarò.
+- Stato quote sintetico e immediato.
+- Pagina Corsi migliorata con esportazione calendario personale .ICS.
+- Eventi del calendario ricorrenti ogni settimana e compatibili con Google/Apple/Samsung Calendar.
+- Collegamento diretto dai corsi alla sezione dei video/ripassi.
+- Miglioramenti responsive specifici per smartphone.
+
+NESSUN NUOVO SCRIPT SQL RICHIESTO
+Questa versione utilizza le tabelle e le funzioni già presenti nel progetto, incluso Step 17 per "Ci sarò".
+
+PROSSIMA FASE CONSIGLIATA
+Per completare il concetto di app-community servirà aggiungere un modulo dati/admin dedicato per:
+- feed/foto delle serate;
+- comunicazioni e notifiche push reali;
+- diario lezione con testo strutturato oltre ai video;
+- profili insegnanti;
+- eventuale programma Orchidea Rewards e relativo catalogo premi.

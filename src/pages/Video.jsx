@@ -258,7 +258,7 @@ export default function Video() {
           ) : (
             <div className="video-phone-placeholder video-phone-placeholder-compact">
               <span>▶</span>
-              <small>Ripasso #{index + 1}</small>
+              <small>Lezione #{index + 1}</small>
             </div>
           )}
           <span className="video-quick-play">▶</span>
@@ -266,15 +266,15 @@ export default function Video() {
 
         <div className="video-body video-body-v2">
           <div className="video-card-title-row">
-            <span className="eyebrow">{video.corsi?.nome || "Corso"}</span>
-            <small>{formatDate(video.created_at)}</small>
+            <span className="eyebrow">Lezione del {formatDate(video.created_at)}</span>
+            <small>{video.corsi?.nome || "Corso"}</small>
           </div>
           <h3>{video.titolo}</h3>
           <p>{video.descrizione || "Video riservato agli iscritti del corso."}</p>
 
           {video.play_url ? (
             <button type="button" className="primary-btn slim video-open-link" onClick={() => openVideo(video)}>
-              Guarda
+              ▶ Ripassa
             </button>
           ) : (
             <div className="video-unavailable-box">Non disponibile</div>
@@ -286,22 +286,22 @@ export default function Video() {
 
   return (
     <section className="page-section video-page-v2 comfort-page">
-      <div className="video-hero-card content-card">
+      <div className="video-hero-card video-diary-hero content-card">
         <div>
-          <span className="eyebrow">Video corsi</span>
-          <h2>Lezioni e ripassi</h2>
+          <span className="eyebrow">Il tuo diario di ballo</span>
+          <h2>Ripassa quello che hai fatto a lezione</h2>
           <p>
-            Qui trovi solo i video dei corsi a cui sei iscritto attivamente. La libreria è organizzata per corso, così anche con tanti ripassi resta semplice da consultare.
+            Ogni corso ha il suo spazio: ultimi video, storico dei ripassi e ricerca veloce. Così ritrovi subito una figura anche settimane dopo.
           </p>
         </div>
 
         <div className="video-hero-stats">
           <div>
-            <span>Corsi attivi</span>
+            <span>Corsi nel diario</span>
             <strong>{enrolledCourses.length}</strong>
           </div>
           <div>
-            <span>Video disponibili</span>
+            <span>Ripassi salvati</span>
             <strong>{videos.length}</strong>
           </div>
         </div>
@@ -318,10 +318,38 @@ export default function Video() {
         </div>
       ) : (
         <>
-          <div className="video-toolbar content-card video-library-toolbar">
+          <div className="video-course-overview-grid">
+            {enrolledCourses.map((course) => {
+              const courseVideos = allVideosByCourse[course.id] || [];
+              const lastVideo = courseVideos[0] || null;
+              const isSelected = selectedCourseId === course.id;
+              return (
+                <button
+                  type="button"
+                  className={`video-course-overview-card ${isSelected ? "is-selected" : ""}`}
+                  key={`overview-${course.id}`}
+                  onClick={() => setSelectedCourseId(isSelected ? "all" : course.id)}
+                >
+                  <span className="video-course-overview-icon">▶</span>
+                  <div>
+                    <small>{course.nome}</small>
+                    <strong>{course.livello || "Corso"}</strong>
+                    <span>{courseLabel(course)}{course.sala ? ` · ${course.sala}` : ""}</span>
+                  </div>
+                  <em>
+                    <b>{courseVideos.length}</b>
+                    <small>{courseVideos.length === 1 ? "ripasso" : "ripassi"}</small>
+                    {lastVideo && <span>Ultimo {formatDate(lastVideo.created_at)}</span>}
+                  </em>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="video-toolbar content-card video-library-toolbar video-diary-toolbar">
             <div>
-              <span className="eyebrow">Libreria video</span>
-              <h3>Filtra e cerca</h3>
+              <span className="eyebrow">Archivio ripassi</span>
+              <h3>Trova una lezione</h3>
             </div>
 
             <div className="video-library-controls">
@@ -353,7 +381,7 @@ export default function Video() {
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cerca video, titolo o data..."
+                placeholder="Cerca figura, titolo o data..."
               />
             </div>
           </div>
@@ -364,15 +392,26 @@ export default function Video() {
               <p>Sei iscritto a {enrolledCourses.length} {enrolledCourses.length === 1 ? "corso" : "corsi"}, ma non sono ancora stati pubblicati video.</p>
             </div>
           ) : latestVideo && selectedCourseId === "all" && !search ? (
-            <div className="video-featured-card content-card video-featured-compact">
-              <div>
-                <span className="eyebrow">Ultimo video caricato</span>
+            <div className="video-featured-card video-diary-featured content-card">
+              <button type="button" className="video-diary-featured-preview" onClick={() => openVideo(latestVideo)} disabled={!latestVideo.play_url}>
+                {latestVideo.thumbnail_url ? (
+                  <img src={latestVideo.thumbnail_url} alt="" loading="lazy" decoding="async" />
+                ) : latestVideo.play_url ? (
+                  <video src={getVideoPreviewUrl(latestVideo.play_url)} preload="metadata" muted playsInline />
+                ) : (
+                  <span>▶</span>
+                )}
+                <b>▶</b>
+              </button>
+              <div className="video-diary-featured-copy">
+                <span className="eyebrow">Continua da qui</span>
                 <h3>{latestVideo.titolo}</h3>
-                <p>{latestVideo.corsi?.nome || "Corso"} · pubblicato il {formatDate(latestVideo.created_at)}</p>
+                <p>{latestVideo.descrizione || "L'ultimo ripasso pubblicato dal tuo corso."}</p>
+                <small>{latestVideo.corsi?.nome || "Corso"} · {formatDate(latestVideo.created_at)}</small>
+                {latestVideo.play_url && (
+                  <button type="button" className="primary-btn slim" onClick={() => openVideo(latestVideo)}>▶ Ripassa ora</button>
+                )}
               </div>
-              {latestVideo.play_url && (
-                <button type="button" className="primary-btn slim" onClick={() => openVideo(latestVideo)}>Guarda ora</button>
-              )}
             </div>
           ) : null}
 
@@ -396,8 +435,8 @@ export default function Video() {
                   <section className="video-course-section content-card video-course-section-compact" key={course.id}>
                     <div className="video-course-section-head">
                       <div>
-                        <span className="eyebrow">{course.nome}</span>
-                        <h3>{course.livello || "Livello da definire"}</h3>
+                        <span className="eyebrow">Diario corso</span>
+                        <h3>{course.nome} · {course.livello || "Livello da definire"}</h3>
                         <p>{courseLabel(course)}{course.sala ? ` · ${course.sala}` : ""}</p>
                       </div>
 

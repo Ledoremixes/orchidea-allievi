@@ -10,6 +10,7 @@ import Corsi from "./pages/Corsi.jsx";
 import Pagamenti from "./pages/Pagamenti.jsx";
 import Video from "./pages/Video.jsx";
 import Eventi from "./pages/Eventi.jsx";
+import Agenda from "./pages/Agenda.jsx";
 import KioskCheckIn from "./pages/KioskCheckIn.jsx";
 import AdminPanel from "./pages/admin/AdminPanel.jsx";
 
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="pagamenti" element={<Pagamenti />} />
           <Route path="video" element={<Video />} />
           <Route path="eventi" element={<Eventi />} />
+          <Route path="agenda" element={<Agenda />} />
 
           <Route element={<AdminRoute />}>
             <Route path="admin" element={<AdminPanel />} />

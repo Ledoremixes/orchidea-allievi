@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { eventDate, formatEventDate, formatEventTime, loadUpcomingEvents } from "../lib/events.js";
+import { downloadEventCalendar } from "../lib/calendar.js";
 import {
   eventAttendanceKey,
   loadVisibleEventAttendance,
@@ -169,6 +170,18 @@ export default function Eventi() {
 
   const featuredEvent = events[0] || null;
   const otherEvents = useMemo(() => events.slice(1), [events]);
+  const communityStats = useMemo(() => {
+    let myEvents = 0;
+    const companionIds = new Set();
+
+    events.forEach((event) => {
+      const people = attendance.get(eventAttendanceKey(event)) || [];
+      if (people.some((person) => person.isMe)) myEvents += 1;
+      people.filter((person) => !person.isMe).forEach((person) => companionIds.add(person.tesseramentoId));
+    });
+
+    return { myEvents, companions: companionIds.size };
+  }, [attendance, events]);
 
   const handleAttendanceToggle = useCallback(async (event) => {
     const key = eventAttendanceKey(event);
@@ -212,6 +225,14 @@ export default function Eventi() {
           <p>Scopri i prossimi appuntamenti, dì ai tuoi compagni che ci sarai e vieni a ballare con noi.</p>
         </div>
       </div>
+
+      {!loading && events.length > 0 && (
+        <div className="event-community-summary" aria-label="Riepilogo eventi">
+          <div><span>Prossimi eventi</span><strong>{events.length}</strong></div>
+          <div><span>Hai confermato</span><strong>{communityStats.myEvents}</strong></div>
+          <div><span>Compagni presenti</span><strong>{attendanceLoading ? "…" : communityStats.companions}</strong></div>
+        </div>
+      )}
 
       {loading ? (
         <section className="neo-panel events-loading-card">Sto preparando i prossimi appuntamenti…</section>
@@ -257,6 +278,11 @@ export default function Eventi() {
                 error={attendanceError}
                 onToggle={() => handleAttendanceToggle(featuredEvent)}
               />
+              <div className="event-actions-row">
+                <button type="button" className="event-calendar-button" onClick={() => downloadEventCalendar(featuredEvent)}>
+                  <span>＋</span> Aggiungi al calendario
+                </button>
+              </div>
               <div className="event-invitation-ribbon"><span>♥</span><strong>Porta gli amici e vivi la serata con il tuo club</strong></div>
             </div>
           </article>
@@ -292,6 +318,9 @@ export default function Eventi() {
                         onToggle={() => handleAttendanceToggle(event)}
                         compact
                       />
+                      <button type="button" className="event-calendar-button is-compact" onClick={() => downloadEventCalendar(event)}>
+                        <span>＋</span> Calendario
+                      </button>
                     </div>
                   </article>
                 ))}

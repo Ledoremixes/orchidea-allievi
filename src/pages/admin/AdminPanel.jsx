@@ -4,6 +4,7 @@ import { formatDate, formatMoney, formatTime } from "../../lib/format.js";
 import { membershipCode, hasCustomMembershipNumber } from "../../lib/membership.js";
 import { getCourseVisual } from "../../lib/courseVisuals.js";
 import AttendanceAdmin from "./AttendanceAdmin.jsx";
+import AdminEngagement from "./AdminEngagement.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 
 const emptyCourse = {
@@ -59,6 +60,7 @@ const adminSections = [
   { id: "enrollments", label: "Iscrizioni", icon: "+" },
   { id: "videos", label: "Video", icon: "▶" },
   { id: "home_showcase", label: "Home app", icon: "✹" },
+  { id: "community", label: "Community", icon: "♥" },
 ];
 
 const STUDENT_PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
@@ -4007,6 +4009,7 @@ export default function AdminPanel() {
       case "enrollments": return renderEnrollments();
       case "videos": return renderVideos();
       case "home_showcase": return renderHomeShowcase();
+      case "community": return <AdminEngagement />;
       default: return renderOverview();
     }
   }

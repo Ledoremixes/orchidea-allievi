@@ -5,6 +5,36 @@ import { formatDate, formatMoney } from "../lib/format.js";
 import { buildStudentPaymentView, isPaymentPaid } from "../lib/payments.js";
 import { useStudentLiveRefresh } from "../lib/useStudentLiveRefresh.js";
 
+
+function paymentCoversMonth(payment, year, monthIndex) {
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59);
+  const startValue = payment.periodo_inizio || payment.scadenza || payment.created_at;
+  const endValue = payment.periodo_fine || payment.scadenza || startValue;
+  if (!startValue) return false;
+  const start = new Date(String(startValue).length === 10 ? `${startValue}T12:00:00` : startValue);
+  const end = new Date(String(endValue).length === 10 ? `${endValue}T12:00:00` : endValue);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+  return start <= monthEnd && end >= monthStart;
+}
+
+function buildSeasonMonths(payments) {
+  const now = new Date();
+  const seasonStartYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  return Array.from({ length: 10 }, (_, index) => {
+    const date = new Date(seasonStartYear, 8 + index, 1);
+    const related = payments.filter((payment) => paymentCoversMonth(payment, date.getFullYear(), date.getMonth()));
+    const paid = related.some((payment) => isPaymentPaid(payment));
+    const open = related.some((payment) => !isPaymentPaid(payment) && payment.stato !== "annullato");
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: date.toLocaleDateString("it-IT", { month: "short" }).replace(".", ""),
+      current: date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear(),
+      status: paid ? "paid" : open ? "open" : "empty",
+    };
+  });
+}
+
 function monthTitle() {
   return new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(new Date()).toUpperCase();
 }
@@ -68,6 +98,8 @@ export default function Pagamenti() {
   const month = monthTitle();
   const hasAnyCurrentQuote = currentMonthOpenPayments.length > 0 || currentMonthPaidPayments.length > 0;
   const hasAnyOpenQuote = openPayments.length > 0;
+  const openTotal = openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
+  const seasonMonths = useMemo(() => buildSeasonMonths(payments), [payments]);
 
   function renderCompactPayment(payment) {
     const paid = isPaymentPaid(payment);
@@ -81,7 +113,7 @@ export default function Pagamenti() {
         </div>
         <em>{formatMoney(payment.importo)}</em>
         {payment.sumup_payment_url && !paid ? (
-          <a href={payment.sumup_payment_url} target="_blank" rel="noreferrer" aria-label="Paga online">›</a>
+          <a className="payment-row-pay-button" href={payment.sumup_payment_url} target="_blank" rel="noreferrer" aria-label="Paga online">Paga</a>
         ) : (
           <span aria-hidden="true">›</span>
         )}
@@ -101,10 +133,35 @@ export default function Pagamenti() {
 
       {error && <div className="alert error">{error}</div>}
 
-      <div className="payments-active-pill">
-        <strong>{loading ? "…" : activeCoursesCount}</strong>
-        <span>Corsi attivi</span>
+      <div className="payments-overview-grid">
+        <div className="payments-overview-card is-month">
+          <span>Questo mese</span>
+          <strong>{loading ? "…" : currentMonthOpenPayments.length ? formatMoney(currentMonthOpenTotal) : "OK"}</strong>
+          <small>{currentMonthOpenPayments.length ? "ancora da saldare" : "situazione regolare"}</small>
+        </div>
+        <div className="payments-overview-card is-open">
+          <span>Quote aperte</span>
+          <strong>{loading ? "…" : formatMoney(openTotal)}</strong>
+          <small>{openPayments.length} {openPayments.length === 1 ? "quota" : "quote"}</small>
+        </div>
+        <div className="payments-overview-card is-paid">
+          <span>Totale registrato</span>
+          <strong>{loading ? "…" : formatMoney(totalPaid)}</strong>
+          <small>pagamenti saldati</small>
+        </div>
+        <div className="payments-overview-card is-courses">
+          <span>Corsi attivi</span>
+          <strong>{loading ? "…" : activeCoursesCount}</strong>
+          <small>nel tuo profilo</small>
+        </div>
       </div>
+
+      {!loading && payments.length > 0 && (
+        <section className="payment-season-strip">
+          <div className="payment-season-strip-head"><div><span>Stagione 2026/27</span><strong>Situazione mese per mese</strong></div><small><i className="paid" /> pagato <i className="open" /> da saldare</small></div>
+          <div className="payment-season-months">{seasonMonths.map((month) => <div className={`payment-season-month is-${month.status} ${month.current ? "is-current" : ""}`} key={month.key}><span>{month.label}</span><b>{month.status === "paid" ? "✓" : month.status === "open" ? "!" : "·"}</b></div>)}</div>
+        </section>
+      )}
 
       {loading ? (
         <div className="neo-panel comfort-loading-card">Carico pagamenti…</div>
@@ -136,7 +193,7 @@ export default function Pagamenti() {
             <section className="neo-panel payment-due-panel">
               <div className="neo-panel-title">
                 <span>€</span>
-                <h3>{currentMonthOpenPayments.length ? "Quote da saldare" : "Prossime quote attive"}</h3>
+                <div><h3>{currentMonthOpenPayments.length ? "Quote da saldare" : "Prossime quote attive"}</h3><small className="payment-section-note">Apri la quota per pagare online quando disponibile</small></div>
               </div>
               <div className="payment-history-list">
                 {(currentMonthOpenPayments.length ? currentMonthOpenPayments : openPayments).slice(0, 4).map(renderCompactPayment)}
@@ -147,7 +204,7 @@ export default function Pagamenti() {
           <section className="neo-panel payment-history-panel">
             <div className="neo-panel-title">
               <span>↺</span>
-              <h3>Storico pagamenti</h3>
+              <div><h3>Storico pagamenti</h3><small className="payment-section-note">Le ultime quote registrate sul tuo profilo</small></div>
             </div>
 
             {paidPayments.length ? (

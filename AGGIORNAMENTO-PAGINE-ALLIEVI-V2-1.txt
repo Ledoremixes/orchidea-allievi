@@ -1,0 +1,41 @@
+ORCHIDEA ALLIEVI - AGGIORNAMENTO PAGINE V2.1
+
+HOME
+- Nessuna modifica alla Dashboard/Home.
+- Nessuna modifica ad AppShell/menu principale.
+
+CORSI
+- Pagina trasformata in agenda personale.
+- Pulsante + Calendario per esportare i corsi attivi in formato ICS.
+- Accesso rapido "Ripassa le lezioni" dalle card corso.
+- Mantiene riepilogo corsi e settimana personale.
+
+VIDEO
+- Nuovo concept "Diario di ballo".
+- Riepilogo per ogni corso con numero di ripassi e data dell'ultimo video.
+- Selezione rapida del corso.
+- Ultimo ripasso messo in evidenza con anteprima.
+- Ricerca per figura, titolo o data.
+- Archivio organizzato per corso.
+
+EVENTI
+- Mantiene apertura della locandina completa.
+- Mantiene funzione "Ci sarò" e visibilità dei compagni.
+- Nuovo riepilogo: prossimi eventi, eventi confermati, compagni presenti.
+- Pulsante per aggiungere ogni serata al calendario del telefono (ICS).
+
+QUOTE / PAGAMENTI
+- Nuovo riepilogo immediato: mese corrente, quote aperte, totale registrato, corsi attivi.
+- Pagamenti online SumUp con pulsante "Paga" più evidente.
+- Storico e quote da saldare più leggibili.
+
+TESSERA
+- Card digitale invariata.
+- Numero tessera copiabile.
+- Istruzioni rapide per check-in corsi, serate e Wallet.
+
+DATABASE
+- Nessun nuovo script SQL richiesto per questo aggiornamento.
+
+VERIFICA
+- npm run build completato correttamente con Vite.

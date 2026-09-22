@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
+import NotificationCenter from "./NotificationCenter.jsx";
+import QuickQrModal from "./QuickQrModal.jsx";
+import ClubMode from "./ClubMode.jsx";
 
 const studentNavItems = [
   { to: "/", label: "Home", icon: "home", end: true },
@@ -103,6 +106,9 @@ export default function AppShell() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [studentError, setStudentError] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [quickQrOpen, setQuickQrOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -163,10 +169,26 @@ export default function AppShell() {
             <img src="/assets/logo.png" alt="Orchidea" />
           </div>
 
-          <button type="button" className="orchidea-logout-button" onClick={handleLogout}>
-            <NavIcon name="logout" />
-            <span>Esci</span>
-          </button>
+          <div className="orchidea-header-actions">
+            {student && !isAdminPath && (
+              <>
+                <button type="button" className="orchidea-header-icon-btn" onClick={() => navigate("/agenda")} aria-label="Apri agenda personale" title="Agenda">
+                  <span aria-hidden="true">◷</span>
+                </button>
+                <button type="button" className="orchidea-header-icon-btn" onClick={() => setQuickQrOpen(true)} aria-label="Apri QR tessera" title="Tessera rapida">
+                  <span aria-hidden="true">▦</span>
+                </button>
+                <button type="button" className="orchidea-header-icon-btn has-badge" onClick={() => setNotificationsOpen(true)} aria-label={`Notifiche${unreadNotifications ? `, ${unreadNotifications} non lette` : ""}`} title="Notifiche">
+                  <span aria-hidden="true">♢</span>
+                  {unreadNotifications > 0 && <b>{unreadNotifications > 9 ? "9+" : unreadNotifications}</b>}
+                </button>
+              </>
+            )}
+            <button type="button" className="orchidea-logout-button" onClick={handleLogout}>
+              <NavIcon name="logout" />
+              <span>Esci</span>
+            </button>
+          </div>
         </header>
 
         {loading ? (
@@ -190,6 +212,14 @@ export default function AppShell() {
           <Outlet context={{ student, isAdmin, sessionUser, displayName }} />
         )}
       </main>
+
+      {student && !isAdminPath && (
+        <>
+          <NotificationCenter student={student} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
+          <QuickQrModal student={student} open={quickQrOpen} onClose={() => setQuickQrOpen(false)} />
+          <ClubMode student={student} />
+        </>
+      )}
 
       <nav className="bottom-nav orchidea-bottom-nav" aria-label="Menu principale" style={{ "--nav-items": navItems.length }}>
         {navItems.map((item) => (

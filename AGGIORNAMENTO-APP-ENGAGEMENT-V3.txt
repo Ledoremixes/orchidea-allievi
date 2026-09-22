@@ -1,0 +1,52 @@
+ORCHIDEA ALLIEVI - ENGAGEMENT V3
+
+La Home/Dashboard NON è stata modificata.
+
+Implementato:
+9. Notifiche utili
+   - campanella globale con badge non letti
+   - notifiche automatiche: lezione di oggi, quote, nuovi video, serate vicine
+   - notifiche manuali pubblicabili dall'admin
+   - possibilità di attivare le notifiche del dispositivo (quando l'app è aperta/caricata)
+
+10. Agenda personale
+   - nuova pagina /agenda
+   - corsi ricorrenti + serate/eventi
+   - evidenza RSVP "Ci sarò"
+   - export unico .ics
+
+11. Tessera / QR in primo piano
+   - pulsante QR nel top bar disponibile in tutta l'app
+   - popup QR rapido senza dover entrare nella pagina Tessera
+
+12. Quote più leggibili
+   - timeline della stagione mese per mese con pagato / aperto / nessuna quota
+
+13. Orchidea Rewards
+   - 10 punti per presenza registrata a lezione
+   - 2 punti bonus per serata confermata
+   - catalogo premi
+   - richiesta premio dall'app
+   - gestione approvazione/consegna dall'admin
+
+14. Scopri altri corsi
+   - suggerimenti di corsi non ancora frequentati
+   - ordinamento in base ai corsi già seguiti
+   - pulsante "Richiedi una prova"
+   - richieste visibili e gestibili dall'admin
+
+15. Profili insegnanti
+   - profili collegati ai propri corsi
+   - foto, bio, specialità, Instagram
+   - gestione contenuti dalla sezione Community admin
+
+16. Modalità "Sono all'Orchidea"
+   - pulsante flottante globale
+   - tessera/QR, agenda, programma serate e menu bar digitale
+   - mostra il corso o evento del giorno quando disponibile
+
+IMPORTANTE
+Prima di usare le nuove funzioni eseguire su Supabase > SQL Editor:
+supabase/step-18-engagement-app.sql
+
+La build di produzione è stata verificata con npm run build.
