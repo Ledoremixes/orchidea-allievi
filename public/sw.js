@@ -1,4 +1,4 @@
-const CACHE_VERSION = "orchidea-allievi-push-v2";
+const CACHE_VERSION = "orchidea-allievi-push-v3-rewards";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

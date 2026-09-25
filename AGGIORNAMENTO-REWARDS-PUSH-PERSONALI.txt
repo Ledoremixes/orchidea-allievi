@@ -1,0 +1,16 @@
+ORCHIDEA ALLIEVI - PUSH PERSONALI REWARDS
+
+Cosa cambia
+- Quando l'admin assegna punti POSITIVI a un allievo, viene creata una notifica personale e viene inviata la push solo ai dispositivi registrati di quell'allievo.
+- Quando l'admin regala un premio omaggio, viene creata una notifica personale e viene inviata la push solo ai dispositivi registrati di quell'allievo.
+- Le correzioni negative dei punti NON generano una push.
+- La notifica resta anche nel Centro Notifiche dell'app del solo destinatario.
+- Toccando la push si apre /tessera, dove si trovano Orchidea Rewards.
+
+PASSAGGI SUPABASE UNA TANTUM
+1. SQL Editor > esegui: supabase/step-20-personal-reward-push.sql
+2. Edge Functions > send-push > sostituisci index.ts con il contenuto aggiornato di:
+   supabase/functions/send-push/index.ts
+3. Premi Deploy function.
+
+Non devi creare nuove chiavi VAPID e non devi modificare i Secrets già configurati.

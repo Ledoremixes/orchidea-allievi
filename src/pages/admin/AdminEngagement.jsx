@@ -99,6 +99,53 @@ export default function AdminEngagement() {
   function ok(text) { setError(""); setMessage(text); window.setTimeout(() => setMessage(""), 2600); }
   function fail(text) { setMessage(""); setError(text); }
 
+  async function sendPersonalRewardNotification({ studentId, title, body }) {
+    if (!studentId) return { ok: false, sent: 0, failed: 0 };
+
+    const { data: savedNotification, error: saveError } = await supabase
+      .from("app_notifications")
+      .insert({
+        title,
+        body,
+        category: "important",
+        audience: "student",
+        target_tesseramento_id: studentId,
+        link: "/tessera",
+      })
+      .select("id")
+      .single();
+
+    if (saveError || !savedNotification?.id) {
+      console.warn("Notifica Rewards personale non salvata:", saveError);
+      return { ok: false, sent: 0, failed: 0, error: saveError };
+    }
+
+    const { data: pushResult, error: pushError } = await supabase.functions.invoke("send-push", {
+      body: { notification_id: savedNotification.id },
+    });
+
+    if (pushError || pushResult?.ok === false) {
+      console.warn("Push Rewards personale non inviata:", pushError || pushResult);
+      return {
+        ok: false,
+        sent: 0,
+        failed: Number(pushResult?.failed || 0),
+        subscriptions: Number(pushResult?.subscriptions || 0),
+        reason: pushResult?.reason || "edge_function_error",
+        error: pushError || pushResult,
+      };
+    }
+
+    console.info("Push Rewards personale:", pushResult);
+    return {
+      ok: true,
+      sent: Number(pushResult?.sent || 0),
+      failed: Number(pushResult?.failed || 0),
+      subscriptions: Number(pushResult?.subscriptions || 0),
+      reason: pushResult?.reason || "",
+    };
+  }
+
   async function refreshRewardStudentSummary(studentId = rewardStudent?.id) {
     if (!studentId) return;
     const { data, error: summaryError } = await supabase.rpc("admin_get_reward_summary", { p_tesseramento_id: studentId });
@@ -219,16 +266,45 @@ export default function AdminEngagement() {
     const amount = Number(pointsAmount);
     if (!Number.isInteger(amount) || amount === 0) return fail("Inserisci un numero di punti diverso da zero.");
     if (!pointsReason.trim()) return fail("Inserisci il motivo dell’assegnazione.");
+
     setRewardActionBusy(true);
     const { data, error: actionError } = await supabase.rpc("admin_adjust_reward_points", {
       p_tesseramento_id: rewardStudent.id,
       p_points: amount,
       p_reason: pointsReason.trim(),
     });
+
+    if (actionError) {
+      setRewardActionBusy(false);
+      return fail(actionError.message);
+    }
+    if (data?.ok === false) {
+      setRewardActionBusy(false);
+      return fail(data.message || "Operazione non riuscita.");
+    }
+
+    let pushResult = null;
+    if (amount > 0) {
+      pushResult = await sendPersonalRewardNotification({
+        studentId: rewardStudent.id,
+        title: `🌸 Hai ricevuto ${amount} Orchidea Points!`,
+        body: `${pointsReason.trim()}. Il tuo saldo Rewards è stato aggiornato.`,
+      });
+    }
+
     setRewardActionBusy(false);
-    if (actionError) return fail(actionError.message);
-    if (data?.ok === false) return fail(data.message || "Operazione non riuscita.");
-    ok(amount > 0 ? `${amount} punti assegnati a ${fullName(rewardStudent)}.` : `${Math.abs(amount)} punti rimossi a ${fullName(rewardStudent)}.`);
+    const pushSuffix = amount > 0
+      ? pushResult?.sent > 0
+        ? ` Notifica inviata a ${pushResult.sent} dispositivo/i dell’allievo.`
+        : pushResult?.reason === "no_active_push_subscription"
+          ? " Notifica salvata nell’app, ma non risultano dispositivi push attivi associati a questo account."
+          : pushResult?.ok === false
+            ? " Punti assegnati, ma la push non è partita: controlla i log di send-push."
+            : " Notifica salvata nell’app; nessun dispositivo push raggiunto."
+      : "";
+    ok(amount > 0
+      ? `${amount} punti assegnati a ${fullName(rewardStudent)}.${pushSuffix}`
+      : `${Math.abs(amount)} punti rimossi a ${fullName(rewardStudent)}.`);
     await refreshRewardStudentSummary();
   }
 
@@ -236,16 +312,41 @@ export default function AdminEngagement() {
     event.preventDefault();
     if (!rewardStudent?.id) return fail("Seleziona prima un allievo.");
     if (!giftRewardId) return fail("Seleziona il premio da regalare.");
+
+    const giftedReward = rewards.find((reward) => reward.id === giftRewardId);
     setRewardActionBusy(true);
     const { data, error: actionError } = await supabase.rpc("admin_gift_reward", {
       p_tesseramento_id: rewardStudent.id,
       p_reward_id: giftRewardId,
     });
+
+    if (actionError) {
+      setRewardActionBusy(false);
+      return fail(actionError.message);
+    }
+    if (data?.ok === false) {
+      setRewardActionBusy(false);
+      return fail(data.message || "Impossibile assegnare il premio.");
+    }
+
+    const rewardLabel = giftedReward?.title || "un premio Orchidea";
+    const rewardIcon = giftedReward?.icon || "🎁";
+    const pushResult = await sendPersonalRewardNotification({
+      studentId: rewardStudent.id,
+      title: "🎁 Hai ricevuto un premio omaggio!",
+      body: `${rewardIcon} ${rewardLabel} è stato aggiunto ai tuoi Rewards da Orchidea.`,
+    });
+
     setRewardActionBusy(false);
-    if (actionError) return fail(actionError.message);
-    if (data?.ok === false) return fail(data.message || "Impossibile assegnare il premio.");
     setGiftRewardId("");
-    ok(`Premio assegnato a ${fullName(rewardStudent)} senza scalare punti.`);
+    const pushSuffix = pushResult?.sent > 0
+      ? ` Notifica inviata a ${pushResult.sent} dispositivo/i dell’allievo.`
+      : pushResult?.reason === "no_active_push_subscription"
+        ? " Notifica salvata nell’app, ma non risultano dispositivi push attivi associati a questo account."
+        : pushResult?.ok === false
+          ? " Premio assegnato, ma la push non è partita: controlla i log di send-push."
+          : " Notifica salvata nell’app; nessun dispositivo push raggiunto.";
+    ok(`Premio assegnato a ${fullName(rewardStudent)} senza scalare punti.${pushSuffix}`);
     await Promise.all([refreshRewardStudentSummary(), load()]);
   }
 
