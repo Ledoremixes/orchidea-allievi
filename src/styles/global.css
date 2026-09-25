@@ -16492,6 +16492,42 @@ body,
 .upgraded-login-page {
   position: relative;
   overflow: hidden;
+  width: min(720px, 100%);
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-content: center;
+}
+
+.comfort-auth-hero.upgraded-login-hero {
+  width: min(100%, 660px);
+  min-height: auto;
+  justify-self: center;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 18px 4px;
+  text-align: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.comfort-auth-hero.upgraded-login-hero::after {
+  display: none;
+}
+
+.upgraded-login-hero .auth-logo {
+  width: 108px;
+  margin: 0 auto 12px;
+}
+
+.upgraded-login-hero h1 {
+  width: min(100%, 620px);
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.35rem);
+  line-height: .98;
+  letter-spacing: -.06em;
 }
 
 .upgraded-login-page::before {
@@ -16511,7 +16547,9 @@ body,
 }
 
 .upgraded-login-card {
-  align-self: center;
+  width: min(100%, 660px);
+  justify-self: center;
+  align-self: start;
 }
 
 .auth-mode-switch {

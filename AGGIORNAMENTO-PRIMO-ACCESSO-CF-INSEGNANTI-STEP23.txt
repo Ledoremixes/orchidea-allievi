@@ -1,0 +1,31 @@
+ORCHIDEA ALLIEVI - STEP 23
+Primo accesso insegnanti con Codice Fiscale + Login compatto
+
+1. Supabase > SQL Editor
+   Eseguire UNA VOLTA:
+   supabase/step-23-primo-accesso-insegnante-cf.sql
+
+2. Admin > Community & app > Profili insegnanti
+   Aprire ogni insegnante che deve usare l'app e compilare:
+   - Email accesso
+   - Codice fiscale
+   - Telefono (facoltativo)
+   - Profilo compensi
+
+3. Primo accesso insegnante
+   L'insegnante seleziona Primo accesso > Insegnante e inserisce:
+   - Email
+   - Codice fiscale
+   - Nuova password
+
+   Email e CF devono coincidere con quelli configurati dall'Admin.
+
+4. Login
+   La schermata iniziale e' stata semplificata: logo + frase
+   "Tutto il tuo mondo Orchidea, in un'unica app." e subito sotto
+   i tab Accedi / Primo accesso.
+
+NOTE
+- Il numero di telefono non viene piu' usato per verificare il primo accesso insegnante.
+- Gli account insegnante gia' esistenti continuano a funzionare normalmente.
+- Per gli insegnanti che NON hanno ancora effettuato il primo accesso, inserire il CF dal pannello Admin prima che provino ad attivare l'account.

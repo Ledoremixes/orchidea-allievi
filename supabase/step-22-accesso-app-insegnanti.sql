@@ -78,6 +78,7 @@ create table if not exists public.app_teacher_accounts (
   compensation_teacher_id uuid references public.insegnanti(id) on delete set null,
   email text not null,
   telefono text,
+  codice_fiscale text,
   auth_user_id uuid unique references auth.users(id) on delete set null,
   access_enabled boolean not null default true,
   access_initialized_at timestamptz,
@@ -156,7 +157,9 @@ from auth.users u
 where a.auth_user_id is null
   and lower(trim(a.email)) = lower(trim(u.email));
 
-create or replace function public.verify_teacher_first_access(p_email text, p_phone text)
+drop function if exists public.verify_teacher_first_access(text, text);
+
+create function public.verify_teacher_first_access(p_email text, p_cf text)
 returns jsonb
 language plpgsql
 security definer
@@ -164,10 +167,10 @@ set search_path = public
 as $$
 declare
   v_row public.app_teacher_accounts%rowtype;
-  v_phone_input text;
-  v_phone_saved text;
+  v_cf_input text;
+  v_cf_saved text;
 begin
-  v_phone_input := regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g');
+  v_cf_input := upper(regexp_replace(coalesce(p_cf, ''), '\s+', '', 'g'));
 
   select * into v_row
   from public.app_teacher_accounts a
@@ -179,8 +182,8 @@ begin
     return jsonb_build_object('ok', false, 'status', 'not_found');
   end if;
 
-  v_phone_saved := regexp_replace(coalesce(v_row.telefono, ''), '[^0-9]', '', 'g');
-  if v_phone_input = '' or v_phone_saved = '' or right(v_phone_input, 9) <> right(v_phone_saved, 9) then
+  v_cf_saved := upper(regexp_replace(coalesce(v_row.codice_fiscale, ''), '\s+', '', 'g'));
+  if v_cf_input = '' or v_cf_saved = '' or v_cf_input <> v_cf_saved then
     return jsonb_build_object('ok', false, 'status', 'not_found');
   end if;
 

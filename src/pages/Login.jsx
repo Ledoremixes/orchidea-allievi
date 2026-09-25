@@ -7,7 +7,6 @@ const firstAccessInitial = {
   role: "student",
   email: "",
   cf: "",
-  phone: "",
   password: "",
   confirmPassword: "",
 };
@@ -107,18 +106,18 @@ export default function Login() {
 
     const cleanEmail = firstAccess.email.trim().toLowerCase();
     const cleanCf = firstAccess.cf.replace(/\s+/g, "").toUpperCase();
-    const cleanPhone = firstAccess.phone.trim();
 
     if (!cleanEmail) return setError("Inserisci l’email associata al tuo profilo Orchidea.");
-    if (firstAccess.role === "student" && !cleanCf) return setError("Inserisci il codice fiscale usato nel tesseramento.");
-    if (firstAccess.role === "teacher" && !cleanPhone) return setError("Inserisci il numero di telefono registrato dall’amministrazione.");
+    if (!cleanCf) return setError(firstAccess.role === "teacher"
+      ? "Inserisci il codice fiscale registrato dall’amministrazione."
+      : "Inserisci il codice fiscale usato nel tesseramento.");
     if (!passwordRules.length) return setError("La password deve avere almeno 8 caratteri.");
     if (!passwordRules.same) return setError("Le due password non coincidono.");
 
     setLoading(true);
 
     const verification = firstAccess.role === "teacher"
-      ? await supabase.rpc("verify_teacher_first_access", { p_email: cleanEmail, p_phone: cleanPhone })
+      ? await supabase.rpc("verify_teacher_first_access", { p_email: cleanEmail, p_cf: cleanCf })
       : await supabase.rpc("verify_student_first_access", { p_email: cleanEmail, p_cf: cleanCf });
 
     if (verification.error) {
@@ -141,7 +140,7 @@ export default function Login() {
     if (!result.ok) {
       setLoading(false);
       setError(firstAccess.role === "teacher"
-        ? "Non trovo un accesso insegnante con questa email e questo telefono. Controlla i dati o chiedi all’amministrazione."
+        ? "Non trovo un accesso insegnante con questa email e questo codice fiscale. Controlla i dati o chiedi all’amministrazione."
         : "Email e codice fiscale non corrispondono a un tesseramento Orchidea. Controlla i dati inseriti.");
       return;
     }
@@ -196,15 +195,7 @@ export default function Login() {
       <div className="auth-page comfort-auth-page upgraded-login-page">
         <div className="auth-hero comfort-auth-hero upgraded-login-hero">
           <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
-          <span className="eyebrow">Orchidea Allievi & Insegnanti</span>
           <h1>Tutto il tuo mondo Orchidea, in un’unica app.</h1>
-          <p>Primo accesso, tessera, corsi e area insegnanti: non serve passare dal sito.</p>
-
-          <div className="auth-benefit-grid">
-            <div><span>◆</span><strong>Tessera digitale</strong><small>QR pronto all’ingresso</small></div>
-            <div><span>◷</span><strong>Corsi e orari</strong><small>Calendario personale</small></div>
-            <div><span>€</span><strong>Area insegnanti</strong><small>Compensi mese per mese</small></div>
-          </div>
         </div>
 
         <div className="auth-card comfort-auth-card upgraded-login-card">
@@ -277,17 +268,10 @@ export default function Login() {
                 <input type="email" value={firstAccess.email} onChange={(e) => setFirstAccess({ ...firstAccess, email: e.target.value })} placeholder="nome@email.it" autoComplete="email" />
               </label>
 
-              {firstAccess.role === "student" ? (
-                <label className="comfort-field">
-                  Codice fiscale
-                  <input value={firstAccess.cf} onChange={(e) => setFirstAccess({ ...firstAccess, cf: e.target.value.toUpperCase() })} placeholder="RSSMRA..." autoCapitalize="characters" />
-                </label>
-              ) : (
-                <label className="comfort-field">
-                  Numero di telefono
-                  <input type="tel" value={firstAccess.phone} onChange={(e) => setFirstAccess({ ...firstAccess, phone: e.target.value })} placeholder="+39 333 1234567" autoComplete="tel" />
-                </label>
-              )}
+              <label className="comfort-field">
+                Codice fiscale
+                <input value={firstAccess.cf} onChange={(e) => setFirstAccess({ ...firstAccess, cf: e.target.value.toUpperCase() })} placeholder="RSSMRA..." autoCapitalize="characters" autoComplete="off" />
+              </label>
 
               <div className="first-access-password-grid">
                 <label className="comfort-field">
@@ -311,7 +295,7 @@ export default function Login() {
 
               <div className="auth-safe-note upgraded-auth-note">
                 <strong>{firstAccess.role === "student" ? "Dati del tesseramento" : "Dati configurati dall’amministrazione"}</strong>
-                <span>{firstAccess.role === "student" ? "Email e codice fiscale devono coincidere con quelli presenti nel tuo tesseramento." : "Email e telefono devono coincidere con quelli associati al tuo profilo insegnante."}</span>
+                <span>{firstAccess.role === "student" ? "Email e codice fiscale devono coincidere con quelli presenti nel tuo tesseramento." : "Email e codice fiscale devono coincidere con quelli configurati dall’amministrazione per il tuo profilo insegnante."}</span>
               </div>
             </form>
           )}

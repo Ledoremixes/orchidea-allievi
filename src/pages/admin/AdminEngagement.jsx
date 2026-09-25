@@ -22,7 +22,7 @@ function emptyTeacherProfile() {
 }
 
 function emptyTeacherAccess() {
-  return { enabled: false, email: "", phone: "", compensation_teacher_id: "" };
+  return { enabled: false, email: "", phone: "", cf: "", compensation_teacher_id: "" };
 }
 
 export default function AdminEngagement() {
@@ -70,7 +70,7 @@ export default function AdminEngagement() {
       supabase.from("corsi").select("id, nome, livello, attivo").eq("attivo", true).order("nome"),
       supabase.from("app_teacher_profiles").select("id, nome, cognome, bio, foto_url, foto_path, instagram_url, specialita, profilo_pubblico, ordine, created_at, updated_at").order("ordine", { ascending: true }).order("cognome", { ascending: true }).order("nome", { ascending: true }),
       supabase.from("app_teacher_profile_courses").select("id, profile_id, corso_id"),
-      supabase.from("app_teacher_accounts").select("id, profile_id, compensation_teacher_id, email, telefono, auth_user_id, access_enabled, access_initialized_at"),
+      supabase.from("app_teacher_accounts").select("id, profile_id, compensation_teacher_id, email, telefono, codice_fiscale, auth_user_id, access_enabled, access_initialized_at"),
       supabase.from("insegnanti").select("id, nome, email, telefono, attivo").eq("attivo", true).order("nome"),
       supabase.from("app_settings").select("value").eq("key", "bar_menu_url").maybeSingle(),
     ]);
@@ -112,6 +112,7 @@ export default function AdminEngagement() {
       enabled: account.access_enabled !== false,
       email: account.email || "",
       phone: account.telefono || "",
+      cf: account.codice_fiscale || "",
       compensation_teacher_id: account.compensation_teacher_id || "",
     } : emptyTeacherAccess());
   }, [selectedTeacher, teacherCourseLinks, teacherAccounts]);
@@ -503,13 +504,15 @@ export default function AdminEngagement() {
       if (teacherAccessForm.enabled) {
         const accessEmail = teacherAccessForm.email.trim().toLowerCase();
         const accessPhone = teacherAccessForm.phone.trim();
-        if (!accessEmail || !accessPhone) throw new Error("Per attivare l’area insegnante inserisci email e telefono.");
+        const accessCf = teacherAccessForm.cf.replace(/\s+/g, "").toUpperCase();
+        if (!accessEmail || !accessCf) throw new Error("Per attivare l’area insegnante inserisci email e codice fiscale.");
+        if (!/^[A-Z0-9]{16}$/.test(accessCf)) throw new Error("Inserisci un codice fiscale insegnante valido di 16 caratteri.");
 
         let compensationTeacherId = teacherAccessForm.compensation_teacher_id || existingAccount?.compensation_teacher_id || "";
         if (!compensationTeacherId) {
           const { data: createdTeacher, error: createTeacherError } = await supabase
             .from("insegnanti")
-            .insert({ nome: `${nome} ${cognome}`.trim(), email: accessEmail, telefono: accessPhone, attivo: true })
+            .insert({ nome: `${nome} ${cognome}`.trim(), email: accessEmail, telefono: accessPhone || null, attivo: true })
             .select("id")
             .single();
           if (createTeacherError) throw createTeacherError;
@@ -520,7 +523,8 @@ export default function AdminEngagement() {
           profile_id: profileId,
           compensation_teacher_id: compensationTeacherId,
           email: accessEmail,
-          telefono: accessPhone,
+          telefono: accessPhone || null,
+          codice_fiscale: accessCf,
           access_enabled: true,
           updated_at: new Date().toISOString(),
         };
@@ -757,11 +761,12 @@ export default function AdminEngagement() {
               {teacherAccessForm.enabled && (
                 <div className="teacher-access-admin-fields">
                   <label><span>Email accesso</span><input type="email" value={teacherAccessForm.email} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, email: e.target.value })} placeholder="insegnante@email.it" /></label>
-                  <label><span>Telefono di verifica</span><input type="tel" value={teacherAccessForm.phone} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, phone: e.target.value })} placeholder="+39 333 1234567" /></label>
+                  <label><span>Codice fiscale</span><input value={teacherAccessForm.cf} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, cf: e.target.value.toUpperCase() })} placeholder="RSSMRA..." maxLength={16} autoCapitalize="characters" /></label>
+                  <label><span>Telefono <small>(facoltativo)</small></span><input type="tel" value={teacherAccessForm.phone} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, phone: e.target.value })} placeholder="+39 333 1234567" /></label>
                   <label className="teacher-access-compensation-select"><span>Profilo compensi</span><select value={teacherAccessForm.compensation_teacher_id} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, compensation_teacher_id: e.target.value })}><option value="">Crea automaticamente al salvataggio</option>{compensationTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.nome}{teacher.email ? ` · ${teacher.email}` : ""}</option>)}</select><small>Le quote corso/percentuali restano configurabili nella sezione Insegnanti del pannello Admin.</small></label>
                   <div className={`teacher-access-status ${selectedTeacherAccount?.auth_user_id ? "is-ready" : ""}`}>
                     <strong>{selectedTeacherAccount?.auth_user_id ? "Account collegato" : teacherId ? "In attesa del primo accesso" : "Salva prima il profilo"}</strong>
-                    <span>{selectedTeacherAccount?.auth_user_id ? "L’insegnante può entrare e vedere i propri compensi." : "Al primo accesso userà email + telefono e sceglierà la password direttamente nell’app."}</span>
+                    <span>{selectedTeacherAccount?.auth_user_id ? "L’insegnante può entrare e vedere i propri compensi." : "Al primo accesso userà email + codice fiscale e sceglierà la password direttamente nell’app."}</span>
                   </div>
                 </div>
               )}
