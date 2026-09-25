@@ -1,4 +1,4 @@
-const CACHE_VERSION = "orchidea-allievi-push-v1";
+const CACHE_VERSION = "orchidea-allievi-push-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -20,7 +20,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "Hai una nuova notifica.",
     icon: payload.icon || "/icons/icon-192.png",
-    badge: payload.badge || "/icons/icon-96.png",
+    badge: "/icons/badge-96.png",
     image: payload.image || undefined,
     tag: payload.tag || `orchidea-${Date.now()}`,
     renotify: Boolean(payload.renotify),

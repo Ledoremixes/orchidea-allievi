@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     tag: `orchidea-${notification.id}`,
     notificationId: notification.id,
     icon: "/icons/icon-192.png",
-    badge: "/icons/icon-96.png",
+    badge: "/icons/badge-96.png",
   });
 
   let sent = 0;

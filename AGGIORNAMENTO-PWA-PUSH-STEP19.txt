@@ -30,3 +30,8 @@ FILE PRINCIPALI AGGIUNTI
 
 PRIMA DELLA MESSA ONLINE
 Segui PUSH-NOTIFICATIONS-SETUP.txt.
+
+AGGIORNAMENTO BADGE ANDROID
+- Aggiunto public/icons/badge-96.png: icona monocromatica trasparente dedicata alla status bar Android.
+- Il Service Worker usa sempre badge-96.png per evitare il quadrato bianco nella barra superiore.
+- icon-192.png resta l'icona grande a colori nella tendina notifiche.
