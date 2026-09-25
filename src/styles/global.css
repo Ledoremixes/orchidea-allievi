@@ -16484,3 +16484,710 @@ body,
     height: 8px;
   }
 }
+
+/* =========================================================
+   Step 22 - Primo accesso in-app + Area Insegnante
+   ========================================================= */
+
+.upgraded-login-page {
+  position: relative;
+  overflow: hidden;
+}
+
+.upgraded-login-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(222, 42, 174, .16), transparent 34%),
+    radial-gradient(circle at 82% 76%, rgba(232, 178, 71, .12), transparent 32%);
+}
+
+.upgraded-login-hero,
+.upgraded-login-card {
+  position: relative;
+  z-index: 1;
+}
+
+.upgraded-login-card {
+  align-self: center;
+}
+
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 5px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .035);
+}
+
+.auth-mode-switch button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(255, 255, 255, .64);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.auth-mode-switch button.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(205, 37, 171, .92), rgba(120, 28, 132, .92));
+  box-shadow: 0 10px 28px rgba(197, 39, 167, .24);
+}
+
+.auth-mode-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-mode-panel > h2 {
+  margin: -2px 0 0;
+}
+
+.first-access-role-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 4px 0 2px;
+}
+
+.first-access-role-switch button {
+  display: grid;
+  gap: 3px;
+  min-height: 70px;
+  padding: 13px 15px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .035);
+  color: #fff;
+  cursor: pointer;
+}
+
+.first-access-role-switch button b {
+  font-size: 15px;
+}
+
+.first-access-role-switch button small {
+  color: rgba(255, 255, 255, .56);
+}
+
+.first-access-role-switch button.is-active {
+  border-color: rgba(233, 64, 188, .64);
+  background: linear-gradient(145deg, rgba(91, 16, 81, .58), rgba(31, 10, 36, .78));
+  box-shadow: inset 0 0 0 1px rgba(236, 82, 194, .12), 0 14px 34px rgba(0, 0, 0, .18);
+}
+
+.first-access-role-switch button.is-active small {
+  color: rgba(255, 215, 240, .78);
+}
+
+.first-access-password-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.compact-password-rules {
+  margin: -2px 0 2px;
+}
+
+.upgraded-auth-note {
+  margin-top: 2px;
+}
+
+/* Admin - account docente */
+.teacher-access-admin-card {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(224, 61, 180, .22);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(220, 44, 177, .12), transparent 35%),
+    rgba(255, 255, 255, .025);
+}
+
+.teacher-access-admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.teacher-access-admin-head h4 {
+  margin: 4px 0 5px;
+  font-size: 19px;
+  color: #fff;
+}
+
+.teacher-access-admin-head p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, .58);
+  line-height: 1.55;
+}
+
+.teacher-access-admin-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+}
+
+.teacher-access-admin-fields label {
+  display: grid;
+  gap: 7px;
+}
+
+.teacher-access-admin-fields label > span {
+  color: rgba(255, 255, 255, .72);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.teacher-access-compensation-select,
+.teacher-access-status {
+  grid-column: 1 / -1;
+}
+
+.teacher-access-compensation-select small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, .48);
+}
+
+.teacher-access-status {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 15px;
+  border: 1px solid rgba(231, 184, 87, .20);
+  background: rgba(218, 168, 68, .07);
+}
+
+.teacher-access-status strong {
+  color: #f2c765;
+}
+
+.teacher-access-status span {
+  color: rgba(255, 255, 255, .56);
+  line-height: 1.45;
+}
+
+.teacher-access-status.is-ready {
+  border-color: rgba(83, 208, 148, .25);
+  background: rgba(43, 162, 111, .08);
+}
+
+.teacher-access-status.is-ready strong {
+  color: #70ddb0;
+}
+
+/* Area insegnante */
+.is-teacher-area {
+  padding-bottom: 116px;
+}
+
+.teacher-area-page {
+  width: min(1180px, calc(100% - 28px));
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+}
+
+.teacher-area-loading {
+  width: min(760px, calc(100% - 28px));
+  margin: 28px auto;
+}
+
+.teacher-area-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(221, 48, 177, .30);
+  background:
+    radial-gradient(circle at 8% 25%, rgba(218, 44, 174, .22), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(234, 184, 76, .15), transparent 28%),
+    linear-gradient(145deg, rgba(34, 9, 35, .97), rgba(10, 7, 18, .98));
+  box-shadow: 0 22px 56px rgba(0, 0, 0, .28), inset 0 0 0 1px rgba(255, 255, 255, .02);
+}
+
+.teacher-area-hero::after {
+  content: "€";
+  position: absolute;
+  right: 22%;
+  top: -50px;
+  font-size: 190px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, .025);
+  transform: rotate(8deg);
+}
+
+.teacher-area-identity {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.teacher-area-avatar {
+  width: 86px;
+  height: 86px;
+  flex: 0 0 86px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  border: 1px solid rgba(242, 193, 86, .34);
+  background: linear-gradient(145deg, rgba(216, 39, 170, .32), rgba(227, 174, 67, .18));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .28);
+}
+
+.teacher-area-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.teacher-area-avatar span {
+  color: #fff;
+  font-size: 25px;
+  font-weight: 900;
+}
+
+.teacher-area-identity h1 {
+  margin: 5px 0 3px;
+  color: #fff;
+  font-size: clamp(26px, 4vw, 39px);
+}
+
+.teacher-area-identity p {
+  margin: 0;
+  color: rgba(255, 255, 255, .58);
+}
+
+.teacher-current-total {
+  position: relative;
+  z-index: 1;
+  min-width: 250px;
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
+  text-align: right;
+  border-radius: 21px;
+  border: 1px solid rgba(240, 192, 86, .23);
+  background: rgba(0, 0, 0, .26);
+  backdrop-filter: blur(12px);
+}
+
+.teacher-current-total small,
+.teacher-current-total span {
+  color: rgba(255, 255, 255, .52);
+}
+
+.teacher-current-total strong {
+  color: #f6ca68;
+  font-size: 32px;
+  line-height: 1.08;
+}
+
+.teacher-month-card,
+.teacher-history-card {
+  border-radius: 26px;
+}
+
+.teacher-month-toolbar,
+.teacher-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.teacher-month-toolbar h2,
+.teacher-history-head h2 {
+  margin: 4px 0 0;
+}
+
+.teacher-month-navigation {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.teacher-month-navigation button {
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .04);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.teacher-month-navigation button:disabled {
+  opacity: .28;
+  cursor: default;
+}
+
+.teacher-month-navigation .teacher-month-today {
+  padding: 0 14px;
+  color: #e7ba5a;
+}
+
+.teacher-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.teacher-kpi-grid article {
+  display: grid;
+  gap: 5px;
+  min-height: 112px;
+  padding: 17px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .075);
+  background: rgba(255, 255, 255, .025);
+}
+
+.teacher-kpi-grid span,
+.teacher-kpi-grid small {
+  color: rgba(255, 255, 255, .48);
+}
+
+.teacher-kpi-grid strong {
+  color: #fff;
+  font-size: 25px;
+}
+
+.teacher-compensation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.teacher-compensation-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) minmax(260px, .8fr);
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 19px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: linear-gradient(100deg, rgba(255, 255, 255, .025), rgba(210, 38, 170, .035));
+}
+
+.teacher-compensation-time {
+  display: grid;
+  gap: 3px;
+  padding: 12px 13px;
+  border-radius: 15px;
+  text-align: center;
+  background: rgba(224, 177, 77, .09);
+  border: 1px solid rgba(224, 177, 77, .16);
+}
+
+.teacher-compensation-time strong {
+  color: #f0c35f;
+  font-size: 20px;
+}
+
+.teacher-compensation-time span {
+  color: rgba(255, 255, 255, .52);
+  font-size: 12px;
+}
+
+.teacher-compensation-course h3 {
+  margin: 4px 0 3px;
+  color: #fff;
+  font-size: 18px;
+}
+
+.teacher-compensation-course small {
+  color: rgba(255, 255, 255, .48);
+}
+
+.teacher-compensation-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.teacher-compensation-values > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .20);
+}
+
+.teacher-compensation-values span {
+  color: rgba(255, 255, 255, .46);
+  font-size: 11px;
+}
+
+.teacher-compensation-values strong {
+  color: #fff;
+}
+
+.teacher-compensation-values .teacher-pay-highlight {
+  border: 1px solid rgba(226, 174, 65, .18);
+  background: rgba(226, 174, 65, .07);
+}
+
+.teacher-compensation-values .teacher-pay-highlight strong {
+  color: #f4c764;
+  font-size: 18px;
+}
+
+.teacher-month-loader,
+.teacher-empty-month {
+  margin-top: 18px;
+  padding: 28px;
+  text-align: center;
+  border-radius: 18px;
+  border: 1px dashed rgba(255, 255, 255, .10);
+  color: rgba(255, 255, 255, .55);
+}
+
+.teacher-empty-month {
+  display: grid;
+  gap: 5px;
+}
+
+.teacher-empty-month strong {
+  color: #fff;
+}
+
+.teacher-history-head > span {
+  color: rgba(255, 255, 255, .45);
+  font-size: 12px;
+}
+
+.teacher-history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.teacher-history-row {
+  display: grid;
+  grid-template-columns: 150px minmax(100px, 1fr) 100px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.teacher-history-row:hover,
+.teacher-history-row.is-selected {
+  border-color: rgba(223, 58, 181, .22);
+  background: rgba(223, 58, 181, .055);
+}
+
+.teacher-history-label {
+  color: rgba(255, 255, 255, .72);
+  font-weight: 700;
+}
+
+.teacher-history-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.teacher-history-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c82da1, #efc65f);
+}
+
+.teacher-history-row strong {
+  text-align: right;
+  color: #f0c35f;
+}
+
+.teacher-area-note {
+  display: grid;
+  gap: 4px;
+  padding: 0 5px 12px;
+}
+
+.teacher-area-note strong {
+  color: rgba(255, 255, 255, .74);
+}
+
+.teacher-area-note span {
+  color: rgba(255, 255, 255, .45);
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .first-access-password-grid,
+  .teacher-access-admin-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-access-compensation-select,
+  .teacher-access-status {
+    grid-column: auto;
+  }
+
+  .teacher-access-admin-card {
+    padding: 16px;
+  }
+
+  .teacher-access-admin-head {
+    align-items: flex-start;
+  }
+
+  .teacher-area-page {
+    width: min(100% - 18px, 760px);
+    gap: 13px;
+  }
+
+  .teacher-area-hero {
+    display: grid;
+    gap: 18px;
+    padding: 20px;
+    border-radius: 23px;
+  }
+
+  .teacher-area-avatar {
+    width: 68px;
+    height: 68px;
+    flex-basis: 68px;
+    border-radius: 19px;
+  }
+
+  .teacher-area-identity {
+    gap: 13px;
+  }
+
+  .teacher-area-identity h1 {
+    font-size: 25px;
+  }
+
+  .teacher-current-total {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  .teacher-current-total strong {
+    font-size: 30px;
+  }
+
+  .teacher-month-card,
+  .teacher-history-card {
+    padding: 17px;
+    border-radius: 22px;
+  }
+
+  .teacher-month-toolbar,
+  .teacher-history-head {
+    align-items: flex-start;
+  }
+
+  .teacher-month-toolbar {
+    display: grid;
+  }
+
+  .teacher-month-navigation {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 42px 1fr 42px;
+  }
+
+  .teacher-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .teacher-kpi-grid article:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .teacher-compensation-row {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 11px;
+    padding: 13px;
+  }
+
+  .teacher-compensation-time {
+    padding: 10px 8px;
+  }
+
+  .teacher-compensation-values {
+    grid-column: 1 / -1;
+  }
+
+  .teacher-history-head > span {
+    display: none;
+  }
+
+  .teacher-history-row {
+    grid-template-columns: 108px 1fr 86px;
+    gap: 9px;
+    padding: 10px 7px;
+  }
+
+  .teacher-history-label {
+    font-size: 12px;
+  }
+
+  .teacher-history-row strong {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-mode-switch {
+    margin-bottom: 19px;
+  }
+
+  .first-access-role-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .first-access-role-switch button {
+    min-height: 58px;
+  }
+
+  .teacher-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-kpi-grid article:first-child {
+    grid-column: auto;
+  }
+
+  .teacher-compensation-values {
+    grid-template-columns: 1fr 1fr;
+  }
+}

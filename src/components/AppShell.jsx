@@ -15,6 +15,7 @@ const studentNavItems = [
   { to: "/eventi", label: "Eventi", icon: "events" },
 ];
 
+const teacherNavItem = { to: "/insegnante", label: "Compensi", icon: "wallet" };
 const adminNavItem = { to: "/admin", label: "Admin", icon: "admin" };
 
 function NavIcon({ name }) {
@@ -76,6 +77,15 @@ function NavIcon({ name }) {
           <path d="m9.2 13.1 1.7 1.7 3.8-4" />
         </svg>
       );
+    case "wallet":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="6" width="17" height="13" rx="2.5" />
+          <path d="M16 10h4.5v5H16a2.5 2.5 0 0 1 0-5Z" />
+          <path d="M6.5 6V4.8h9V6" />
+          <circle cx="17.3" cy="12.5" r=".65" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "admin":
       return (
         <svg {...common}>
@@ -102,9 +112,11 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith("/admin");
+  const isTeacherPath = location.pathname.startsWith("/insegnante");
   const [sessionUser, setSessionUser] = useState(null);
   const [student, setStudent] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [teacher, setTeacher] = useState(null);
   const [loading, setLoading] = useState(true);
   const [studentError, setStudentError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -121,15 +133,17 @@ export default function AppShell() {
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData.session?.user || null;
 
-      const [studentResult, adminResult] = await Promise.all([
+      const [studentResult, adminResult, teacherResult] = await Promise.all([
         supabase.rpc("get_my_tesseramento").maybeSingle(),
         supabase.rpc("is_admin"),
+        supabase.rpc("get_my_teacher_account").maybeSingle(),
       ]);
 
       if (!mounted) return;
 
       setSessionUser(user);
       setIsAdmin(!adminResult.error && adminResult.data === true);
+      setTeacher(teacherResult.error ? null : (teacherResult.data || null));
 
       if (studentResult.error) {
         setStudentError(studentResult.error.message);
@@ -148,14 +162,28 @@ export default function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    if (teacher && !student && !isAdmin && location.pathname === "/") {
+      navigate("/insegnante", { replace: true });
+    }
+  }, [loading, teacher, student, isAdmin, location.pathname, navigate]);
+
   const displayName = useMemo(() => {
     if (student) {
       return `${student.nome || ""} ${student.cognome || ""}`.trim() || student.email || "Allievo Orchidea";
     }
+    if (teacher) return `${teacher.nome || ""} ${teacher.cognome || ""}`.trim() || teacher.email || "Insegnante Orchidea";
     return sessionUser?.email || "Account Orchidea";
-  }, [student, sessionUser]);
+  }, [student, teacher, sessionUser]);
 
-  const navItems = isAdmin ? [...studentNavItems, adminNavItem] : studentNavItems;
+  const navItems = teacher && !student && !isAdmin
+    ? [teacherNavItem]
+    : [
+        ...studentNavItems,
+        ...(teacher ? [teacherNavItem] : []),
+        ...(isAdmin ? [adminNavItem] : []),
+      ];
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -164,7 +192,7 @@ export default function AppShell() {
 
   return (
     <div className="app-layout app-layout-revolution orchidea-native-shell">
-      <main className={`main-area ${isAdminPath ? "is-admin-area" : "is-student-area"}`}>
+      <main className={`main-area ${isAdminPath ? "is-admin-area" : isTeacherPath ? "is-teacher-area" : "is-student-area"}`}>
         {student && !isAdminPath && <InstallAppBanner />}
         <header className="orchidea-app-header" aria-label="Intestazione Orchidea">
           <div className="orchidea-header-logo">
@@ -201,7 +229,7 @@ export default function AppShell() {
             <p>{studentError}</p>
             <p>Controlla di aver eseguito lo script SQL <strong>supabase/step-1-database.sql</strong>.</p>
           </div>
-        ) : !student && !isAdminPath ? (
+        ) : !student && !teacher && !isAdminPath ? (
           <div className="content-card warning-card">
             <h2>Account non collegato</h2>
             <p>
@@ -211,7 +239,7 @@ export default function AppShell() {
             {isAdmin && <button className="primary-btn slim" type="button" onClick={() => navigate("/admin")}>Vai al pannello admin</button>}
           </div>
         ) : (
-          <Outlet context={{ student, isAdmin, sessionUser, displayName }} />
+          <Outlet context={{ student, teacher, isAdmin, sessionUser, displayName }} />
         )}
       </main>
 

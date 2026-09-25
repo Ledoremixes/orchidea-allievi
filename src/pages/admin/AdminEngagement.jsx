@@ -21,6 +21,10 @@ function emptyTeacherProfile() {
   return { nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true };
 }
 
+function emptyTeacherAccess() {
+  return { enabled: false, email: "", phone: "", compensation_teacher_id: "" };
+}
+
 export default function AdminEngagement() {
   const [notifications, setNotifications] = useState([]);
   const [rewards, setRewards] = useState([]);
@@ -29,6 +33,8 @@ export default function AdminEngagement() {
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [teacherCourseLinks, setTeacherCourseLinks] = useState([]);
+  const [teacherAccounts, setTeacherAccounts] = useState([]);
+  const [compensationTeachers, setCompensationTeachers] = useState([]);
   const [notificationForm, setNotificationForm] = useState(emptyNotification);
   const [rewardForm, setRewardForm] = useState(emptyReward);
   const [editingRewardId, setEditingRewardId] = useState("");
@@ -37,6 +43,7 @@ export default function AdminEngagement() {
   const [teacherCourseIds, setTeacherCourseIds] = useState([]);
   const [teacherPhotoFile, setTeacherPhotoFile] = useState(null);
   const [teacherPhotoPreview, setTeacherPhotoPreview] = useState("");
+  const [teacherAccessForm, setTeacherAccessForm] = useState(emptyTeacherAccess());
   const [teacherSaving, setTeacherSaving] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
   const [message, setMessage] = useState("");
@@ -55,7 +62,7 @@ export default function AdminEngagement() {
   const [rewardActionBusy, setRewardActionBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, teacherLinksResult, menuResult] = await Promise.all([
+    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, teacherLinksResult, teacherAccountsResult, compensationTeachersResult, menuResult] = await Promise.all([
       supabase.from("app_notifications").select("id, title, body, category, audience, course_id, link, starts_at, expires_at, push_sent_at, push_recipient_count, push_failure_count").order("created_at", { ascending: false }).limit(50),
       supabase.from("reward_catalog").select("id, title, description, points_cost, stock, icon, active").order("points_cost", { ascending: true }),
       supabase.from("course_trial_requests").select("id, tesseramento_id, corso_id, status, created_at, tesseramenti(nome, cognome, telefono, email), corsi(nome, livello, giorno_settimana)").order("created_at", { ascending: false }).limit(100),
@@ -63,6 +70,8 @@ export default function AdminEngagement() {
       supabase.from("corsi").select("id, nome, livello, attivo").eq("attivo", true).order("nome"),
       supabase.from("app_teacher_profiles").select("id, nome, cognome, bio, foto_url, foto_path, instagram_url, specialita, profilo_pubblico, ordine, created_at, updated_at").order("ordine", { ascending: true }).order("cognome", { ascending: true }).order("nome", { ascending: true }),
       supabase.from("app_teacher_profile_courses").select("id, profile_id, corso_id"),
+      supabase.from("app_teacher_accounts").select("id, profile_id, compensation_teacher_id, email, telefono, auth_user_id, access_enabled, access_initialized_at"),
+      supabase.from("insegnanti").select("id, nome, email, telefono, attivo").eq("attivo", true).order("nome"),
       supabase.from("app_settings").select("value").eq("key", "bar_menu_url").maybeSingle(),
     ]);
     setNotifications(notificationResult.data || []);
@@ -72,6 +81,8 @@ export default function AdminEngagement() {
     setCourses(courseResult.data || []);
     setTeachers(teacherResult.error ? [] : (teacherResult.data || []));
     setTeacherCourseLinks(teacherLinksResult.error ? [] : (teacherLinksResult.data || []));
+    setTeacherAccounts(teacherAccountsResult.error ? [] : (teacherAccountsResult.data || []));
+    setCompensationTeachers(compensationTeachersResult.error ? [] : (compensationTeachersResult.data || []));
     const value = menuResult.data?.value;
     setMenuUrl(typeof value === "string" ? value : "");
     const { data: deviceCount } = await supabase.rpc("admin_push_device_count");
@@ -81,6 +92,7 @@ export default function AdminEngagement() {
   useEffect(() => { load(); }, [load]);
 
   const selectedTeacher = useMemo(() => teachers.find((row) => row.id === teacherId), [teacherId, teachers]);
+  const selectedTeacherAccount = useMemo(() => teacherAccounts.find((row) => row.profile_id === teacherId) || null, [teacherAccounts, teacherId]);
   useEffect(() => {
     if (!selectedTeacher) return;
     setTeacherForm({
@@ -95,7 +107,14 @@ export default function AdminEngagement() {
     });
     setTeacherCourseIds(teacherCourseLinks.filter((row) => row.profile_id === selectedTeacher.id).map((row) => row.corso_id));
     setTeacherPhotoFile(null);
-  }, [selectedTeacher, teacherCourseLinks]);
+    const account = teacherAccounts.find((row) => row.profile_id === selectedTeacher.id);
+    setTeacherAccessForm(account ? {
+      enabled: account.access_enabled !== false,
+      email: account.email || "",
+      phone: account.telefono || "",
+      compensation_teacher_id: account.compensation_teacher_id || "",
+    } : emptyTeacherAccess());
+  }, [selectedTeacher, teacherCourseLinks, teacherAccounts]);
 
   useEffect(() => {
     if (!teacherPhotoFile) {
@@ -399,6 +418,7 @@ export default function AdminEngagement() {
     setTeacherCourseIds([]);
     setTeacherPhotoFile(null);
     setTeacherPhotoPreview("");
+    setTeacherAccessForm(emptyTeacherAccess());
     setError("");
   }
 
@@ -479,6 +499,41 @@ export default function AdminEngagement() {
         if (linkError) throw linkError;
       }
 
+      const existingAccount = teacherAccounts.find((row) => row.profile_id === profileId);
+      if (teacherAccessForm.enabled) {
+        const accessEmail = teacherAccessForm.email.trim().toLowerCase();
+        const accessPhone = teacherAccessForm.phone.trim();
+        if (!accessEmail || !accessPhone) throw new Error("Per attivare l’area insegnante inserisci email e telefono.");
+
+        let compensationTeacherId = teacherAccessForm.compensation_teacher_id || existingAccount?.compensation_teacher_id || "";
+        if (!compensationTeacherId) {
+          const { data: createdTeacher, error: createTeacherError } = await supabase
+            .from("insegnanti")
+            .insert({ nome: `${nome} ${cognome}`.trim(), email: accessEmail, telefono: accessPhone, attivo: true })
+            .select("id")
+            .single();
+          if (createTeacherError) throw createTeacherError;
+          compensationTeacherId = createdTeacher.id;
+        }
+
+        const accountPayload = {
+          profile_id: profileId,
+          compensation_teacher_id: compensationTeacherId,
+          email: accessEmail,
+          telefono: accessPhone,
+          access_enabled: true,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: accountError } = existingAccount
+          ? await supabase.from("app_teacher_accounts").update(accountPayload).eq("id", existingAccount.id)
+          : await supabase.from("app_teacher_accounts").insert(accountPayload);
+        if (accountError) throw accountError;
+      } else if (existingAccount) {
+        const { error: disableError } = await supabase.from("app_teacher_accounts").update({ access_enabled: false, updated_at: new Date().toISOString() }).eq("id", existingAccount.id);
+        if (disableError) throw disableError;
+      }
+
       if (teacherPhotoFile && selectedTeacher?.foto_path && selectedTeacher.foto_path !== fotoPath) {
         await supabase.storage.from("teacher-profiles").remove([selectedTeacher.foto_path]);
       }
@@ -508,7 +563,7 @@ export default function AdminEngagement() {
     if (oldPath) await supabase.storage.from("teacher-profiles").remove([oldPath]);
     startNewTeacherProfile();
     setTeacherSaving(false);
-    ok("Profilo insegnante eliminato dall’app. Nova non è stata modificata.");
+    ok("Profilo insegnante eliminato dall’app. L’eventuale storico compensi gestionale resta invariato.");
     await load();
   }
 
@@ -606,7 +661,7 @@ export default function AdminEngagement() {
           <div>
             <span className="eyebrow">Profili insegnanti</span>
             <h3>Curriculum e team Orchidea</h3>
-            <p>Questi profili sono solo per Orchidea Allievi: non modificano Nova, quote, contratti o anagrafiche gestionali.</p>
+            <p>Il curriculum resta dedicato all’app. Se attivi l’area insegnante, puoi collegare il profilo alla gestione compensi già presente nel pannello Admin.</p>
           </div>
           <button className="primary-btn slim" type="button" onClick={startNewTeacherProfile}>+ Nuovo insegnante</button>
         </div>
@@ -625,12 +680,12 @@ export default function AdminEngagement() {
                     <span className="teacher-admin-roster-copy">
                       <strong>{teacherFullName(teacher)}</strong>
                       <small>{teacher.specialita || "Specialità da inserire"}</small>
-                      <em>{linked} corsi · {teacher.profilo_pubblico ? "visibile" : "nascosto"}</em>
+                      <em>{linked} corsi · {teacher.profilo_pubblico ? "visibile" : "nascosto"}{teacherAccounts.some((account) => account.profile_id === teacher.id && account.access_enabled) ? " · accesso docente attivo" : ""}</em>
                     </span>
                   </button>
                 );
               })}
-              {!teachers.length && <div className="teacher-roster-empty"><strong>Nessun profilo ancora</strong><span>Crea il primo insegnante: resterà completamente separato da Nova.</span></div>}
+              {!teachers.length && <div className="teacher-roster-empty"><strong>Nessun profilo ancora</strong><span>Crea il primo profilo e, se vuoi, abilita anche il suo accesso personale ai compensi.</span></div>}
             </div>
           </aside>
 
@@ -687,6 +742,29 @@ export default function AdminEngagement() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="teacher-access-admin-card">
+              <div className="teacher-access-admin-head">
+                <div>
+                  <span className="eyebrow">Versione insegnante</span>
+                  <h4>Accesso personale e compensi</h4>
+                  <p>Attiva l’area insegnante. Il curriculum resta separato; per i compensi colleghiamo il profilo alla gestione quote del pannello Admin.</p>
+                </div>
+                <label className="orchidea-switch" aria-label="Attiva area insegnante"><input type="checkbox" checked={teacherAccessForm.enabled} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, enabled: e.target.checked })} /><span /></label>
+              </div>
+
+              {teacherAccessForm.enabled && (
+                <div className="teacher-access-admin-fields">
+                  <label><span>Email accesso</span><input type="email" value={teacherAccessForm.email} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, email: e.target.value })} placeholder="insegnante@email.it" /></label>
+                  <label><span>Telefono di verifica</span><input type="tel" value={teacherAccessForm.phone} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, phone: e.target.value })} placeholder="+39 333 1234567" /></label>
+                  <label className="teacher-access-compensation-select"><span>Profilo compensi</span><select value={teacherAccessForm.compensation_teacher_id} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, compensation_teacher_id: e.target.value })}><option value="">Crea automaticamente al salvataggio</option>{compensationTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.nome}{teacher.email ? ` · ${teacher.email}` : ""}</option>)}</select><small>Le quote corso/percentuali restano configurabili nella sezione Insegnanti del pannello Admin.</small></label>
+                  <div className={`teacher-access-status ${selectedTeacherAccount?.auth_user_id ? "is-ready" : ""}`}>
+                    <strong>{selectedTeacherAccount?.auth_user_id ? "Account collegato" : teacherId ? "In attesa del primo accesso" : "Salva prima il profilo"}</strong>
+                    <span>{selectedTeacherAccount?.auth_user_id ? "L’insegnante può entrare e vedere i propri compensi." : "Al primo accesso userà email + telefono e sceglierà la password direttamente nell’app."}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="teacher-visibility-row">

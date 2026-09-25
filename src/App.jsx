@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
+import TeacherRoute from "./components/TeacherRoute.jsx";
 import AppShell from "./components/AppShell.jsx";
 import Login from "./pages/Login.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
@@ -12,6 +13,7 @@ import Video from "./pages/Video.jsx";
 import Eventi from "./pages/Eventi.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import KioskCheckIn from "./pages/KioskCheckIn.jsx";
+import TeacherDashboard from "./pages/TeacherDashboard.jsx";
 import AdminPanel from "./pages/admin/AdminPanel.jsx";
 
 export default function App() {
@@ -33,6 +35,10 @@ export default function App() {
           <Route path="video" element={<Video />} />
           <Route path="eventi" element={<Eventi />} />
           <Route path="agenda" element={<Agenda />} />
+
+          <Route element={<TeacherRoute />}>
+            <Route path="insegnante" element={<TeacherDashboard />} />
+          </Route>
 
           <Route element={<AdminRoute />}>
             <Route path="admin" element={<AdminPanel />} />

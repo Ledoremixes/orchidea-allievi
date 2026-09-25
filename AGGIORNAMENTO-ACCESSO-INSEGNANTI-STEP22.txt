@@ -1,0 +1,68 @@
+ORCHIDEA ALLIEVI - STEP 22
+PRIMO ACCESSO IN-APP + AREA INSEGNANTI
+
+1) SUPABASE
+Apri Supabase > SQL Editor ed esegui:
+  supabase/step-22-accesso-app-insegnanti.sql
+
+Non servono nuove Edge Functions o nuovi Secrets.
+
+2) PRIMO ACCESSO ALLIEVI
+Nella pagina Login ora ci sono due schede:
+- Accedi
+- Primo accesso
+
+Primo accesso allievo:
+- email presente nel tesseramento
+- codice fiscale presente nel tesseramento
+- scelta password + conferma
+
+L'app verifica che email e CF coincidano con lo stesso tesseramento.
+Se l'account esiste gia', invita a usare Accesso/Password dimenticata.
+
+NOTA SUPABASE AUTH:
+Se nel progetto e' attiva la conferma email, dopo Sign Up Supabase inviera' la mail di conferma.
+Se la conferma email e' disattivata, l'accesso viene completato immediatamente.
+In entrambi i casi non serve passare dal sito Orchidea.
+
+3) AREA INSEGNANTI
+Admin > Community > Profili insegnanti.
+Nel profilo compare il nuovo riquadro "Versione insegnante".
+
+Per abilitarlo:
+- attiva lo switch
+- inserisci email accesso
+- inserisci telefono di verifica
+- scegli un Profilo compensi esistente oppure lascia "Crea automaticamente"
+- salva
+
+Se scegli "Crea automaticamente", viene creato soltanto il record anagrafico nella gestione compensi.
+Le regole quota/corso si configurano come prima nella sezione Admin > Insegnanti.
+
+Primo accesso insegnante:
+- sceglie "Primo accesso"
+- seleziona "Insegnante"
+- inserisce email + telefono
+- sceglie la password
+
+4) COSA VEDE L'INSEGNANTE
+Un account solo insegnante viene portato automaticamente su /insegnante.
+La pagina mostra:
+- compenso del mese selezionato
+- dettaglio per corso
+- incasso attribuito al corso
+- quota personale calcolata con le stesse regole del pannello Admin
+- ultimi 12 mesi
+- navigazione mese precedente/successivo
+
+Ogni insegnante puo' leggere soltanto il proprio profilo compensi attraverso RPC security-definer filtrate su auth.uid().
+
+5) CALCOLO COMPENSI
+La logica replica quella del pannello Admin:
+- quota fissa personalizzata -> importo configurato
+- percentuale personalizzata -> percentuale sull'incasso mensile del corso
+- nessuna personalizzazione -> 40% dell'incasso diviso tra gli insegnanti attivi del corso
+
+6) DEPLOY
+Dopo aver eseguito STEP 22, pubblica normalmente il progetto su Vercel.
+Non servono nuove variabili ambiente.
