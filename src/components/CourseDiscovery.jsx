@@ -36,7 +36,7 @@ export default function CourseDiscovery({ student, enrolledCourses }) {
     const [courseResult, requestResult, assignmentResult] = await Promise.all([
       supabase.from("corsi").select("id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo").eq("attivo", true),
       supabase.from("course_trial_requests").select("id, corso_id, status").eq("tesseramento_id", student.id),
-      supabase.from("insegnanti_corsi").select("corso_id, insegnante_id, insegnanti(id, nome, foto_url, specialita, bio, instagram_url, profilo_pubblico)").eq("attivo", true),
+      supabase.from("app_teacher_profile_courses").select("corso_id, profile_id, teacher:app_teacher_profiles(id, nome, cognome, profilo_pubblico)"),
     ]);
     setAllCourses(courseResult.data || []);
     setRequests(requestResult.data || []);
@@ -69,8 +69,8 @@ export default function CourseDiscovery({ student, enrolledCourses }) {
         {suggestions.map((course) => {
           const visual = getCourseVisual(course);
           const request = requestByCourse.get(course.id);
-          const teacher = teachers.find((row) => row.corso_id === course.id)?.insegnanti;
-          return <article className="course-discovery-card" key={course.id}><img src={visual.image} alt={`${course.nome} ${course.livello || ""}`} loading="lazy" /><div className="course-discovery-overlay"><span>Consigliato per te</span><strong>{course.nome}</strong><em>{course.livello || "Livello"}</em><small>{course.giorno_settimana || "Giorno"} · {formatTime(course.ora_inizio)}{teacher?.nome ? ` · ${teacher.nome}` : ""}</small><button type="button" onClick={() => requestTrial(course)} disabled={Boolean(request) || sending === course.id}>{request ? (request.status === "booked" ? "Prova prenotata ✓" : "Richiesta inviata ✓") : sending === course.id ? "Invio…" : "Richiedi una prova"}</button></div></article>;
+          const teacher = teachers.find((row) => row.corso_id === course.id)?.teacher;
+          return <article className="course-discovery-card" key={course.id}><img src={visual.image} alt={`${course.nome} ${course.livello || ""}`} loading="lazy" /><div className="course-discovery-overlay"><span>Consigliato per te</span><strong>{course.nome}</strong><em>{course.livello || "Livello"}</em><small>{course.giorno_settimana || "Giorno"} · {formatTime(course.ora_inizio)}{teacher?.nome ? ` · ${[teacher.nome, teacher.cognome].filter(Boolean).join(" ")}` : ""}</small><button type="button" onClick={() => requestTrial(course)} disabled={Boolean(request) || sending === course.id}>{request ? (request.status === "booked" ? "Prova prenotata ✓" : "Richiesta inviata ✓") : sending === course.id ? "Invio…" : "Richiedi una prova"}</button></div></article>;
         })}
       </div>
     </section>

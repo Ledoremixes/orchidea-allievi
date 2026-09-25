@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
+import { compressImageToWebP } from "../../lib/imageCompression.js";
 
 const emptyNotification = { title: "", body: "", category: "news", audience: "all", course_id: "", link: "", expires_at: "" };
 const emptyReward = { title: "", description: "", points_cost: "120", stock: "", icon: "✦" };
@@ -12,6 +13,14 @@ function fullName(person) {
   return [person?.nome, person?.cognome].filter(Boolean).join(" ").trim() || "Allievo Orchidea";
 }
 
+function teacherFullName(person) {
+  return [person?.nome, person?.cognome].filter(Boolean).join(" ").trim() || "Insegnante Orchidea";
+}
+
+function emptyTeacherProfile() {
+  return { nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true };
+}
+
 export default function AdminEngagement() {
   const [notifications, setNotifications] = useState([]);
   const [rewards, setRewards] = useState([]);
@@ -19,11 +28,16 @@ export default function AdminEngagement() {
   const [redemptions, setRedemptions] = useState([]);
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [teacherCourseLinks, setTeacherCourseLinks] = useState([]);
   const [notificationForm, setNotificationForm] = useState(emptyNotification);
   const [rewardForm, setRewardForm] = useState(emptyReward);
   const [editingRewardId, setEditingRewardId] = useState("");
   const [teacherId, setTeacherId] = useState("");
-  const [teacherForm, setTeacherForm] = useState({ bio: "", foto_url: "", instagram_url: "", specialita: "", profilo_pubblico: true });
+  const [teacherForm, setTeacherForm] = useState({ nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true });
+  const [teacherCourseIds, setTeacherCourseIds] = useState([]);
+  const [teacherPhotoFile, setTeacherPhotoFile] = useState(null);
+  const [teacherPhotoPreview, setTeacherPhotoPreview] = useState("");
+  const [teacherSaving, setTeacherSaving] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -41,13 +55,14 @@ export default function AdminEngagement() {
   const [rewardActionBusy, setRewardActionBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, menuResult] = await Promise.all([
+    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, teacherLinksResult, menuResult] = await Promise.all([
       supabase.from("app_notifications").select("id, title, body, category, audience, course_id, link, starts_at, expires_at, push_sent_at, push_recipient_count, push_failure_count").order("created_at", { ascending: false }).limit(50),
       supabase.from("reward_catalog").select("id, title, description, points_cost, stock, icon, active").order("points_cost", { ascending: true }),
       supabase.from("course_trial_requests").select("id, tesseramento_id, corso_id, status, created_at, tesseramenti(nome, cognome, telefono, email), corsi(nome, livello, giorno_settimana)").order("created_at", { ascending: false }).limit(100),
       supabase.from("reward_redemptions").select("id, status, points_spent, requested_at, tesseramenti(nome, cognome, numero_tessera), reward_catalog(title, icon)").order("requested_at", { ascending: false }).limit(100),
       supabase.from("corsi").select("id, nome, livello, attivo").eq("attivo", true).order("nome"),
-      supabase.from("insegnanti").select("id, nome, bio, foto_url, instagram_url, specialita, profilo_pubblico, attivo").order("nome"),
+      supabase.from("app_teacher_profiles").select("id, nome, cognome, bio, foto_url, foto_path, instagram_url, specialita, profilo_pubblico, ordine, created_at, updated_at").order("ordine", { ascending: true }).order("cognome", { ascending: true }).order("nome", { ascending: true }),
+      supabase.from("app_teacher_profile_courses").select("id, profile_id, corso_id"),
       supabase.from("app_settings").select("value").eq("key", "bar_menu_url").maybeSingle(),
     ]);
     setNotifications(notificationResult.data || []);
@@ -55,7 +70,8 @@ export default function AdminEngagement() {
     setRequests(requestResult.data || []);
     setRedemptions(redemptionResult.data || []);
     setCourses(courseResult.data || []);
-    setTeachers(teacherResult.data || []);
+    setTeachers(teacherResult.error ? [] : (teacherResult.data || []));
+    setTeacherCourseLinks(teacherLinksResult.error ? [] : (teacherLinksResult.data || []));
     const value = menuResult.data?.value;
     setMenuUrl(typeof value === "string" ? value : "");
     const { data: deviceCount } = await supabase.rpc("admin_push_device_count");
@@ -68,13 +84,28 @@ export default function AdminEngagement() {
   useEffect(() => {
     if (!selectedTeacher) return;
     setTeacherForm({
+      nome: selectedTeacher.nome || "",
+      cognome: selectedTeacher.cognome || "",
       bio: selectedTeacher.bio || "",
       foto_url: selectedTeacher.foto_url || "",
+      foto_path: selectedTeacher.foto_path || "",
       instagram_url: selectedTeacher.instagram_url || "",
       specialita: selectedTeacher.specialita || "",
       profilo_pubblico: selectedTeacher.profilo_pubblico !== false,
     });
-  }, [selectedTeacher]);
+    setTeacherCourseIds(teacherCourseLinks.filter((row) => row.profile_id === selectedTeacher.id).map((row) => row.corso_id));
+    setTeacherPhotoFile(null);
+  }, [selectedTeacher, teacherCourseLinks]);
+
+  useEffect(() => {
+    if (!teacherPhotoFile) {
+      setTeacherPhotoPreview("");
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(teacherPhotoFile);
+    setTeacherPhotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [teacherPhotoFile]);
 
   useEffect(() => {
     const query = rewardSearch.trim();
@@ -362,12 +393,123 @@ export default function AdminEngagement() {
     ok("Richiesta prova aggiornata."); await load();
   }
 
+  function startNewTeacherProfile() {
+    setTeacherId("");
+    setTeacherForm(emptyTeacherProfile());
+    setTeacherCourseIds([]);
+    setTeacherPhotoFile(null);
+    setTeacherPhotoPreview("");
+    setError("");
+  }
+
+  function chooseTeacherProfile(teacher) {
+    setTeacherId(teacher.id);
+    setError("");
+  }
+
+  function handleTeacherPhotoSelection(file) {
+    if (!file) return;
+    if (!file.type?.startsWith("image/")) return fail("Seleziona una foto valida.");
+    if (file.size > 15 * 1024 * 1024) return fail("La foto supera 15 MB. Scegline una più leggera.");
+    setTeacherPhotoFile(file);
+  }
+
   async function saveTeacherProfile(event) {
     event.preventDefault();
-    if (!teacherId) return fail("Seleziona un insegnante.");
-    const { error: saveError } = await supabase.from("insegnanti").update(teacherForm).eq("id", teacherId);
-    if (saveError) return fail(saveError.message);
-    ok("Profilo insegnante aggiornato nell’app."); await load();
+    const nome = teacherForm.nome.trim();
+    const cognome = teacherForm.cognome.trim();
+    if (!nome || !cognome) return fail("Inserisci nome e cognome dell’insegnante.");
+
+    setTeacherSaving(true);
+    setError("");
+
+    let uploadedPath = "";
+    let fotoUrl = teacherForm.foto_url || null;
+    let fotoPath = teacherForm.foto_path || null;
+
+    try {
+      if (teacherPhotoFile) {
+        const compressed = await compressImageToWebP(teacherPhotoFile, { maxWidth: 960, maxHeight: 1200, quality: 0.82 });
+        const safeBase = `${nome}-${cognome}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "insegnante";
+        uploadedPath = `${teacherId || "new"}/${Date.now()}-${safeBase}-${crypto.randomUUID()}.webp`;
+        const { error: uploadError } = await supabase.storage.from("teacher-profiles").upload(uploadedPath, compressed.blob, {
+          contentType: "image/webp",
+          cacheControl: "31536000",
+          upsert: false,
+        });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from("teacher-profiles").getPublicUrl(uploadedPath);
+        fotoUrl = publicData?.publicUrl || null;
+        fotoPath = uploadedPath;
+      }
+
+      const payload = {
+        nome,
+        cognome,
+        specialita: teacherForm.specialita.trim() || null,
+        bio: teacherForm.bio.trim() || null,
+        instagram_url: teacherForm.instagram_url.trim() || null,
+        foto_url: fotoUrl,
+        foto_path: fotoPath,
+        profilo_pubblico: teacherForm.profilo_pubblico !== false,
+        updated_at: new Date().toISOString(),
+      };
+
+      let profileId = teacherId;
+      if (teacherId) {
+        const { error: updateError } = await supabase.from("app_teacher_profiles").update(payload).eq("id", teacherId);
+        if (updateError) throw updateError;
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("app_teacher_profiles")
+          .insert({ ...payload, ordine: teachers.length })
+          .select("id")
+          .single();
+        if (insertError) throw insertError;
+        profileId = inserted.id;
+      }
+
+      const { error: clearLinksError } = await supabase.from("app_teacher_profile_courses").delete().eq("profile_id", profileId);
+      if (clearLinksError) throw clearLinksError;
+
+      if (teacherCourseIds.length) {
+        const { error: linkError } = await supabase.from("app_teacher_profile_courses").insert(
+          teacherCourseIds.map((corsoId) => ({ profile_id: profileId, corso_id: corsoId }))
+        );
+        if (linkError) throw linkError;
+      }
+
+      if (teacherPhotoFile && selectedTeacher?.foto_path && selectedTeacher.foto_path !== fotoPath) {
+        await supabase.storage.from("teacher-profiles").remove([selectedTeacher.foto_path]);
+      }
+
+      setTeacherId(profileId);
+      setTeacherPhotoFile(null);
+      ok(`Profilo di ${nome} ${cognome} salvato nell’app.`);
+      await load();
+    } catch (saveError) {
+      if (uploadedPath) await supabase.storage.from("teacher-profiles").remove([uploadedPath]);
+      fail(saveError?.message || "Impossibile salvare il profilo insegnante.");
+    } finally {
+      setTeacherSaving(false);
+    }
+  }
+
+  async function deleteTeacherProfile() {
+    if (!teacherId || !selectedTeacher) return;
+    if (!window.confirm(`Eliminare il profilo app di ${teacherFullName(selectedTeacher)}? Questa operazione non modifica Nova.`)) return;
+    setTeacherSaving(true);
+    const oldPath = selectedTeacher.foto_path;
+    const { error: deleteError } = await supabase.from("app_teacher_profiles").delete().eq("id", teacherId);
+    if (deleteError) {
+      setTeacherSaving(false);
+      return fail(deleteError.message);
+    }
+    if (oldPath) await supabase.storage.from("teacher-profiles").remove([oldPath]);
+    startNewTeacherProfile();
+    setTeacherSaving(false);
+    ok("Profilo insegnante eliminato dall’app. Nova non è stata modificata.");
+    await load();
   }
 
   async function saveMenuUrl(event) {
@@ -459,28 +601,110 @@ export default function AdminEngagement() {
 
       <div className="content-card admin-card"><span className="eyebrow">Richieste prova</span><h3>Allievi interessati ad altri corsi</h3><div className="trial-admin-grid">{requests.map((request) => <article className="trial-admin-card" key={request.id}><div><strong>{request.tesseramenti?.nome} {request.tesseramenti?.cognome}</strong><span>{request.corsi?.nome} {request.corsi?.livello || ""}</span><small>{request.tesseramenti?.telefono || request.tesseramenti?.email || "Nessun contatto"}</small></div><select value={request.status} onChange={(e) => updateTrial(request, e.target.value)}><option value="requested">Da contattare</option><option value="contacted">Contattato</option><option value="booked">Prova prenotata</option><option value="completed">Completata</option><option value="cancelled">Annullata</option></select></article>)}{!requests.length && <p className="empty-text">Nessuna richiesta prova.</p>}</div></div>
 
+      <section className="content-card admin-card teacher-profile-studio">
+        <div className="teacher-studio-head">
+          <div>
+            <span className="eyebrow">Profili insegnanti</span>
+            <h3>Curriculum e team Orchidea</h3>
+            <p>Questi profili sono solo per Orchidea Allievi: non modificano Nova, quote, contratti o anagrafiche gestionali.</p>
+          </div>
+          <button className="primary-btn slim" type="button" onClick={startNewTeacherProfile}>+ Nuovo insegnante</button>
+        </div>
+
+        <div className="teacher-studio-layout">
+          <aside className="teacher-admin-roster" aria-label="Profili insegnanti app">
+            <div className="teacher-admin-roster-head"><strong>Profili app</strong><span>{teachers.length}</span></div>
+            <div className="teacher-admin-roster-list">
+              {teachers.map((teacher) => {
+                const linked = teacherCourseLinks.filter((row) => row.profile_id === teacher.id).length;
+                return (
+                  <button className={`teacher-admin-roster-card ${teacherId === teacher.id ? "is-active" : ""}`} type="button" key={teacher.id} onClick={() => chooseTeacherProfile(teacher)}>
+                    <span className="teacher-admin-roster-avatar">
+                      {teacher.foto_url ? <img src={teacher.foto_url} alt="" loading="lazy" /> : <b>{initials(teacher)}</b>}
+                    </span>
+                    <span className="teacher-admin-roster-copy">
+                      <strong>{teacherFullName(teacher)}</strong>
+                      <small>{teacher.specialita || "Specialità da inserire"}</small>
+                      <em>{linked} corsi · {teacher.profilo_pubblico ? "visibile" : "nascosto"}</em>
+                    </span>
+                  </button>
+                );
+              })}
+              {!teachers.length && <div className="teacher-roster-empty"><strong>Nessun profilo ancora</strong><span>Crea il primo insegnante: resterà completamente separato da Nova.</span></div>}
+            </div>
+          </aside>
+
+          <form className="teacher-profile-editor teacher-profile-editor-v2" onSubmit={saveTeacherProfile}>
+            <div className="teacher-editor-title">
+              <div>
+                <span className="eyebrow">{teacherId ? "Modifica profilo" : "Nuovo profilo"}</span>
+                <h3>{teacherId ? teacherFullName(selectedTeacher) : "Aggiungi insegnante"}</h3>
+                <p>Compila il curriculum che vedranno gli allievi nella sezione Corsi.</p>
+              </div>
+              <span className={`teacher-profile-state ${teacherForm.profilo_pubblico ? "is-on" : ""}`}>{teacherForm.profilo_pubblico ? "VISIBILE" : "NASCOSTO"}</span>
+            </div>
+
+            <div className="teacher-editor-main-grid">
+              <div className="teacher-photo-uploader">
+                <div className="teacher-photo-preview">
+                  {(teacherPhotoPreview || teacherForm.foto_url) ? <img src={teacherPhotoPreview || teacherForm.foto_url} alt="Anteprima insegnante" /> : <span>{`${teacherForm.nome?.[0] || "O"}${teacherForm.cognome?.[0] || ""}`.toUpperCase()}</span>}
+                  <i>WEBP</i>
+                </div>
+                <label className="teacher-photo-upload-btn">
+                  <span>{teacherPhotoFile ? "Cambia foto" : teacherForm.foto_url ? "Sostituisci foto" : "Carica foto"}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(e) => handleTeacherPhotoSelection(e.target.files?.[0] || null)} />
+                </label>
+                <small>La foto viene ridimensionata automaticamente e convertita in WebP prima del caricamento, così l’app resta veloce.</small>
+              </div>
+
+              <div className="teacher-editor-fields">
+                <div className="teacher-editor-fields-grid">
+                  <label><span>Nome</span><input value={teacherForm.nome} onChange={(e) => setTeacherForm({ ...teacherForm, nome: e.target.value })} placeholder="Laura" required /></label>
+                  <label><span>Cognome</span><input value={teacherForm.cognome} onChange={(e) => setTeacherForm({ ...teacherForm, cognome: e.target.value })} placeholder="Rossi" required /></label>
+                </div>
+                <div className="teacher-editor-fields-grid">
+                  <label><span>Specialità</span><input value={teacherForm.specialita} onChange={(e) => setTeacherForm({ ...teacherForm, specialita: e.target.value })} placeholder="Bachata · Salsa · Lady Style" /></label>
+                  <label><span>Instagram</span><input value={teacherForm.instagram_url} onChange={(e) => setTeacherForm({ ...teacherForm, instagram_url: e.target.value })} placeholder="https://instagram.com/..." /></label>
+                </div>
+                <label><span>Curriculum / Bio</span><textarea rows="6" value={teacherForm.bio} onChange={(e) => setTeacherForm({ ...teacherForm, bio: e.target.value })} placeholder="Esperienza, formazione, stile di insegnamento, risultati, progetti artistici…" /></label>
+              </div>
+            </div>
+
+            <div className="teacher-course-linker">
+              <div className="teacher-course-linker-head">
+                <div><strong>Corsi dell’insegnante</strong><span>Il profilo verrà mostrato agli allievi iscritti a questi corsi.</span></div>
+                <b>{teacherCourseIds.length} selezionati</b>
+              </div>
+              <div className="teacher-course-linker-grid">
+                {courses.map((course) => {
+                  const checked = teacherCourseIds.includes(course.id);
+                  return (
+                    <label className={`teacher-course-link-chip ${checked ? "is-selected" : ""}`} key={course.id}>
+                      <input type="checkbox" checked={checked} onChange={(e) => setTeacherCourseIds((ids) => e.target.checked ? Array.from(new Set([...ids, course.id])) : ids.filter((id) => id !== course.id))} />
+                      <span><strong>{course.nome}</strong><small>{course.livello || "Livello"}</small></span>
+                      <b>{checked ? "✓" : "+"}</b>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="teacher-visibility-row">
+              <div><strong>Mostra profilo agli allievi</strong><span>Se disattivato il profilo resta salvato nell’app ma non viene mostrato nella sezione Corsi.</span></div>
+              <label className="orchidea-switch" aria-label="Mostra profilo nell'app"><input type="checkbox" checked={teacherForm.profilo_pubblico} onChange={(e) => setTeacherForm({ ...teacherForm, profilo_pubblico: e.target.checked })} /><span /></label>
+            </div>
+
+            <div className="teacher-editor-actions">
+              {teacherId && <button className="mini-btn danger" type="button" onClick={deleteTeacherProfile} disabled={teacherSaving}>Elimina profilo app</button>}
+              <button className="primary-btn teacher-save-btn" type="submit" disabled={teacherSaving}>{teacherSaving ? "Salvataggio…" : teacherId ? "Salva modifiche" : "Crea profilo insegnante"}</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
       <div className="admin-engagement-grid admin-engagement-bottom-grid">
-        <form className="content-card admin-card teacher-profile-editor" onSubmit={saveTeacherProfile}>
-          <div className="teacher-editor-title"><div><span className="eyebrow">Profili insegnanti</span><h3>Profilo pubblico</h3><p>Queste informazioni vengono mostrate agli allievi nella pagina corsi.</p></div>{selectedTeacher && <span className={`teacher-profile-state ${teacherForm.profilo_pubblico ? "is-on" : ""}`}>{teacherForm.profilo_pubblico ? "VISIBILE" : "NASCOSTO"}</span>}</div>
-
-          <div className="teacher-editor-selector">
-            <div className="teacher-editor-avatar">{teacherForm.foto_url ? <img src={teacherForm.foto_url} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span>{initials(selectedTeacher)}</span>}</div>
-            <label><span>Insegnante</span><select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}><option value="">Seleziona insegnante</option>{teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.nome}</option>)}</select></label>
-          </div>
-
-          <div className="teacher-editor-fields-grid">
-            <label><span>Specialità</span><input value={teacherForm.specialita} onChange={(e) => setTeacherForm({ ...teacherForm, specialita: e.target.value })} placeholder="Bachata · Salsa" /></label>
-            <label><span>Instagram</span><input value={teacherForm.instagram_url} onChange={(e) => setTeacherForm({ ...teacherForm, instagram_url: e.target.value })} placeholder="https://instagram.com/..." /></label>
-          </div>
-          <label className="teacher-photo-field"><span>Foto profilo</span><input value={teacherForm.foto_url} onChange={(e) => setTeacherForm({ ...teacherForm, foto_url: e.target.value })} placeholder="https://..." /><small>Inserisci l’URL di una foto quadrata o verticale: verrà ritagliata automaticamente.</small></label>
-          <label><span>Bio</span><textarea rows="4" value={teacherForm.bio} onChange={(e) => setTeacherForm({ ...teacherForm, bio: e.target.value })} placeholder="Presentazione breve dell’insegnante…" /></label>
-
-          <div className="teacher-visibility-row"><div><strong>Mostra profilo nell’app</strong><span>Se disattivato, l’insegnante resta in Nova ma non compare agli allievi.</span></div><label className="orchidea-switch" aria-label="Mostra profilo nell'app"><input type="checkbox" checked={teacherForm.profilo_pubblico} onChange={(e) => setTeacherForm({ ...teacherForm, profilo_pubblico: e.target.checked })} /><span /></label></div>
-
-          <button className="primary-btn teacher-save-btn" type="submit" disabled={!teacherId}>Salva profilo</button>
-        </form>
-
         <form className="content-card admin-card" onSubmit={saveMenuUrl}><span className="eyebrow">Modalità Club</span><h3>Menu bar digitale</h3><p className="admin-help-text">Il link compare nel pannello “Sono all’Orchidea”. Se lo lasci vuoto, la voce resta disattivata.</p><label>URL menu bar<input type="url" value={menuUrl} onChange={(e) => setMenuUrl(e.target.value)} placeholder="https://..." /></label><button className="primary-btn" type="submit">Salva link</button></form>
+        <div className="content-card admin-card teacher-storage-note"><span className="eyebrow">Immagini profilo</span><h3>Ottimizzate per mobile</h3><p className="admin-help-text">Le foto caricate qui vengono convertite in WebP e ridotte a un massimo di 960×1200 px prima dell’upload. In questo modo manteniamo una buona qualità senza appesantire la pagina Corsi.</p><div className="teacher-storage-badges"><span>WebP automatico</span><span>Lazy loading</span><span>Bucket separato</span></div></div>
       </div>
     </div>
   );

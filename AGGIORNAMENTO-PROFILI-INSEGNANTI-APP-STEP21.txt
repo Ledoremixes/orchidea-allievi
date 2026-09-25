@@ -1,0 +1,41 @@
+ORCHIDEA ALLIEVI - STEP 21
+PROFILI INSEGNANTI APP, SEPARATI DA NOVA
+
+COSA CAMBIA
+- I profili pubblici degli insegnanti non leggono e non modificano piu' la tabella gestionale public.insegnanti.
+- Nuove tabelle dedicate esclusivamente all'app:
+  public.app_teacher_profiles
+  public.app_teacher_profile_courses
+- Nuovo bucket Supabase Storage pubblico: teacher-profiles
+- Foto caricata dall'Admin, ridimensionata nel browser a massimo 960x1200 px e convertita in WebP qualità 82% prima dell'upload.
+- Gli allievi vedono nella pagina Corsi soltanto i profili visibili collegati ai corsi a cui sono iscritti.
+- Il curriculum si apre in una scheda grafica con foto, specialità, bio, corsi e Instagram.
+- Nova, quote insegnanti, contratti e anagrafiche gestionali NON vengono toccati.
+
+PRIMA DEL DEPLOY
+1. Supabase > SQL Editor.
+2. Esegui per intero:
+   supabase/step-21-app-teacher-profiles.sql
+3. Pubblica poi questa versione su Vercel.
+
+COME INSERIRE UN INSEGNANTE
+Admin > Community & app > Profili insegnanti
+- Nuovo insegnante
+- Nome e cognome
+- Foto
+- Specialità
+- Instagram opzionale
+- Curriculum/Bio
+- Seleziona i corsi che insegna
+- Lascia attivo "Mostra profilo agli allievi"
+- Crea profilo insegnante
+
+FOTO
+Non serve preparare manualmente un file WebP.
+L'app fa automaticamente:
+- ridimensionamento mantenendo le proporzioni;
+- max 960 x 1200 px;
+- conversione WebP;
+- qualità 82%;
+- upload nel bucket teacher-profiles;
+- lazy loading nella pagina Corsi.
