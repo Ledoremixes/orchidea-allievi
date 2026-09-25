@@ -15872,3 +15872,615 @@ body,
   .teacher-public-tags span:nth-child(n+3) { display:none; }
   .teacher-public-card-footer b { font-size:.59rem; }
 }
+
+/* =========================================================
+   CORSI V2.2 - carosello locandine + agenda settimanale premium
+   ========================================================= */
+.owned-courses-carousel {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  border-color: rgba(255, 72, 199, .24);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(220, 43, 174, .17), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(242, 201, 97, .10), transparent 32%),
+    linear-gradient(145deg, rgba(27, 10, 34, .96), rgba(7, 4, 12, .98));
+}
+
+.owned-courses-carousel::after {
+  content: "";
+  position: absolute;
+  inset: auto -12% -38% 40%;
+  height: 280px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(214, 42, 180, .16), transparent 64%);
+  filter: blur(12px);
+}
+
+.owned-courses-carousel-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.owned-courses-carousel-head > div {
+  min-width: 0;
+}
+
+.owned-courses-overline {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--orchidea-gold);
+  font-size: .67rem;
+  font-weight: 1000;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+
+.owned-courses-carousel-head h3 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.05rem, 2.4vw, 1.45rem);
+  line-height: 1.08;
+}
+
+.owned-courses-count {
+  flex: 0 0 auto;
+  min-width: 58px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 86, 199, .3);
+  border-radius: 999px;
+  color: #ffdff4;
+  background: rgba(70, 15, 63, .6);
+  font-size: .72rem;
+  font-weight: 1000;
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.owned-course-carousel-stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding-inline: clamp(0px, 3vw, 28px);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.owned-courses-carousel .course-poster-card-large.carousel-card {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  border-color: rgba(255, 76, 198, .56);
+  border-radius: clamp(18px, 3vw, 28px);
+  box-shadow: 0 20px 54px rgba(0,0,0,.48), 0 0 24px rgba(224, 43, 184, .18);
+  animation: ownedCoursePosterIn .24s ease-out both;
+}
+
+@keyframes ownedCoursePosterIn {
+  from { opacity: .45; transform: scale(.985) translateY(5px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.owned-courses-carousel .course-poster-card-large.carousel-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2025 / 2531;
+  object-fit: contain;
+  object-position: center top;
+  background: #050208;
+}
+
+.owned-courses-carousel .course-poster-info {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  padding: 11px 13px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(9,5,13,.86), rgba(35,9,32,.8));
+  border-color: rgba(255,255,255,.13);
+  box-shadow: 0 8px 28px rgba(0,0,0,.28);
+}
+
+.owned-courses-carousel .course-recap-link {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: .66rem;
+  background: rgba(8, 5, 12, .82);
+}
+
+.owned-course-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 87, 200, .42);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(23, 8, 27, .88);
+  box-shadow: 0 8px 30px rgba(0,0,0,.34), 0 0 18px rgba(229,42,181,.22);
+  font: inherit;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.owned-course-arrow.left { left: 2px; }
+.owned-course-arrow.right { right: 2px; }
+.owned-course-arrow:hover { border-color: rgba(255, 194, 237, .68); background: rgba(68, 14, 61, .92); }
+
+.owned-course-dots {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+}
+
+.owned-course-dots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.22);
+  cursor: pointer;
+  transition: width .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.owned-course-dots button.active {
+  width: 26px;
+  background: linear-gradient(90deg, #f13dbf, #f4cd6b);
+  box-shadow: 0 0 12px rgba(241, 61, 191, .42);
+}
+
+.owned-course-swipe-hint {
+  position: relative;
+  z-index: 2;
+  display: block;
+  margin-top: -2px;
+  color: rgba(255,255,255,.46);
+  font-size: .66rem;
+  text-align: center;
+}
+
+.modern-weekly-panel {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(16px, 2.4vw, 24px);
+  border-color: rgba(255, 79, 196, .24);
+  background:
+    radial-gradient(circle at 95% 0%, rgba(197, 39, 168, .16), transparent 30%),
+    linear-gradient(155deg, rgba(27, 11, 32, .97), rgba(7, 5, 11, .98));
+}
+
+.modern-weekly-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 90, 205, .62), rgba(242, 201, 97, .55), transparent);
+}
+
+.modern-weekly-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,.075);
+}
+
+.modern-weekly-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.modern-weekly-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 87, 200, .28);
+  border-radius: 15px;
+  color: #ffd273;
+  background: linear-gradient(145deg, rgba(105,28,91,.65), rgba(26,9,32,.72));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 9px 28px rgba(0,0,0,.18);
+  font-size: 1.1rem;
+}
+
+.modern-weekly-title small {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(242, 201, 97, .78);
+  font-size: .61rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.modern-weekly-title h3 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.18rem, 3vw, 1.6rem);
+  line-height: 1;
+}
+
+.modern-weekly-count {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 89, 201, .22);
+  border-radius: 999px;
+  background: rgba(54, 13, 53, .46);
+}
+
+.modern-weekly-count strong {
+  color: #ff76d0;
+  font-size: .93rem;
+}
+
+.modern-weekly-count span {
+  color: rgba(255,255,255,.64);
+  font-size: .66rem;
+  font-weight: 800;
+}
+
+.modern-weekly-list {
+  display: grid;
+  gap: 11px;
+  margin-top: 14px;
+}
+
+.modern-weekly-day {
+  display: grid;
+  grid-template-columns: minmax(112px, 150px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.modern-day-label {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+}
+
+.modern-day-label > span {
+  color: #f2c961;
+  font-size: .65rem;
+  font-weight: 1000;
+  letter-spacing: .13em;
+}
+
+.modern-day-label strong {
+  margin-top: 3px;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.modern-day-label small {
+  margin-top: 5px;
+  color: rgba(255,255,255,.42);
+  font-size: .6rem;
+}
+
+.modern-day-courses {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.modern-course-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(94px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 77, 193, .14);
+  border-radius: 18px;
+  background:
+    linear-gradient(100deg, rgba(78,18,69,.28), rgba(19,8,23,.52) 44%, rgba(10,6,14,.62));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.modern-course-row.is-paused {
+  opacity: .58;
+  filter: saturate(.65);
+}
+
+.modern-course-time {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.modern-course-time strong {
+  color: #ffd36f;
+  font-size: 1rem;
+  letter-spacing: -.02em;
+}
+
+.modern-course-time span,
+.modern-course-time small {
+  color: rgba(255,255,255,.36);
+  font-size: .66rem;
+}
+
+.modern-course-copy {
+  min-width: 0;
+}
+
+.modern-course-copy > span {
+  display: block;
+  overflow: hidden;
+  color: rgba(255, 113, 209, .9);
+  font-size: .63rem;
+  font-weight: 1000;
+  letter-spacing: .07em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.modern-course-copy > strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #fff;
+  font-size: .94rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modern-course-copy > small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: rgba(255,255,255,.45);
+  font-size: .62rem;
+}
+
+.modern-course-copy > small i {
+  color: #f2c961;
+  font-style: normal;
+}
+
+.modern-course-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,.5);
+  font-size: .61rem;
+  font-weight: 800;
+}
+
+.modern-course-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #48d796;
+  box-shadow: 0 0 10px rgba(72, 215, 150, .48);
+}
+
+.modern-course-status.paused > span {
+  background: #f2c961;
+  box-shadow: 0 0 10px rgba(242, 201, 97, .4);
+}
+
+@media (max-width: 760px) {
+  .owned-courses-carousel {
+    gap: 12px;
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  .owned-courses-carousel-head {
+    padding-inline: 1px;
+  }
+
+  .owned-courses-carousel-head h3 {
+    font-size: 1rem;
+  }
+
+  .owned-courses-overline {
+    font-size: .59rem;
+  }
+
+  .owned-course-carousel-stage {
+    padding-inline: 0;
+  }
+
+  .owned-courses-carousel .course-poster-card-large.carousel-card {
+    width: min(100%, 390px);
+    border-radius: 20px;
+  }
+
+  .owned-course-arrow {
+    width: 38px;
+    height: 38px;
+    top: 48%;
+    font-size: 1.65rem;
+    background: rgba(17,6,20,.84);
+  }
+
+  .owned-course-arrow.left { left: 5px; }
+  .owned-course-arrow.right { right: 5px; }
+
+  .owned-courses-carousel .course-poster-info {
+    left: 9px;
+    right: 9px;
+    bottom: 9px;
+    padding: 9px 10px;
+    border-radius: 14px;
+  }
+
+  .owned-courses-carousel .course-poster-info strong {
+    font-size: .84rem;
+  }
+
+  .owned-courses-carousel .course-poster-info span,
+  .owned-courses-carousel .course-poster-info small,
+  .owned-courses-carousel .course-poster-info em {
+    font-size: .63rem;
+  }
+
+  .owned-courses-carousel .course-recap-link {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    display: block;
+    margin: 0;
+    padding: 7px 9px;
+    font-size: .59rem;
+  }
+
+  .modern-weekly-panel {
+    padding: 15px 13px;
+    border-radius: 22px;
+  }
+
+  .modern-weekly-head {
+    gap: 10px;
+    padding-bottom: 14px;
+  }
+
+  .modern-weekly-icon {
+    width: 39px;
+    height: 39px;
+    flex-basis: 39px;
+    border-radius: 13px;
+  }
+
+  .modern-weekly-title {
+    gap: 9px;
+  }
+
+  .modern-weekly-title small {
+    font-size: .54rem;
+  }
+
+  .modern-weekly-title h3 {
+    font-size: 1.08rem;
+  }
+
+  .modern-weekly-count {
+    padding: 7px 9px;
+  }
+
+  .modern-weekly-count span {
+    display: none;
+  }
+
+  .modern-weekly-day {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .modern-day-label {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 13px;
+    background: rgba(255,255,255,.025);
+  }
+
+  .modern-day-label > span {
+    min-width: 34px;
+    font-size: .6rem;
+  }
+
+  .modern-day-label strong {
+    margin: 0;
+    font-size: .78rem;
+  }
+
+  .modern-day-label small {
+    margin: 0;
+    font-size: .54rem;
+    text-align: right;
+  }
+
+  .modern-course-row {
+    grid-template-columns: 74px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 11px 10px;
+    border-radius: 15px;
+  }
+
+  .modern-course-time {
+    display: grid;
+    gap: 0;
+  }
+
+  .modern-course-time strong {
+    font-size: .9rem;
+  }
+
+  .modern-course-time span {
+    display: none;
+  }
+
+  .modern-course-time small {
+    margin-top: 2px;
+    font-size: .59rem;
+  }
+
+  .modern-course-copy > span {
+    font-size: .56rem;
+  }
+
+  .modern-course-copy > strong {
+    font-size: .82rem;
+  }
+
+  .modern-course-copy > small {
+    margin-top: 3px;
+    font-size: .57rem;
+  }
+
+  .modern-course-status small {
+    display: none;
+  }
+
+  .modern-course-status > span {
+    width: 8px;
+    height: 8px;
+  }
+}

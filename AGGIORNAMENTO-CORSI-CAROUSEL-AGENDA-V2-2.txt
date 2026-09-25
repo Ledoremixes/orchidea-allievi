@@ -1,0 +1,13 @@
+ORCHIDEA ALLIEVI - CORSI V2.2
+25/09/2026
+
+MODIFICHE
+- Le locandine dei corsi personali non vengono più mostrate tutte una sotto l'altra.
+- Nuovo carosello singolo, coerente con la Home, con frecce, indicatori e swipe su mobile.
+- Informazioni corso e collegamento "Ripassa le lezioni" mantenuti direttamente sulla locandina.
+- Nuova agenda settimanale compatta e moderna: giorno, orario, corso, livello, sala e stato.
+- Layout mobile ottimizzato per ridurre molto la lunghezza della pagina.
+- Nessuna modifica alle tabelle Supabase e nessun nuovo STEP SQL richiesto.
+
+VALIDAZIONE
+- Build Vite produzione completata correttamente.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatTime } from "../lib/format.js";
@@ -30,12 +30,18 @@ function durationHours(course) {
   return minutes > 0 ? minutes / 60 : 1;
 }
 
+function capitalize(value = "") {
+  const text = String(value || "");
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "";
+}
 
 export default function Corsi() {
   const { student } = useOutletContext();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [posterIndex, setPosterIndex] = useState(0);
+  const swipeStartX = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +62,12 @@ export default function Corsi() {
     return () => { mounted = false; };
   }, [student.id]);
 
-  const enrichedCourses = useMemo(() => courses.map((item) => ({ ...item, active: isActiveCourse(item) })).sort((a, b) => courseSortValue(a).localeCompare(courseSortValue(b))), [courses]);
+  const enrichedCourses = useMemo(
+    () => courses
+      .map((item) => ({ ...item, active: isActiveCourse(item) }))
+      .sort((a, b) => courseSortValue(a).localeCompare(courseSortValue(b))),
+    [courses]
+  );
   const activeCourses = enrichedCourses.filter((item) => item.active);
   const weeklyHours = activeCourses.reduce((sum, item) => sum + durationHours(item.corsi), 0);
 
@@ -65,9 +76,45 @@ export default function Corsi() {
     items: enrichedCourses.filter((item) => String(item.corsi?.giorno_settimana || "").toLowerCase() === day),
   })).filter((group) => group.items.length > 0), [enrichedCourses]);
 
+  useEffect(() => {
+    setPosterIndex((current) => enrichedCourses.length ? Math.min(current, enrichedCourses.length - 1) : 0);
+  }, [enrichedCourses.length]);
+
+  const currentPoster = enrichedCourses.length
+    ? enrichedCourses[posterIndex % enrichedCourses.length]
+    : null;
+  const currentPosterVisual = getCourseVisual(currentPoster?.corsi);
+
+  function changePoster(direction) {
+    if (enrichedCourses.length <= 1) return;
+    setPosterIndex((current) => (current + direction + enrichedCourses.length) % enrichedCourses.length);
+  }
+
+  function handleSwipeStart(event) {
+    swipeStartX.current = event.touches?.[0]?.clientX ?? null;
+  }
+
+  function handleSwipeEnd(event) {
+    if (swipeStartX.current == null) return;
+    const endX = event.changedTouches?.[0]?.clientX;
+    if (typeof endX !== "number") return;
+    const delta = endX - swipeStartX.current;
+    swipeStartX.current = null;
+    if (Math.abs(delta) < 45) return;
+    changePoster(delta < 0 ? 1 : -1);
+  }
+
   return (
     <section className="page-section orchidea-page orchidea-courses-page">
-      <div className="orchidea-section-heading courses-heading-v2"><span className="orchidea-heading-mark" aria-hidden="true" /><div><span className="orchidea-kicker">Il tuo calendario</span><h2>I tuoi corsi</h2><p>Orari, sale e accesso rapido ai ripassi delle lezioni.</p></div><button type="button" className="courses-calendar-export" onClick={() => downloadCoursesCalendar(activeCourses)} disabled={!activeCourses.length}>+ Calendario</button></div>
+      <div className="orchidea-section-heading courses-heading-v2">
+        <span className="orchidea-heading-mark" aria-hidden="true" />
+        <div>
+          <span className="orchidea-kicker">Il tuo calendario</span>
+          <h2>I tuoi corsi</h2>
+          <p>Orari, sale e accesso rapido ai ripassi delle lezioni.</p>
+        </div>
+        <button type="button" className="courses-calendar-export" onClick={() => downloadCoursesCalendar(activeCourses)} disabled={!activeCourses.length}>+ Calendario</button>
+      </div>
 
       <div className="courses-glow-summary">
         <div><span>Attivi</span><strong>{loading ? "…" : activeCourses.length}</strong></div>
@@ -81,32 +128,105 @@ export default function Corsi() {
         <div className="neo-panel comfort-empty-state large"><strong>Nessun corso collegato</strong><span>Quando la segreteria ti iscriverà a un corso, lo vedrai qui con giorno, orario e sala.</span></div>
       ) : (
         <>
-          <div className="course-poster-gallery">
-            {enrichedCourses.map((item) => {
-              const visual = getCourseVisual(item.corsi);
-              return (
-                <article className={`course-poster-card-large ${item.active ? "is-active" : "is-paused"}`} key={item.id}>
-                  <img src={visual.image} alt={`${item.corsi?.nome || "Corso"} ${item.corsi?.livello || ""}`} loading="lazy" decoding="async" />
-                  <div className="course-poster-info"><div><span>{item.corsi?.nome || "Corso"}</span><strong>{item.corsi?.livello || "Livello"}</strong><small>{item.corsi?.giorno_settimana || "Giorno"} · {formatTime(item.corsi?.ora_inizio)} - {formatTime(item.corsi?.ora_fine)}</small></div><em>{item.corsi?.sala || "Sala"}</em></div><Link to="/video" className="course-recap-link">▶ Ripassa le lezioni</Link>
+          <section className="neo-panel owned-courses-carousel" aria-label="Le locandine dei tuoi corsi">
+            <div className="owned-courses-carousel-head">
+              <div>
+                <span className="owned-courses-overline">I tuoi corsi</span>
+                <h3>{enrichedCourses.length > 1 ? "Scorri le tue locandine" : "La locandina del tuo corso"}</h3>
+              </div>
+              {enrichedCourses.length > 1 && <span className="owned-courses-count">{posterIndex + 1} / {enrichedCourses.length}</span>}
+            </div>
+
+            {currentPoster && (
+              <div
+                className="owned-course-carousel-stage"
+                onTouchStart={handleSwipeStart}
+                onTouchEnd={handleSwipeEnd}
+              >
+                {enrichedCourses.length > 1 && (
+                  <button type="button" className="owned-course-arrow left" aria-label="Corso precedente" onClick={() => changePoster(-1)}>‹</button>
+                )}
+
+                <article className={`course-poster-card-large carousel-card ${currentPoster.active ? "is-active" : "is-paused"}`} key={currentPoster.id}>
+                  <img
+                    src={currentPosterVisual.image}
+                    alt={`${currentPoster.corsi?.nome || "Corso"} ${currentPoster.corsi?.livello || ""}`}
+                    loading="eager"
+                    decoding="async"
+                  />
+                  <Link to="/video" className="course-recap-link">▶ Ripassa le lezioni</Link>
+                  <div className="course-poster-info">
+                    <div>
+                      <span>{currentPoster.corsi?.nome || "Corso"}</span>
+                      <strong>{currentPoster.corsi?.livello || "Livello"}</strong>
+                      <small>{capitalize(currentPoster.corsi?.giorno_settimana || "Giorno")} · {formatTime(currentPoster.corsi?.ora_inizio)} - {formatTime(currentPoster.corsi?.ora_fine)}</small>
+                    </div>
+                    <em>{currentPoster.corsi?.sala || "Sala"}</em>
+                  </div>
                 </article>
-              );
-            })}
-          </div>
+
+                {enrichedCourses.length > 1 && (
+                  <button type="button" className="owned-course-arrow right" aria-label="Corso successivo" onClick={() => changePoster(1)}>›</button>
+                )}
+              </div>
+            )}
+
+            {enrichedCourses.length > 1 && (
+              <div className="owned-course-dots" aria-label="Seleziona una locandina">
+                {enrichedCourses.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={index === posterIndex ? "active" : ""}
+                    aria-label={`Mostra ${item.corsi?.nome || "corso"} ${item.corsi?.livello || ""}`}
+                    onClick={() => setPosterIndex(index)}
+                  />
+                ))}
+              </div>
+            )}
+            {enrichedCourses.length > 1 && <small className="owned-course-swipe-hint">Scorri a destra o sinistra per cambiare corso</small>}
+          </section>
 
           <TeacherProfiles courseIds={activeCourses.map((item) => item.corso_id)} />
 
-          <section className="neo-panel weekly-calendar-card neo-weekly-panel">
-            <div className="neo-panel-title with-link"><div><span>◷</span><h3>La tua settimana</h3></div><small>{enrichedCourses.length} iscrizioni</small></div>
-            <div className="weekly-calendar-grid">
+          <section className="neo-panel weekly-calendar-card modern-weekly-panel">
+            <div className="modern-weekly-head">
+              <div className="modern-weekly-title">
+                <span className="modern-weekly-icon" aria-hidden="true">◷</span>
+                <div>
+                  <small>Agenda personale</small>
+                  <h3>La tua settimana</h3>
+                </div>
+              </div>
+              <div className="modern-weekly-count"><strong>{enrichedCourses.length}</strong><span>{enrichedCourses.length === 1 ? "lezione" : "lezioni"}</span></div>
+            </div>
+
+            <div className="modern-weekly-list">
               {weeklyGroups.map((group) => (
-                <section className="weekly-day-card" key={group.day}>
-                  <div className="weekly-day-head"><span>{group.day.slice(0, 3).toUpperCase()}</span><strong>{group.day}</strong><small>{group.items.length} corso/i</small></div>
-                  <div className="weekly-day-list">
+                <section className="modern-weekly-day" key={group.day}>
+                  <div className="modern-day-label">
+                    <span>{group.day.slice(0, 3).toUpperCase()}</span>
+                    <strong>{capitalize(group.day)}</strong>
+                    <small>{group.items.length === 1 ? "1 appuntamento" : `${group.items.length} appuntamenti`}</small>
+                  </div>
+
+                  <div className="modern-day-courses">
                     {group.items.map((item) => (
-                      <article className={`weekly-course-pill ${item.active ? "is-active" : "is-paused"}`} key={`week-${item.id}`}>
-                        <div className="weekly-course-time"><strong>{formatTime(item.corsi?.ora_inizio)}</strong><small>{formatTime(item.corsi?.ora_fine)}</small></div>
-                        <div className="weekly-course-info"><span>{item.corsi?.nome || "Corso"}</span><strong>{item.corsi?.livello || "Livello"}</strong><small>{item.corsi?.sala || "Sala da definire"}</small></div>
-                        <span className={item.active ? "status-pill ok" : "status-pill warn"}>{item.active ? "attivo" : item.stato}</span>
+                      <article className={`modern-course-row ${item.active ? "is-active" : "is-paused"}`} key={`week-${item.id}`}>
+                        <div className="modern-course-time">
+                          <strong>{formatTime(item.corsi?.ora_inizio)}</strong>
+                          <span>—</span>
+                          <small>{formatTime(item.corsi?.ora_fine)}</small>
+                        </div>
+                        <div className="modern-course-copy">
+                          <span>{item.corsi?.nome || "Corso"}</span>
+                          <strong>{item.corsi?.livello || "Livello"}</strong>
+                          <small><i aria-hidden="true">⌖</i>{item.corsi?.sala || "Sala da definire"}</small>
+                        </div>
+                        <div className={`modern-course-status ${item.active ? "ok" : "paused"}`} title={item.active ? "Corso attivo" : "Corso sospeso"}>
+                          <span />
+                          <small>{item.active ? "Attivo" : "Pausa"}</small>
+                        </div>
                       </article>
                     ))}
                   </div>
