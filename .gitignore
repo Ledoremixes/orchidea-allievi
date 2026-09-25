@@ -24,3 +24,6 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local push setup / secrets
+.push-secrets.local

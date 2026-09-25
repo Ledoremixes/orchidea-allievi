@@ -1,0 +1,32 @@
+ORCHIDEA ALLIEVI - PWA + PUSH NOTIFICATIONS (STEP 19)
+=====================================================
+
+IMPLEMENTATO
+- Installazione PWA da link su Android.
+- Guida installazione iPhone tramite Safari > Condividi > Aggiungi alla schermata Home.
+- Icona Orchidea, modalità standalone/fullscreen e metadati iOS.
+- Service Worker dedicato.
+- Push notification reali via Web Push/VAPID anche con app chiusa.
+- Registrazione del singolo dispositivo associata al tesseramento Supabase.
+- Attiva/disattiva push direttamente dal Centro Notifiche.
+- Invio dal pannello Admin a:
+  * tutti
+  * soli corsisti
+  * corso specifico
+- Tap sulla notifica apre la pagina interna scelta (/eventi, /video, ecc.).
+- Conteggio dispositivi push attivi nel pannello Admin.
+- Stato consegna push sugli ultimi avvisi.
+- Pulizia automatica delle subscription scadute/non più valide.
+- Aggiornamenti frontend via normali deploy Vercel senza reinstallare l'app.
+
+FILE PRINCIPALI AGGIUNTI
+- public/sw.js
+- src/lib/pushNotifications.js
+- src/components/InstallAppBanner.jsx
+- supabase/step-19-push-notifications.sql
+- supabase/functions/send-push/index.ts
+- PUSH-NOTIFICATIONS-SETUP.txt
+- .push-secrets.local (ignorato da Git)
+
+PRIMA DELLA MESSA ONLINE
+Segui PUSH-NOTIFICATIONS-SETUP.txt.

@@ -1,0 +1,74 @@
+ORCHIDEA ALLIEVI - ATTIVAZIONE PUSH (STEP 19)
+===============================================
+
+Il codice è già integrato. Restano 3 operazioni una tantum sul progetto Supabase/Vercel.
+
+1) DATABASE SUPABASE
+--------------------
+Apri Supabase > SQL Editor ed esegui:
+  supabase/step-19-push-notifications.sql
+
+Crea la tabella push_subscriptions e aggiunge lo stato di consegna alle notifiche.
+
+2) DEPLOY EDGE FUNCTION
+-----------------------
+Dal terminale, nella cartella del progetto:
+  supabase login
+  supabase link --project-ref <PROJECT_REF>
+  supabase functions deploy send-push
+
+La funzione si trova in:
+  supabase/functions/send-push/index.ts
+
+3) SECRETS SUPABASE EDGE FUNCTION
+---------------------------------
+Imposta questi secrets:
+
+I valori generati per questa versione sono nel file locale:
+  .push-secrets.local
+
+Quel file è già escluso da Git. Copia i tre valori e impostali come secrets, ad esempio:
+  supabase secrets set VAPID_PUBLIC_KEY="<valore VAPID_PUBLIC_KEY>"
+  supabase secrets set VAPID_PRIVATE_KEY="<valore VAPID_PRIVATE_KEY>"
+  supabase secrets set VAPID_SUBJECT="mailto:segreteria@orchideaclub.it"
+
+IMPORTANTE: la VAPID_PRIVATE_KEY è privata. Non copiarla nel frontend e non rimuovere .push-secrets.local dal .gitignore.
+
+4) VERCEL
+---------
+Aggiungi nelle Environment Variables del progetto Vercel:
+
+  VITE_VAPID_PUBLIC_KEY
+  BP7vWrDLdvKCwL_lidVinEwosReqlu4BAejUXPoDSlcYA-ILzkxAVGH81sLwmhRUsEF4im3icYzTLdHXSwh2Wtc
+
+Poi esegui un nuovo deploy.
+
+COME FUNZIONA PER GLI ALLIEVI
+-----------------------------
+ANDROID:
+- aprono il link Orchidea Allievi
+- installano l'app dal banner/browser
+- aprono Notifiche > Attiva
+- accettano il permesso
+
+IPHONE:
+- aprono il link con Safari
+- Condividi > Aggiungi alla schermata Home
+- aprono Orchidea Allievi DALL'ICONA installata
+- Notifiche > Attiva
+- accettano il permesso iOS
+
+COME FUNZIONA PER L'ADMIN
+-------------------------
+Admin > Community & app > Notifiche
+- scrivi titolo e testo
+- scegli Tutti / Solo corsisti / Corso specifico
+- Pubblica notifica
+
+La notifica viene:
+1. salvata nel centro notifiche interno dell'app
+2. inviata come push ai telefoni registrati, anche con app chiusa
+
+AGGIORNAMENTI APP
+-----------------
+Il Service Worker non blocca i file dell'app in cache: le nuove versioni distribuite su Vercel vengono caricate normalmente. Il Service Worker stesso usa skipWaiting/clients.claim per aggiornarsi rapidamente.

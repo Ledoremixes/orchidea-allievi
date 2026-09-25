@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+import InstallAppBanner from "../components/InstallAppBanner.jsx";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -81,7 +82,9 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page comfort-auth-page">
+    <>
+      <InstallAppBanner />
+      <div className="auth-page comfort-auth-page">
       <div className="auth-hero comfort-auth-hero">
         <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
         <span className="eyebrow">Area riservata allievi</span>
@@ -140,6 +143,7 @@ export default function Login() {
 
         <Link to="/" className="hidden-link">Vai alla dashboard</Link>
       </form>
-    </div>
+      </div>
+    </>
   );
 }

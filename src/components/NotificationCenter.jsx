@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadUpcomingEvents, formatEventDate } from "../lib/events.js";
 import { formatDate, formatTime } from "../lib/format.js";
+import { getCurrentPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications.js";
 
 const DAY_ORDER = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
 
@@ -92,7 +93,8 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
   const [items, setItems] = useState([]);
   const [readKeys, setReadKeys] = useState(new Set());
   const [loading, setLoading] = useState(false);
-  const [devicePermission, setDevicePermission] = useState(() => typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+  const [pushState, setPushState] = useState({ loading: true, supported: true, subscription: null, permission: "default", requiresInstall: false, vapidConfigured: true });
+  const [pushMessage, setPushMessage] = useState("");
 
   const loadNotifications = useCallback(async () => {
     if (!student?.id) return;
@@ -132,29 +134,27 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
     setLoading(false);
   }, [student?.id]);
 
+  const refreshPushState = useCallback(async () => {
+    if (!student?.id) return;
+    try {
+      const state = await getCurrentPushSubscription(student.id);
+      setPushState({ ...state, loading: false });
+    } catch (error) {
+      console.warn(error);
+      setPushState((current) => ({ ...current, loading: false }));
+    }
+  }, [student?.id]);
+
   useEffect(() => {
     loadNotifications();
-  }, [loadNotifications]);
+    refreshPushState();
+  }, [loadNotifications, refreshPushState]);
 
   const unreadCount = useMemo(() => items.filter((item) => !readKeys.has(item.key)).length, [items, readKeys]);
 
   useEffect(() => {
     onUnreadChange?.(unreadCount);
   }, [onUnreadChange, unreadCount]);
-
-  useEffect(() => {
-    if (!items.length || typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    const unread = items.find((item) => !readKeys.has(item.key));
-    if (!unread) return;
-    const storageKey = `orchidea-device-notified:${unread.key}`;
-    if (localStorage.getItem(storageKey)) return;
-    try {
-      new Notification(unread.title, { body: unread.body, icon: "/icons/icon-192.png" });
-      localStorage.setItem(storageKey, "1");
-    } catch {
-      // Browser non compatibile: il centro notifiche interno continua a funzionare.
-    }
-  }, [items, readKeys]);
 
   async function markRead(key) {
     if (readKeys.has(key) || !student?.id) return;
@@ -172,13 +172,38 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
     );
   }
 
-  async function enableDeviceNotifications() {
-    if (typeof Notification === "undefined") return;
-    const permission = await Notification.requestPermission();
-    setDevicePermission(permission);
+  async function enablePush() {
+    setPushMessage("");
+    try {
+      await subscribeToPush(student.id);
+      setPushMessage("Notifiche push attivate su questo dispositivo.");
+      await refreshPushState();
+    } catch (error) {
+      setPushMessage(error.message || "Non è stato possibile attivare le notifiche.");
+      await refreshPushState();
+    }
+  }
+
+  async function disablePush() {
+    setPushMessage("");
+    try {
+      await unsubscribeFromPush(student.id);
+      setPushMessage("Notifiche push disattivate su questo dispositivo.");
+      await refreshPushState();
+    } catch (error) {
+      setPushMessage(error.message || "Non è stato possibile disattivare le notifiche.");
+    }
   }
 
   if (!open) return null;
+
+  const pushActive = Boolean(pushState.subscription && pushState.permission === "granted");
+  let pushDescription = "Ricevi avvisi di Orchidea anche quando l’app è chiusa.";
+  if (!pushState.vapidConfigured) pushDescription = "Configurazione push da completare sul server.";
+  else if (!pushState.supported) pushDescription = "Questo browser non supporta le notifiche push.";
+  else if (pushState.requiresInstall) pushDescription = "Su iPhone installa prima Orchidea Allievi nella schermata Home, poi aprila dall’icona.";
+  else if (pushActive) pushDescription = "Questo telefono è registrato e può ricevere notifiche anche ad app chiusa.";
+  else if (pushState.permission === "denied") pushDescription = "Le notifiche sono bloccate nelle impostazioni del dispositivo/browser.";
 
   return (
     <div className="notification-drawer-backdrop" onMouseDown={onClose}>
@@ -188,10 +213,23 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
           <button type="button" className="notification-close" onClick={onClose}>×</button>
         </div>
 
+        <div className="push-status-card">
+          <span className="push-status-icon" aria-hidden="true">♢</span>
+          <div className="push-status-copy">
+            <strong>{pushActive ? "Notifiche push attive" : "Notifiche sul telefono"}</strong>
+            <span>{pushDescription}</span>
+          </div>
+          {!pushState.loading && pushState.supported && pushState.vapidConfigured && !pushState.requiresInstall && pushState.permission !== "denied" && (
+            <button type="button" className={`push-status-action ${pushActive ? "is-off" : ""}`} onClick={pushActive ? disablePush : enablePush}>
+              {pushActive ? "Disattiva" : "Attiva"}
+            </button>
+          )}
+          {pushMessage && <p className="push-status-message">{pushMessage}</p>}
+        </div>
+
         <div className="notification-tools">
           <button type="button" onClick={markAllRead} disabled={!unreadCount}>Segna tutte come lette</button>
-          {devicePermission === "default" && <button type="button" onClick={enableDeviceNotifications}>Attiva notifiche dispositivo</button>}
-          {devicePermission === "granted" && <span>Notifiche dispositivo attive ✓</span>}
+          {pushActive && <span>Push telefono attive ✓</span>}
         </div>
 
         <div className="notification-list">

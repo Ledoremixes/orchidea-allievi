@@ -27,6 +27,8 @@ export default function AdminEngagement() {
   const [menuUrl, setMenuUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [pushDeviceCount, setPushDeviceCount] = useState(0);
+  const [sendingPush, setSendingPush] = useState(false);
 
   const [rewardSearch, setRewardSearch] = useState("");
   const [rewardSearchResults, setRewardSearchResults] = useState([]);
@@ -40,7 +42,7 @@ export default function AdminEngagement() {
 
   const load = useCallback(async () => {
     const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, menuResult] = await Promise.all([
-      supabase.from("app_notifications").select("id, title, body, category, audience, course_id, link, starts_at, expires_at").order("created_at", { ascending: false }).limit(50),
+      supabase.from("app_notifications").select("id, title, body, category, audience, course_id, link, starts_at, expires_at, push_sent_at, push_recipient_count, push_failure_count").order("created_at", { ascending: false }).limit(50),
       supabase.from("reward_catalog").select("id, title, description, points_cost, stock, icon, active").order("points_cost", { ascending: true }),
       supabase.from("course_trial_requests").select("id, tesseramento_id, corso_id, status, created_at, tesseramenti(nome, cognome, telefono, email), corsi(nome, livello, giorno_settimana)").order("created_at", { ascending: false }).limit(100),
       supabase.from("reward_redemptions").select("id, status, points_spent, requested_at, tesseramenti(nome, cognome, numero_tessera), reward_catalog(title, icon)").order("requested_at", { ascending: false }).limit(100),
@@ -56,6 +58,8 @@ export default function AdminEngagement() {
     setTeachers(teacherResult.data || []);
     const value = menuResult.data?.value;
     setMenuUrl(typeof value === "string" ? value : "");
+    const { data: deviceCount } = await supabase.rpc("admin_push_device_count");
+    setPushDeviceCount(Number(deviceCount || 0));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -113,10 +117,43 @@ export default function AdminEngagement() {
   async function publishNotification(event) {
     event.preventDefault();
     if (!notificationForm.title.trim() || !notificationForm.body.trim()) return fail("Inserisci titolo e testo della notifica.");
-    const payload = { ...notificationForm, title: notificationForm.title.trim(), body: notificationForm.body.trim(), course_id: notificationForm.audience === "course" ? notificationForm.course_id || null : null, link: notificationForm.link.trim() || null, expires_at: notificationForm.expires_at ? new Date(notificationForm.expires_at).toISOString() : null };
-    const { error: saveError } = await supabase.from("app_notifications").insert(payload);
-    if (saveError) return fail(saveError.message);
-    setNotificationForm(emptyNotification); ok("Notifica pubblicata nell’app."); await load();
+    if (notificationForm.audience === "course" && !notificationForm.course_id) return fail("Seleziona il corso destinatario.");
+
+    setSendingPush(true);
+    setError("");
+    const payload = {
+      ...notificationForm,
+      title: notificationForm.title.trim(),
+      body: notificationForm.body.trim(),
+      course_id: notificationForm.audience === "course" ? notificationForm.course_id || null : null,
+      link: notificationForm.link.trim() || null,
+      expires_at: notificationForm.expires_at ? new Date(notificationForm.expires_at).toISOString() : null,
+    };
+
+    const { data: savedNotification, error: saveError } = await supabase
+      .from("app_notifications")
+      .insert(payload)
+      .select("id")
+      .single();
+
+    if (saveError) {
+      setSendingPush(false);
+      return fail(saveError.message);
+    }
+
+    const { data: pushResult, error: pushError } = await supabase.functions.invoke("send-push", {
+      body: { notification_id: savedNotification.id },
+    });
+
+    setSendingPush(false);
+    setNotificationForm(emptyNotification);
+
+    if (pushError || pushResult?.ok === false) {
+      ok("Notifica pubblicata nell’app. L’invio push non è riuscito: verifica Edge Function e secrets VAPID.");
+    } else {
+      ok(`Notifica pubblicata e inviata a ${Number(pushResult?.sent || 0)} dispositivo/i${Number(pushResult?.failed || 0) ? ` · ${pushResult.failed} non riuscite` : ""}.`);
+    }
+    await load();
   }
 
   async function deleteNotification(id) {
@@ -248,16 +285,17 @@ export default function AdminEngagement() {
 
       <div className="admin-engagement-grid">
         <form className="content-card admin-card" onSubmit={publishNotification}>
-          <span className="eyebrow">Notifiche</span><h3>Pubblica un avviso</h3>
+          <span className="eyebrow">Notifiche push</span><h3>Invia un avviso</h3>
+          <div className="push-admin-note"><strong>{pushDeviceCount}</strong> dispositivo/i hanno attivato le notifiche push. L’avviso resta comunque visibile anche nel centro notifiche interno.</div>
           <label>Titolo<input value={notificationForm.title} onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })} placeholder="Stasera Latin Night" /></label>
           <label>Testo<textarea rows="3" value={notificationForm.body} onChange={(e) => setNotificationForm({ ...notificationForm, body: e.target.value })} placeholder="Messaggio breve per gli allievi" /></label>
-          <div className="form-grid two"><label>Categoria<select value={notificationForm.category} onChange={(e) => setNotificationForm({ ...notificationForm, category: e.target.value })}><option value="news">Novità</option><option value="course">Corso</option><option value="event">Evento</option><option value="payment">Pagamento</option><option value="video">Video</option><option value="important">Importante</option></select></label><label>Destinatari<select value={notificationForm.audience} onChange={(e) => setNotificationForm({ ...notificationForm, audience: e.target.value })}><option value="all">Tutti</option><option value="corsisti">Solo corsisti</option><option value="course">Un corso specifico</option></select></label></div>
+          <div className="form-grid two"><label>Categoria<select value={notificationForm.category} onChange={(e) => setNotificationForm({ ...notificationForm, category: e.target.value })}><option value="news">Novità</option><option value="course">Corso</option><option value="event">Evento</option><option value="payment">Pagamento</option><option value="video">Video</option><option value="important">Importante</option></select></label><label>Destinatari<select value={notificationForm.audience} onChange={(e) => setNotificationForm({ ...notificationForm, audience: e.target.value, course_id: e.target.value === "course" ? notificationForm.course_id : "" })}><option value="all">Tutti</option><option value="corsisti">Solo corsisti</option><option value="course">Un corso specifico</option></select></label></div>
           {notificationForm.audience === "course" && <label>Corso<select value={notificationForm.course_id} onChange={(e) => setNotificationForm({ ...notificationForm, course_id: e.target.value })}><option value="">Seleziona corso</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.nome} {course.livello || ""}</option>)}</select></label>}
-          <label>Link interno opzionale<input value={notificationForm.link} onChange={(e) => setNotificationForm({ ...notificationForm, link: e.target.value })} placeholder="/eventi oppure /video" /></label>
-          <button className="primary-btn" type="submit">Pubblica notifica</button>
+          <label>Apri pagina quando viene toccata<input value={notificationForm.link} onChange={(e) => setNotificationForm({ ...notificationForm, link: e.target.value })} placeholder="/eventi oppure /video" /></label>
+          <button className="primary-btn" type="submit" disabled={sendingPush}>{sendingPush ? "Invio push…" : "Pubblica e invia push"}</button>
         </form>
 
-        <div className="content-card admin-card"><span className="eyebrow">Notifiche pubblicate</span><h3>Ultimi avvisi</h3><div className="compact-list">{notifications.slice(0, 12).map((row) => <div className="compact-row with-action" key={row.id}><div><strong>{row.title}</strong><span>{row.body}</span><small>{row.audience} · {row.category}</small></div><button className="mini-btn danger" type="button" onClick={() => deleteNotification(row.id)}>Elimina</button></div>)}{!notifications.length && <p className="empty-text">Nessuna notifica pubblicata.</p>}</div></div>
+        <div className="content-card admin-card"><span className="eyebrow">Notifiche pubblicate</span><h3>Ultimi avvisi</h3><div className="compact-list">{notifications.slice(0, 12).map((row) => <div className="compact-row with-action" key={row.id}><div><strong>{row.title}</strong><span>{row.body}</span><small>{row.audience} · {row.category}</small>{row.push_sent_at && <small className="push-delivery-meta">Push: {row.push_recipient_count || 0} consegnate al servizio{row.push_failure_count ? ` · ${row.push_failure_count} errori` : ""}</small>}</div><button className="mini-btn danger" type="button" onClick={() => deleteNotification(row.id)}>Elimina</button></div>)}{!notifications.length && <p className="empty-text">Nessuna notifica pubblicata.</p>}</div></div>
       </div>
 
       <div className="admin-engagement-grid">

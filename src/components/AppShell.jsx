@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import NotificationCenter from "./NotificationCenter.jsx";
 import QuickQrModal from "./QuickQrModal.jsx";
 import ClubMode from "./ClubMode.jsx";
+import InstallAppBanner from "./InstallAppBanner.jsx";
 
 const studentNavItems = [
   { to: "/", label: "Home", icon: "home", end: true },
@@ -164,6 +165,7 @@ export default function AppShell() {
   return (
     <div className="app-layout app-layout-revolution orchidea-native-shell">
       <main className={`main-area ${isAdminPath ? "is-admin-area" : "is-student-area"}`}>
+        {student && !isAdminPath && <InstallAppBanner />}
         <header className="orchidea-app-header" aria-label="Intestazione Orchidea">
           <div className="orchidea-header-logo">
             <img src="/assets/logo.png" alt="Orchidea" />
