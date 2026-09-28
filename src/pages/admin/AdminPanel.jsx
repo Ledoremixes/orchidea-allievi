@@ -6,6 +6,7 @@ import { getCourseVisual } from "../../lib/courseVisuals.js";
 import AttendanceAdmin from "./AttendanceAdmin.jsx";
 import AdminEngagement from "./AdminEngagement.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
+import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
 
 const emptyCourse = {
   nome: "",
@@ -553,6 +554,9 @@ export default function AdminPanel() {
   const [videoForm, setVideoForm] = useState(emptyVideo);
   const [videoFile, setVideoFile] = useState(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [optimizeVideoBeforeUpload, setOptimizeVideoBeforeUpload] = useState(true);
+  const [videoOptimizationStatus, setVideoOptimizationStatus] = useState("");
+  const [videoOptimizationProgress, setVideoOptimizationProgress] = useState(0);
 
   const [editingStudent, setEditingStudent] = useState(null);
   const [studentForm, setStudentForm] = useState(emptyStudentForm);
@@ -2405,48 +2409,97 @@ export default function AdminPanel() {
 
     setUploadingVideo(true);
     setError("");
+    setVideoOptimizationProgress(0);
+    setVideoOptimizationStatus("");
 
     let storagePath = null;
+    let uploadedFile = videoFile;
+    let optimizationResult = null;
+    let thumbnailUrl = null;
     const publicUrl = videoForm.video_url.trim() || null;
 
-    if (videoFile) {
-      const safeName = videoFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      storagePath = `${videoForm.corso_id}/${Date.now()}-${safeName}`;
+    try {
+      if (videoFile) {
+        // La miniatura viene creata localmente: nella libreria gli allievi vedono
+        // un'immagine leggera e il file video non viene toccato finché non premono Play.
+        setVideoOptimizationStatus("Preparo l’anteprima…");
+        thumbnailUrl = await createVideoThumbnailDataUrl(videoFile);
 
-      const { error: uploadError } = await supabase.storage
-        .from("course-videos")
-        .upload(storagePath, videoFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        if (optimizeVideoBeforeUpload) {
+          setVideoOptimizationStatus("Ottimizzo il video per mobile…");
+          try {
+            optimizationResult = await optimizeVideoFile(videoFile, {
+              enabled: true,
+              onProgress: (ratio) => setVideoOptimizationProgress(Math.round((ratio || 0) * 100)),
+            });
+            uploadedFile = optimizationResult.file || videoFile;
 
-      if (uploadError) {
-        setUploadingVideo(false);
-        showError(uploadError.message);
-        return;
+            if (optimizationResult.optimized) {
+              setVideoOptimizationStatus(
+                `Ridotto da ${formatFileSize(optimizationResult.originalSize)} a ${formatFileSize(optimizationResult.optimizedSize)}. Caricamento…`,
+              );
+            } else if (optimizationResult.reason === "already-small") {
+              setVideoOptimizationStatus("Il video è già leggero: lo carico senza ricodificarlo…");
+            } else if (optimizationResult.reason === "too-large-for-browser") {
+              setVideoOptimizationStatus("Video molto grande: salto la ricodifica nel browser e procedo con l’upload originale…");
+            } else {
+              setVideoOptimizationStatus("Il file originale è già efficiente: procedo con l’upload…");
+            }
+          } catch (compressionError) {
+            console.warn("Compressione video non disponibile, uso originale:", compressionError);
+            uploadedFile = videoFile;
+            setVideoOptimizationStatus("Compressione non disponibile su questo dispositivo: carico il file originale…");
+          }
+        } else {
+          setVideoOptimizationStatus("Caricamento file originale…");
+        }
+
+        const safeName = uploadedFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+        storagePath = `${videoForm.corso_id}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("course-videos")
+          .upload(storagePath, uploadedFile, {
+            cacheControl: "31536000",
+            contentType: uploadedFile.type || "video/mp4",
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
       }
+
+      const { error: videoError } = await supabase.from("video_corsi").insert({
+        corso_id: videoForm.corso_id,
+        titolo: videoForm.titolo.trim(),
+        descrizione: videoForm.descrizione.trim() || null,
+        video_url: publicUrl,
+        storage_path: storagePath,
+        thumbnail_url: thumbnailUrl,
+        pubblicato: true,
+      });
+
+      if (videoError) {
+        if (storagePath) await supabase.storage.from("course-videos").remove([storagePath]);
+        throw videoError;
+      }
+
+      setVideoForm(emptyVideo);
+      setVideoFile(null);
+      setVideoOptimizationStatus("");
+      setVideoOptimizationProgress(0);
+
+      if (optimizationResult?.optimized) {
+        const savedPct = Math.max(1, Math.round((optimizationResult.savingRatio || 0) * 100));
+        showSuccess(`Video pubblicato e ottimizzato: ${savedPct}% di spazio risparmiato.`);
+      } else {
+        showSuccess("Video pubblicato per il corso selezionato.");
+      }
+      await loadAdminData();
+    } catch (videoError) {
+      showError(videoError?.message || "Errore durante la pubblicazione del video.");
+    } finally {
+      setUploadingVideo(false);
     }
-
-    const { error: videoError } = await supabase.from("video_corsi").insert({
-      corso_id: videoForm.corso_id,
-      titolo: videoForm.titolo.trim(),
-      descrizione: videoForm.descrizione.trim() || null,
-      video_url: publicUrl,
-      storage_path: storagePath,
-      pubblicato: true,
-    });
-
-    setUploadingVideo(false);
-
-    if (videoError) {
-      showError(videoError.message);
-      return;
-    }
-
-    setVideoForm(emptyVideo);
-    setVideoFile(null);
-    showSuccess("Video pubblicato per il corso selezionato.");
-    await loadAdminData();
   }
 
   async function handleToggleVideo(video) {
@@ -3891,11 +3944,25 @@ export default function AdminPanel() {
           </label>
           <label>Titolo video<input value={videoForm.titolo} onChange={(e) => setVideoForm({ ...videoForm, titolo: e.target.value })} placeholder="Ripasso lezione 1" /></label>
           <label>File video privato
-            <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+            <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => { setVideoFile(e.target.files?.[0] || null); setVideoOptimizationStatus(""); setVideoOptimizationProgress(0); }} />
+            {videoFile ? <small>{videoFile.name} · {formatFileSize(videoFile.size)}</small> : null}
           </label>
+          <label className="video-optimize-toggle">
+            <span>
+              <strong>Ottimizzazione automatica</strong>
+              <small>Converte i video più pesanti in MP4 H.264, massimo 1280 px, e crea una miniatura WebP. I file già piccoli non vengono ricodificati.</small>
+            </span>
+            <input type="checkbox" checked={optimizeVideoBeforeUpload} onChange={(e) => setOptimizeVideoBeforeUpload(e.target.checked)} />
+          </label>
+          {uploadingVideo && videoOptimizationStatus ? (
+            <div className="video-optimization-progress">
+              <div><strong>{videoOptimizationStatus}</strong><span>{videoOptimizationProgress > 0 && videoOptimizationProgress < 100 ? `${videoOptimizationProgress}%` : ""}</span></div>
+              {videoOptimizationProgress > 0 && videoOptimizationProgress < 100 ? <progress max="100" value={videoOptimizationProgress} /> : null}
+            </div>
+          ) : null}
           <label>Oppure link video<input value={videoForm.video_url} onChange={(e) => setVideoForm({ ...videoForm, video_url: e.target.value })} placeholder="https://..." /></label>
           <label>Descrizione<textarea value={videoForm.descrizione} onChange={(e) => setVideoForm({ ...videoForm, descrizione: e.target.value })} placeholder="Note per gli allievi" rows="3" /></label>
-          <button className="primary-btn" type="submit" disabled={uploadingVideo}>{uploadingVideo ? "Caricamento…" : "Pubblica video"}</button>
+          <button className="primary-btn" type="submit" disabled={uploadingVideo}>{uploadingVideo ? "Ottimizzo e pubblico…" : "Pubblica video"}</button>
         </form>
 
         <div className="content-card admin-card">

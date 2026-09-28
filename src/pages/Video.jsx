@@ -28,11 +28,6 @@ function getVideosPerPage() {
   return DESKTOP_VIDEOS_PER_PAGE;
 }
 
-function getVideoPreviewUrl(url) {
-  if (!url) return "";
-  return String(url).includes("#") ? String(url) : `${url}#t=0.1`;
-}
-
 export default function Video() {
   const { student, teacher, isAdmin } = useOutletContext();
   const teacherExperience = Boolean(teacher) && !isAdmin;
@@ -41,6 +36,7 @@ export default function Video() {
   const [selectedCourseId, setSelectedCourseId] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [openingVideoId, setOpeningVideoId] = useState(null);
   const [coursePages, setCoursePages] = useState({});
   const [videosPerPage, setVideosPerPage] = useState(getVideosPerPage);
   const [loading, setLoading] = useState(true);
@@ -120,27 +116,18 @@ export default function Video() {
         return;
       }
 
-      const videosWithUrls = await Promise.all(
-        (videosData || []).map(async (video) => {
-          if (!courseIds.includes(video.corso_id)) return null;
-
-          if (!video.storage_path) {
-            return { ...video, play_url: video.video_url };
-          }
-
-          const { data: signedData, error: signedError } = await supabase.storage
-            .from("course-videos")
-            .createSignedUrl(video.storage_path, 60 * 60);
-
-          return {
-            ...video,
-            play_url: signedError ? null : signedData?.signedUrl,
-          };
-        })
-      );
+      // Non generiamo più un signed URL per ogni video all'apertura della pagina.
+      // Il link privato viene creato solo quando l'utente preme Play: meno richieste
+      // e, soprattutto, nessun accesso ai file video durante lo scroll della libreria.
+      const lightweightVideos = (videosData || [])
+        .filter((video) => courseIds.includes(video.corso_id))
+        .map((video) => ({
+          ...video,
+          play_url: video.storage_path ? null : video.video_url,
+        }));
 
       if (!mounted) return;
-      setVideos(videosWithUrls.filter(Boolean));
+      setVideos(lightweightVideos);
       setLoading(false);
     }
 
@@ -246,13 +233,32 @@ export default function Video() {
     });
   }
 
-  function openVideo(video) {
-    if (!video.play_url) return;
+  function hasPlayableVideo(video) {
+    return Boolean(video?.storage_path || video?.video_url || video?.play_url);
+  }
+
+  async function openVideo(video) {
+    if (!hasPlayableVideo(video) || openingVideoId) return;
+
     if (!video.storage_path) {
-      window.open(video.play_url, "_blank", "noopener,noreferrer");
+      const externalUrl = video.play_url || video.video_url;
+      if (externalUrl) window.open(externalUrl, "_blank", "noopener,noreferrer");
       return;
     }
-    setSelectedVideo(video);
+
+    setOpeningVideoId(video.id);
+    setError("");
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from("course-videos")
+      .createSignedUrl(video.storage_path, 60 * 60);
+    setOpeningVideoId(null);
+
+    if (signedError || !signedData?.signedUrl) {
+      setError(signedError?.message || "Non riesco ad aprire il video. Riprova.");
+      return;
+    }
+
+    setSelectedVideo({ ...video, play_url: signedData.signedUrl });
   }
 
   function renderVideoCard(video, index) {
@@ -262,23 +268,15 @@ export default function Video() {
           type="button"
           className="video-phone-stage video-preview-button"
           onClick={() => openVideo(video)}
-          disabled={!video.play_url}
+          disabled={!hasPlayableVideo(video) || openingVideoId === video.id}
           aria-label={`Guarda ${video.titolo}`}
         >
           {video.thumbnail_url ? (
             <img src={video.thumbnail_url} alt="" loading="lazy" decoding="async" />
-          ) : video.play_url ? (
-            <video
-              className="video-card-preview-video"
-              src={getVideoPreviewUrl(video.play_url)}
-              preload="metadata"
-              muted
-              playsInline
-            />
           ) : (
             <div className="video-phone-placeholder video-phone-placeholder-compact">
               <span>▶</span>
-              <small>Lezione #{index + 1}</small>
+              <small>{hasPlayableVideo(video) ? `Lezione #${index + 1}` : "Video non disponibile"}</small>
             </div>
           )}
           <span className="video-quick-play">▶</span>
@@ -292,9 +290,9 @@ export default function Video() {
           <h3>{video.titolo}</h3>
           <p>{video.descrizione || "Video riservato agli iscritti del corso."}</p>
 
-          {video.play_url ? (
-            <button type="button" className="primary-btn slim video-open-link" onClick={() => openVideo(video)}>
-              ▶ Ripassa
+          {hasPlayableVideo(video) ? (
+            <button type="button" className="primary-btn slim video-open-link" onClick={() => openVideo(video)} disabled={openingVideoId === video.id}>
+              {openingVideoId === video.id ? "Apro…" : "▶ Ripassa"}
             </button>
           ) : (
             <div className="video-unavailable-box">Non disponibile</div>
@@ -413,11 +411,9 @@ export default function Video() {
             </div>
           ) : latestVideo && selectedCourseId === "all" && !search ? (
             <div className="video-featured-card video-diary-featured content-card">
-              <button type="button" className="video-diary-featured-preview" onClick={() => openVideo(latestVideo)} disabled={!latestVideo.play_url}>
+              <button type="button" className="video-diary-featured-preview" onClick={() => openVideo(latestVideo)} disabled={!hasPlayableVideo(latestVideo) || openingVideoId === latestVideo.id}>
                 {latestVideo.thumbnail_url ? (
                   <img src={latestVideo.thumbnail_url} alt="" loading="lazy" decoding="async" />
-                ) : latestVideo.play_url ? (
-                  <video src={getVideoPreviewUrl(latestVideo.play_url)} preload="metadata" muted playsInline />
                 ) : (
                   <span>▶</span>
                 )}
@@ -428,8 +424,10 @@ export default function Video() {
                 <h3>{latestVideo.titolo}</h3>
                 <p>{latestVideo.descrizione || "L'ultimo ripasso pubblicato dal tuo corso."}</p>
                 <small>{latestVideo.corsi?.nome || "Corso"} · {formatDate(latestVideo.created_at)}</small>
-                {latestVideo.play_url && (
-                  <button type="button" className="primary-btn slim" onClick={() => openVideo(latestVideo)}>▶ Ripassa ora</button>
+                {hasPlayableVideo(latestVideo) && (
+                  <button type="button" className="primary-btn slim" onClick={() => openVideo(latestVideo)} disabled={openingVideoId === latestVideo.id}>
+                    {openingVideoId === latestVideo.id ? "Apro…" : "▶ Ripassa ora"}
+                  </button>
                 )}
               </div>
             </div>
@@ -527,7 +525,7 @@ export default function Video() {
               <button className="ghost-btn slim-action" type="button" onClick={() => setSelectedVideo(null)}>Chiudi</button>
             </div>
             <div className="video-watch-phone">
-              <video controls autoPlay playsInline src={selectedVideo.play_url} />
+              <video controls autoPlay playsInline preload="metadata" src={selectedVideo.play_url} />
             </div>
           </div>
         </div>

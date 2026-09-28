@@ -1,0 +1,23 @@
+ORCHIDEA APP · STEP 26 · VIDEO OTTIMIZZATI
+
+1) Upload Admin
+- Ottimizzazione automatica attiva di default.
+- Video > 8 MB: tentativo di ricodifica in MP4 H.264 (CRF 28), audio AAC 96 kbps.
+- Risoluzione massima: 1280 px sul lato più lungo.
+- Fast-start MP4 per avvio più rapido via rete mobile.
+- Se il file compresso non è realmente più piccolo, viene conservato l'originale.
+- File > 280 MB: niente ricodifica nel browser per evitare crash/RAM; viene caricato l'originale.
+- Se il motore di compressione non è disponibile, fallback automatico al file originale.
+
+2) Miniature
+- Per ogni upload locale viene generata una miniatura WebP leggera (max 640 px).
+- La miniatura viene salvata in thumbnail_url e usata nella pagina Video.
+
+3) Prestazioni pagina Video
+- Nessun file video viene più richiesto durante lo scroll.
+- Rimossi i tag <video preload=metadata> dalle card e dal contenuto in evidenza.
+- I signed URL Supabase non vengono più generati tutti all'apertura della pagina.
+- Il signed URL viene creato solo quando l'utente preme Play.
+- Il player vero viene montato solo nel modale del video selezionato.
+
+Nota: la compressione usa ffmpeg.wasm caricato on-demand dal pannello Admin. Il motore non viene caricato agli allievi/insegnanti durante l'uso normale dell'app.
