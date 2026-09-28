@@ -36,7 +36,8 @@ function capitalize(value = "") {
 }
 
 export default function Corsi() {
-  const { student } = useOutletContext();
+  const { student, teacher, isAdmin } = useOutletContext();
+  const teacherExperience = Boolean(teacher) && !isAdmin;
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,11 +49,34 @@ export default function Corsi() {
     async function loadCourses() {
       setLoading(true);
       setError("");
-      const { data, error: queryError } = await supabase
-        .from("iscrizioni_corsi")
-        .select("id, corso_id, stato, data_iscrizione, note, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)")
-        .eq("tesseramento_id", student.id)
-        .order("data_iscrizione", { ascending: false });
+      let data = [];
+      let queryError = null;
+
+      if (teacherExperience) {
+        const result = await supabase
+          .from("app_teacher_profile_courses")
+          .select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
+          .eq("profile_id", teacher.profile_id);
+        queryError = result.error;
+        data = (result.data || [])
+          .filter((row) => row.corsi)
+          .map((row) => ({
+            ...row,
+            stato: "attivo",
+            rinnovo_attivo: true,
+            data_iscrizione: null,
+            note: "Corso assegnato",
+          }));
+      } else if (student?.id) {
+        const result = await supabase
+          .from("iscrizioni_corsi")
+          .select("id, corso_id, stato, data_iscrizione, note, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)")
+          .eq("tesseramento_id", student.id)
+          .order("data_iscrizione", { ascending: false });
+        queryError = result.error;
+        data = result.data || [];
+      }
+
       if (!mounted) return;
       if (queryError) setError(queryError.message);
       setCourses(data || []);
@@ -60,7 +84,7 @@ export default function Corsi() {
     }
     loadCourses();
     return () => { mounted = false; };
-  }, [student.id]);
+  }, [student?.id, teacher?.profile_id, teacherExperience]);
 
   const enrichedCourses = useMemo(
     () => courses
@@ -109,9 +133,9 @@ export default function Corsi() {
       <div className="orchidea-section-heading courses-heading-v2">
         <span className="orchidea-heading-mark" aria-hidden="true" />
         <div>
-          <span className="orchidea-kicker">Il tuo calendario</span>
-          <h2>I tuoi corsi</h2>
-          <p>Orari, sale e accesso rapido ai ripassi delle lezioni.</p>
+          <span className="orchidea-kicker">{teacherExperience ? "La tua settimana in sala" : "Il tuo calendario"}</span>
+          <h2>{teacherExperience ? "I corsi che insegni" : "I tuoi corsi"}</h2>
+          <p>{teacherExperience ? "Orari, sale, locandine e accesso rapido ai contenuti dei tuoi corsi." : "Orari, sale e accesso rapido ai ripassi delle lezioni."}</p>
         </div>
         <button type="button" className="courses-calendar-export" onClick={() => downloadCoursesCalendar(activeCourses)} disabled={!activeCourses.length}>+ Calendario</button>
       </div>
@@ -131,8 +155,8 @@ export default function Corsi() {
           <section className="neo-panel owned-courses-carousel" aria-label="Le locandine dei tuoi corsi">
             <div className="owned-courses-carousel-head">
               <div>
-                <span className="owned-courses-overline">I tuoi corsi</span>
-                <h3>{enrichedCourses.length > 1 ? "Scorri le tue locandine" : "La locandina del tuo corso"}</h3>
+                <span className="owned-courses-overline">{teacherExperience ? "I corsi che insegni" : "I tuoi corsi"}</span>
+                <h3>{enrichedCourses.length > 1 ? "Scorri le locandine" : "La locandina del corso"}</h3>
               </div>
               {enrichedCourses.length > 1 && <span className="owned-courses-count">{posterIndex + 1} / {enrichedCourses.length}</span>}
             </div>
@@ -194,8 +218,8 @@ export default function Corsi() {
               <div className="modern-weekly-title">
                 <span className="modern-weekly-icon" aria-hidden="true">◷</span>
                 <div>
-                  <small>Agenda personale</small>
-                  <h3>La tua settimana</h3>
+                  <small>{teacherExperience ? "Agenda docente" : "Agenda personale"}</small>
+                  <h3>{teacherExperience ? "La tua settimana in sala" : "La tua settimana"}</h3>
                 </div>
               </div>
               <div className="modern-weekly-count"><strong>{enrichedCourses.length}</strong><span>{enrichedCourses.length === 1 ? "lezione" : "lezioni"}</span></div>
@@ -235,7 +259,7 @@ export default function Corsi() {
             </div>
           </section>
 
-          <CourseDiscovery student={student} enrolledCourses={activeCourses} />
+          {!teacherExperience && student && <CourseDiscovery student={student} enrolledCourses={activeCourses} />}
         </>
       )}
     </section>

@@ -6,25 +6,28 @@ import { loadUpcomingEvents, formatEventDate } from "../lib/events.js";
 
 const DAY_NAMES = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
 
-export default function ClubMode({ student }) {
+export default function ClubMode({ student, teacher }) {
   const [open, setOpen] = useState(false);
   const [courses, setCourses] = useState([]);
   const [events, setEvents] = useState([]);
   const [menuUrl, setMenuUrl] = useState("");
 
   useEffect(() => {
-    if (!open || !student?.id) return;
+    if (!open || (!student?.id && !teacher?.profile_id)) return;
+    const coursePromise = teacher?.profile_id
+      ? supabase.from("app_teacher_profile_courses").select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)").eq("profile_id", teacher.profile_id)
+      : supabase.from("iscrizioni_corsi").select("id, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)").eq("tesseramento_id", student.id).eq("stato", "attivo");
     Promise.all([
-      supabase.from("iscrizioni_corsi").select("id, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala)").eq("tesseramento_id", student.id).eq("stato", "attivo"),
+      coursePromise,
       loadUpcomingEvents({ limit: 5 }),
       supabase.from("app_settings").select("value").eq("key", "bar_menu_url").maybeSingle(),
     ]).then(([courseResult, eventResult, menuResult]) => {
-      setCourses((courseResult.data || []).filter((row) => row.rinnovo_attivo !== false));
+      setCourses((courseResult.data || []).filter((row) => teacher?.profile_id || row.rinnovo_attivo !== false));
       setEvents(eventResult.events || []);
       const value = menuResult.data?.value;
       setMenuUrl(typeof value === "string" ? value : "");
     });
-  }, [open, student?.id]);
+  }, [open, student?.id, teacher?.profile_id]);
 
   const todayCourse = useMemo(() => {
     const day = DAY_NAMES[new Date().getDay()];
@@ -49,8 +52,9 @@ export default function ClubMode({ student }) {
               <small>{todayCourse?.sala || (todayEvent ? todayEvent.location : "Puoi comunque usare tessera, agenda e serate.")}</small>
             </div>
             <div className="club-mode-actions">
-              <Link to="/tessera" onClick={() => setOpen(false)}><b>▦</b><span><strong>Apri tessera / QR</strong><small>Pronta da mostrare al tablet o all’ingresso</small></span></Link>
-              <Link to="/agenda" onClick={() => setOpen(false)}><b>◷</b><span><strong>La mia agenda</strong><small>Corsi e appuntamenti personali</small></span></Link>
+              {student?.id && <Link to="/tessera" onClick={() => setOpen(false)}><b>▦</b><span><strong>Apri tessera / QR</strong><small>Pronta da mostrare al tablet o all’ingresso</small></span></Link>}
+              <Link to="/corsi" onClick={() => setOpen(false)}><b>◷</b><span><strong>{teacher?.profile_id ? "Agenda corsi" : "La mia agenda"}</strong><small>{teacher?.profile_id ? "Orari e sale dei corsi che insegni" : "Corsi e appuntamenti personali"}</small></span></Link>
+              {teacher?.profile_id && <Link to="/insegnante" onClick={() => setOpen(false)}><b>€</b><span><strong>Compensi del mese</strong><small>Apri riepilogo e storico personale</small></span></Link>}
               <Link to="/eventi" onClick={() => setOpen(false)}><b>✦</b><span><strong>Programma serate</strong><small>Guarda cosa succede e chi ci sarà</small></span></Link>
               {menuUrl ? <a href={menuUrl} target="_blank" rel="noreferrer"><b>☰</b><span><strong>Menu bar</strong><small>Apri il menu digitale Orchidea</small></span></a> : <div className="club-mode-action-disabled"><b>☰</b><span><strong>Menu bar</strong><small>Impostabile dal pannello admin</small></span></div>}
             </div>

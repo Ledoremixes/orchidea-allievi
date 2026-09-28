@@ -31,6 +31,7 @@ export default function TeacherDashboard() {
   const [month, setMonth] = useState(currentMonthValue());
   const [rows, setRows] = useState([]);
   const [history, setHistory] = useState([]);
+  const [compensationSource, setCompensationSource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [monthLoading, setMonthLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,14 +40,16 @@ export default function TeacherDashboard() {
     let mounted = true;
     async function loadBase() {
       setLoading(true);
-      const [accountResult, historyResult] = await Promise.all([
+      const [accountResult, historyResult, sourceResult] = await Promise.all([
         supabase.rpc("get_my_teacher_account").maybeSingle(),
         supabase.rpc("get_my_teacher_compensation_history", { p_months: 12 }),
+        supabase.rpc("get_my_teacher_compensation_source").maybeSingle(),
       ]);
       if (!mounted) return;
       if (accountResult.error) setError(accountResult.error.message);
       setAccount(accountResult.data || null);
       setHistory(historyResult.error ? [] : (historyResult.data || []));
+      setCompensationSource(sourceResult.error ? null : (sourceResult.data || null));
       setLoading(false);
     }
     loadBase();
@@ -154,7 +157,9 @@ export default function TeacherDashboard() {
             {!rows.length && (
               <div className="teacher-empty-month">
                 <strong>Nessun compenso da mostrare</strong>
-                <span>Per questo mese non risultano corsi collegati oppure quote calcolabili.</span>
+                <span>{compensationSource?.active_course_links === 0
+                  ? "Il profilo docente è stato trovato, ma non ha corsi compensi collegati in Nova. L’admin deve selezionare il corretto Profilo compensi Nova."
+                  : "Per questo mese non risultano corsi collegati oppure quote calcolabili."}</span>
               </div>
             )}
           </div>
@@ -182,8 +187,8 @@ export default function TeacherDashboard() {
       </section>
 
       <div className="teacher-area-note">
-        <strong>Come vengono calcolati?</strong>
-        <span>I valori seguono le quote e i collegamenti corso/insegnante configurati dall’amministrazione Orchidea. L’area è personale: ogni docente vede esclusivamente i propri compensi.</span>
+        <strong>Dati collegati a Nova{compensationSource?.compensation_teacher_name ? ` · ${compensationSource.compensation_teacher_name}` : ""}</strong>
+        <span>I valori arrivano direttamente da pagamenti, corsi e quote insegnante del gestionale. L’area è personale: ogni docente vede esclusivamente i propri compensi.</span>
       </div>
     </div>
   );

@@ -42,11 +42,22 @@ async function getRegistration() {
   return navigator.serviceWorker.ready;
 }
 
-async function saveSubscription(studentId, subscription) {
-  if (!studentId || !subscription || !supabase) return;
+function normalizePushOwner(owner) {
+  if (!owner) return { studentId: null, teacherAccountId: null };
+  if (typeof owner === "string") return { studentId: owner, teacherAccountId: null };
+  return {
+    studentId: owner.studentId || owner.tesseramentoId || null,
+    teacherAccountId: owner.teacherAccountId || owner.teacher_account_id || null,
+  };
+}
+
+async function saveSubscription(owner, subscription) {
+  const { studentId, teacherAccountId } = normalizePushOwner(owner);
+  if ((!studentId && !teacherAccountId) || !subscription || !supabase) return;
   const json = subscription.toJSON();
   const payload = {
     tesseramento_id: studentId,
+    teacher_account_id: teacherAccountId,
     endpoint: json.endpoint,
     p256dh: json.keys?.p256dh || null,
     auth: json.keys?.auth || null,
@@ -64,7 +75,7 @@ async function saveSubscription(studentId, subscription) {
   if (error) throw error;
 }
 
-export async function getCurrentPushSubscription(studentId) {
+export async function getCurrentPushSubscription(owner) {
   const info = getPushSupportInfo();
   if (!info.supported || !info.vapidConfigured) {
     return { ...info, permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission, subscription: null };
@@ -74,9 +85,9 @@ export async function getCurrentPushSubscription(studentId) {
   if (!registration) return { ...info, permission: Notification.permission, subscription: null };
 
   const subscription = await registration.pushManager.getSubscription();
-  if (subscription && studentId) {
+  if (subscription && owner) {
     try {
-      await saveSubscription(studentId, subscription);
+      await saveSubscription(owner, subscription);
     } catch (error) {
       console.warn("Impossibile sincronizzare la subscription push:", error);
     }
@@ -85,12 +96,12 @@ export async function getCurrentPushSubscription(studentId) {
   return { ...info, permission: Notification.permission, subscription };
 }
 
-export async function subscribeToPush(studentId) {
+export async function subscribeToPush(owner) {
   const info = getPushSupportInfo();
   if (!info.supported) throw new Error("Questo dispositivo non supporta le notifiche push web.");
   if (!info.vapidConfigured) throw new Error("Le notifiche push non sono ancora configurate sul server.");
   if (info.requiresInstall) {
-    const error = new Error("Su iPhone installa prima Orchidea Allievi nella schermata Home, poi aprila dall’icona e attiva le notifiche.");
+    const error = new Error("Su iPhone installa prima Orchidea nella schermata Home, poi aprila dall’icona e attiva le notifiche.");
     error.code = "IOS_INSTALL_REQUIRED";
     throw error;
   }
@@ -113,11 +124,11 @@ export async function subscribeToPush(studentId) {
     });
   }
 
-  await saveSubscription(studentId, subscription);
+  await saveSubscription(owner, subscription);
   return subscription;
 }
 
-export async function unsubscribeFromPush(studentId) {
+export async function unsubscribeFromPush(owner) {
   const registration = await getRegistration();
   if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
@@ -126,12 +137,12 @@ export async function unsubscribeFromPush(studentId) {
   const endpoint = subscription.endpoint;
   await subscription.unsubscribe();
 
-  if (supabase && studentId && endpoint) {
-    const { error } = await supabase
-      .from("push_subscriptions")
-      .delete()
-      .eq("tesseramento_id", studentId)
-      .eq("endpoint", endpoint);
+  const { studentId, teacherAccountId } = normalizePushOwner(owner);
+  if (supabase && endpoint && (studentId || teacherAccountId)) {
+    let query = supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    if (studentId) query = query.eq("tesseramento_id", studentId);
+    if (teacherAccountId) query = query.eq("teacher_account_id", teacherAccountId);
+    const { error } = await query;
     if (error) throw error;
   }
 }

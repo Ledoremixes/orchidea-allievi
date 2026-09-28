@@ -34,7 +34,7 @@ export default function InstallAppBanner() {
     <div className="install-app-banner" role="status">
       <div className="install-app-icon"><img src="/icons/icon-192.png" alt="" /></div>
       <div className="install-app-copy">
-        <strong>Installa Orchidea Allievi</strong>
+        <strong>Installa Orchidea</strong>
         {support.isIOS
           ? <span>Su iPhone: premi Condividi <b>□↑</b> → <b>Aggiungi alla schermata Home</b>. Da lì potrai ricevere anche le notifiche push.</span>
           : <span>Aggiungila al telefono come una vera app. Gli aggiornamenti arriveranno automaticamente.</span>}

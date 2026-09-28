@@ -17,6 +17,17 @@ function teacherFullName(person) {
   return [person?.nome, person?.cognome].filter(Boolean).join(" ").trim() || "Insegnante Orchidea";
 }
 
+
+function normalizeTeacherIdentity(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function emptyTeacherProfile() {
   return { nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true };
 }
@@ -510,13 +521,17 @@ export default function AdminEngagement() {
 
         let compensationTeacherId = teacherAccessForm.compensation_teacher_id || existingAccount?.compensation_teacher_id || "";
         if (!compensationTeacherId) {
-          const { data: createdTeacher, error: createTeacherError } = await supabase
-            .from("insegnanti")
-            .insert({ nome: `${nome} ${cognome}`.trim(), email: accessEmail, telefono: accessPhone || null, attivo: true })
-            .select("id")
-            .single();
-          if (createTeacherError) throw createTeacherError;
-          compensationTeacherId = createdTeacher.id;
+          const wantedEmail = normalizeTeacherIdentity(accessEmail);
+          const wantedName = normalizeTeacherIdentity(`${nome} ${cognome}`);
+          const matches = compensationTeachers.filter((teacher) => {
+            const sameEmail = wantedEmail && normalizeTeacherIdentity(teacher.email) === wantedEmail;
+            const sameName = wantedName && normalizeTeacherIdentity(teacher.nome) === wantedName;
+            return sameEmail || sameName;
+          });
+          if (matches.length === 1) compensationTeacherId = matches[0].id;
+        }
+        if (!compensationTeacherId) {
+          throw new Error("Seleziona il profilo compensi Nova dell’insegnante. Non ne creiamo uno nuovo, così i compensi restano gli stessi del gestionale.");
         }
 
         const accountPayload = {
@@ -763,7 +778,7 @@ export default function AdminEngagement() {
                   <label><span>Email accesso</span><input type="email" value={teacherAccessForm.email} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, email: e.target.value })} placeholder="insegnante@email.it" /></label>
                   <label><span>Codice fiscale</span><input value={teacherAccessForm.cf} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, cf: e.target.value.toUpperCase() })} placeholder="RSSMRA..." maxLength={16} autoCapitalize="characters" /></label>
                   <label><span>Telefono <small>(facoltativo)</small></span><input type="tel" value={teacherAccessForm.phone} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, phone: e.target.value })} placeholder="+39 333 1234567" /></label>
-                  <label className="teacher-access-compensation-select"><span>Profilo compensi</span><select value={teacherAccessForm.compensation_teacher_id} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, compensation_teacher_id: e.target.value })}><option value="">Crea automaticamente al salvataggio</option>{compensationTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.nome}{teacher.email ? ` · ${teacher.email}` : ""}</option>)}</select><small>Le quote corso/percentuali restano configurabili nella sezione Insegnanti del pannello Admin.</small></label>
+                  <label className="teacher-access-compensation-select"><span>Profilo compensi</span><select value={teacherAccessForm.compensation_teacher_id} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, compensation_teacher_id: e.target.value })}><option value="">Seleziona profilo compensi Nova</option>{compensationTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.nome}{teacher.email ? ` · ${teacher.email}` : ""}</option>)}</select><small>Collega il docente allo stesso profilo usato da Nova: l’app leggerà gli stessi corsi, quote e compensi del gestionale.</small></label>
                   <div className={`teacher-access-status ${selectedTeacherAccount?.auth_user_id ? "is-ready" : ""}`}>
                     <strong>{selectedTeacherAccount?.auth_user_id ? "Account collegato" : teacherId ? "In attesa del primo accesso" : "Salva prima il profilo"}</strong>
                     <span>{selectedTeacherAccount?.auth_user_id ? "L’insegnante può entrare e vedere i propri compensi." : "Al primo accesso userà email + codice fiscale e sceglierà la password direttamente nell’app."}</span>

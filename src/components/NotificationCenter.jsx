@@ -89,24 +89,66 @@ function buildAutomaticNotifications({ courses, payments, videos, events }) {
   return items;
 }
 
-export default function NotificationCenter({ student, open, onClose, onUnreadChange }) {
+export default function NotificationCenter({ student, teacher, open, onClose, onUnreadChange }) {
   const [items, setItems] = useState([]);
   const [readKeys, setReadKeys] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [pushState, setPushState] = useState({ loading: true, supported: true, subscription: null, permission: "default", requiresInstall: false, vapidConfigured: true });
   const [pushMessage, setPushMessage] = useState("");
+  const teacherAccountId = teacher?.account_id || null;
+  const isTeacherExperience = Boolean(teacherAccountId);
+  const pushOwner = isTeacherExperience
+    ? { teacherAccountId }
+    : student?.id
+      ? { studentId: student.id }
+      : null;
 
   const loadNotifications = useCallback(async () => {
-    if (!student?.id) return;
+    if (!student?.id && !teacherAccountId) return;
     setLoading(true);
-    const [adminResult, readsResult, coursesResult, paymentsResult, videosResult, eventsResult] = await Promise.all([
+
+    const [adminResult, eventsResult] = await Promise.all([
       supabase.from("app_notifications").select("id, title, body, category, link, starts_at, created_at").order("starts_at", { ascending: false }).limit(40),
-      supabase.from("app_notification_reads").select("notification_key").eq("tesseramento_id", student.id),
-      supabase.from("iscrizioni_corsi").select("id, stato, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, sala)").eq("tesseramento_id", student.id).eq("stato", "attivo"),
-      supabase.from("pagamenti").select("id, descrizione, stato, scadenza, periodo_inizio, created_at, updated_at").eq("tesseramento_id", student.id).order("created_at", { ascending: false }).limit(20),
-      supabase.from("video_corsi").select("id, titolo, created_at, corsi(nome)").order("created_at", { ascending: false }).limit(20),
       loadUpcomingEvents({ limit: 8 }),
     ]);
+
+    let readsQuery = supabase.from("app_notification_reads").select("notification_key");
+    readsQuery = teacherAccountId
+      ? readsQuery.eq("teacher_account_id", teacherAccountId)
+      : readsQuery.eq("tesseramento_id", student.id);
+    const readsResult = await readsQuery;
+
+    let courses = [];
+    let payments = [];
+    let videos = [];
+
+    if (teacherAccountId && teacher?.profile_id) {
+      const courseResult = await supabase
+        .from("app_teacher_profile_courses")
+        .select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, sala)")
+        .eq("profile_id", teacher.profile_id);
+      courses = (courseResult.data || []).map((row) => ({ ...row, rinnovo_attivo: true }));
+      const courseIds = courses.map((row) => row.corso_id).filter(Boolean);
+      if (courseIds.length) {
+        const videoResult = await supabase
+          .from("video_corsi")
+          .select("id, titolo, created_at, corso_id, corsi(nome)")
+          .eq("pubblicato", true)
+          .in("corso_id", courseIds)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        videos = videoResult.data || [];
+      }
+    } else if (student?.id) {
+      const [coursesResult, paymentsResult, videosResult] = await Promise.all([
+        supabase.from("iscrizioni_corsi").select("id, stato, rinnovo_attivo, corsi(id, nome, livello, giorno_settimana, ora_inizio, sala)").eq("tesseramento_id", student.id).eq("stato", "attivo"),
+        supabase.from("pagamenti").select("id, descrizione, stato, scadenza, periodo_inizio, created_at, updated_at").eq("tesseramento_id", student.id).order("created_at", { ascending: false }).limit(20),
+        supabase.from("video_corsi").select("id, titolo, created_at, corsi(nome)").order("created_at", { ascending: false }).limit(20),
+      ]);
+      courses = (coursesResult.data || []).filter((row) => row.rinnovo_attivo !== false);
+      payments = paymentsResult.data || [];
+      videos = videosResult.data || [];
+    }
 
     const adminItems = (adminResult.data || []).map((row) => ({
       key: `admin:${row.id}`,
@@ -119,9 +161,9 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
     }));
 
     const automatic = buildAutomaticNotifications({
-      courses: (coursesResult.data || []).filter((row) => row.rinnovo_attivo !== false),
-      payments: paymentsResult.data || [],
-      videos: videosResult.data || [],
+      courses,
+      payments,
+      videos,
       events: eventsResult.events || [],
     });
 
@@ -132,18 +174,18 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
     setItems(merged);
     setReadKeys(new Set((readsResult.data || []).map((row) => row.notification_key)));
     setLoading(false);
-  }, [student?.id]);
+  }, [student?.id, teacherAccountId, teacher?.profile_id]);
 
   const refreshPushState = useCallback(async () => {
-    if (!student?.id) return;
+    if (!pushOwner) return;
     try {
-      const state = await getCurrentPushSubscription(student.id);
+      const state = await getCurrentPushSubscription(pushOwner);
       setPushState({ ...state, loading: false });
     } catch (error) {
       console.warn(error);
       setPushState((current) => ({ ...current, loading: false }));
     }
-  }, [student?.id]);
+  }, [student?.id, teacherAccountId]);
 
   useEffect(() => {
     loadNotifications();
@@ -157,25 +199,30 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
   }, [onUnreadChange, unreadCount]);
 
   async function markRead(key) {
-    if (readKeys.has(key) || !student?.id) return;
+    if (readKeys.has(key) || (!student?.id && !teacherAccountId)) return;
     setReadKeys((current) => new Set(current).add(key));
-    await supabase.from("app_notification_reads").upsert({ tesseramento_id: student.id, notification_key: key }, { onConflict: "tesseramento_id,notification_key" });
+    const payload = teacherAccountId
+      ? { teacher_account_id: teacherAccountId, notification_key: key }
+      : { tesseramento_id: student.id, notification_key: key };
+    const conflict = teacherAccountId ? "teacher_account_id,notification_key" : "tesseramento_id,notification_key";
+    await supabase.from("app_notification_reads").upsert(payload, { onConflict: conflict });
   }
 
   async function markAllRead() {
     const unread = items.filter((item) => !readKeys.has(item.key));
-    if (!unread.length) return;
+    if (!unread.length || (!student?.id && !teacherAccountId)) return;
     setReadKeys(new Set(items.map((item) => item.key)));
-    await supabase.from("app_notification_reads").upsert(
-      unread.map((item) => ({ tesseramento_id: student.id, notification_key: item.key })),
-      { onConflict: "tesseramento_id,notification_key" }
-    );
+    const rows = unread.map((item) => teacherAccountId
+      ? { teacher_account_id: teacherAccountId, notification_key: item.key }
+      : { tesseramento_id: student.id, notification_key: item.key });
+    const conflict = teacherAccountId ? "teacher_account_id,notification_key" : "tesseramento_id,notification_key";
+    await supabase.from("app_notification_reads").upsert(rows, { onConflict: conflict });
   }
 
   async function enablePush() {
     setPushMessage("");
     try {
-      await subscribeToPush(student.id);
+      await subscribeToPush(pushOwner);
       setPushMessage("Notifiche push attivate su questo dispositivo.");
       await refreshPushState();
     } catch (error) {
@@ -187,7 +234,7 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
   async function disablePush() {
     setPushMessage("");
     try {
-      await unsubscribeFromPush(student.id);
+      await unsubscribeFromPush(pushOwner);
       setPushMessage("Notifiche push disattivate su questo dispositivo.");
       await refreshPushState();
     } catch (error) {
@@ -201,7 +248,7 @@ export default function NotificationCenter({ student, open, onClose, onUnreadCha
   let pushDescription = "Ricevi avvisi di Orchidea anche quando l’app è chiusa.";
   if (!pushState.vapidConfigured) pushDescription = "Configurazione push da completare sul server.";
   else if (!pushState.supported) pushDescription = "Questo browser non supporta le notifiche push.";
-  else if (pushState.requiresInstall) pushDescription = "Su iPhone installa prima Orchidea Allievi nella schermata Home, poi aprila dall’icona.";
+  else if (pushState.requiresInstall) pushDescription = "Su iPhone installa prima Orchidea nella schermata Home, poi aprila dall’icona.";
   else if (pushActive) pushDescription = "Questo telefono è registrato e può ricevere notifiche anche ad app chiusa.";
   else if (pushState.permission === "denied") pushDescription = "Le notifiche sono bloccate nelle impostazioni del dispositivo/browser.";
 

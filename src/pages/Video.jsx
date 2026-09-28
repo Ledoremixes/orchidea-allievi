@@ -34,7 +34,8 @@ function getVideoPreviewUrl(url) {
 }
 
 export default function Video() {
-  const { student } = useOutletContext();
+  const { student, teacher, isAdmin } = useOutletContext();
+  const teacherExperience = Boolean(teacher) && !isAdmin;
   const [enrollments, setEnrollments] = useState([]);
   const [videos, setVideos] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("all");
@@ -54,13 +55,32 @@ export default function Video() {
       setVideos([]);
       setEnrollments([]);
 
-      const { data: enrollmentsData, error: enrollmentsError } = await supabase
-        .from("iscrizioni_corsi")
-        .select("id, corso_id, stato, rinnovo_attivo, data_iscrizione, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
-        .eq("tesseramento_id", student.id)
-        .eq("stato", "attivo")
-        .neq("rinnovo_attivo", false)
-        .order("data_iscrizione", { ascending: false });
+      let enrollmentsData = [];
+      let enrollmentsError = null;
+
+      if (teacherExperience) {
+        const result = await supabase
+          .from("app_teacher_profile_courses")
+          .select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
+          .eq("profile_id", teacher.profile_id);
+        enrollmentsError = result.error;
+        enrollmentsData = (result.data || []).filter((row) => row.corsi).map((row) => ({
+          ...row,
+          stato: "attivo",
+          rinnovo_attivo: true,
+          data_iscrizione: null,
+        }));
+      } else if (student?.id) {
+        const result = await supabase
+          .from("iscrizioni_corsi")
+          .select("id, corso_id, stato, rinnovo_attivo, data_iscrizione, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
+          .eq("tesseramento_id", student.id)
+          .eq("stato", "attivo")
+          .neq("rinnovo_attivo", false)
+          .order("data_iscrizione", { ascending: false });
+        enrollmentsError = result.error;
+        enrollmentsData = result.data || [];
+      }
 
       if (!mounted) return;
 
@@ -129,7 +149,7 @@ export default function Video() {
     return () => {
       mounted = false;
     };
-  }, [student.id]);
+  }, [student?.id, teacher?.profile_id, teacherExperience]);
 
   useEffect(() => {
     setCoursePages({});
@@ -288,10 +308,10 @@ export default function Video() {
     <section className="page-section video-page-v2 comfort-page">
       <div className="video-hero-card video-diary-hero content-card">
         <div>
-          <span className="eyebrow">Il tuo diario di ballo</span>
-          <h2>Ripassa quello che hai fatto a lezione</h2>
+          <span className="eyebrow">{teacherExperience ? "Libreria docente" : "Il tuo diario di ballo"}</span>
+          <h2>{teacherExperience ? "Video e materiali dei tuoi corsi" : "Ripassa quello che hai fatto a lezione"}</h2>
           <p>
-            Ogni corso ha il suo spazio: ultimi video, storico dei ripassi e ricerca veloce. Così ritrovi subito una figura anche settimane dopo.
+            {teacherExperience ? "Ritrova rapidamente i video pubblicati per i corsi che insegni e controlla cosa è disponibile agli allievi." : "Ogni corso ha il suo spazio: ultimi video, storico dei ripassi e ricerca veloce. Così ritrovi subito una figura anche settimane dopo."}
           </p>
         </div>
 

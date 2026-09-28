@@ -1,0 +1,38 @@
+ORCHIDEA APP - STEP 24
+======================
+
+COSA CAMBIA
+- Login ridisegnato graficamente in stile premium/mobile.
+- L'app insegnante non e' piu' una singola pagina: usa la stessa Orchidea App.
+- Un insegnante vede Home, Corsi, Compensi, Video, Eventi/Serate e modalita' "Sono all'Orchidea".
+- Se l'insegnante possiede anche un tesseramento, mantiene anche la Tessera digitale.
+- Le Quote allievo non compaiono nell'esperienza docente: al loro posto c'e' Compensi.
+- Le notifiche push generali possono essere attivate anche dagli insegnanti.
+- I corsi insegnante derivano dai corsi assegnati nel pannello Admin.
+- I video visibili sono quelli pubblicati per i corsi assegnati.
+
+COMPENSI
+- L'app usa direttamente public.pagamenti + public.insegnanti_corsi + public.corsi,
+  la stessa base dati usata dal pannello Nova/Admin.
+- Il calcolo replica: pagamenti pagati del mese, divisione mensile di trimestrali/annuali,
+  quota fissa, percentuale oppure default 40% diviso tra insegnanti del corso.
+- STEP 24 prova anche a correggere i vecchi account docente collegati per errore
+  a un insegnante duplicato senza corsi, cercando il profilo Nova per email/nome.
+- Dal pannello Admin non viene piu' creato automaticamente un nuovo record compensi:
+  bisogna collegare il vero "Profilo compensi Nova".
+
+PRIMA DEL DEPLOY
+1. Supabase > SQL Editor.
+2. Eseguire: supabase/step-24-app-unica-insegnanti-compensi-nova.sql
+3. Admin > Community & app > profilo insegnante.
+4. Verificare che "Profilo compensi" punti allo stesso insegnante usato in Nova.
+5. Deploy su Vercel.
+
+NON SERVE
+- creare nuove Edge Functions;
+- cambiare le chiavi VAPID;
+- cambiare variabili Vercel;
+- reinstallare la PWA sui telefoni.
+
+NOTA
+Dopo il deploy, aprire l'app una volta sul telefono per aggiornare il Service Worker/frontend.

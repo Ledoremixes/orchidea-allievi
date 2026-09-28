@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data?.text?.() || "Hai una nuova notifica Orchidea." };
   }
 
-  const title = payload.title || "Orchidea Allievi";
+  const title = payload.title || "Orchidea";
   const options = {
     body: payload.body || "Hai una nuova notifica.",
     icon: payload.icon || "/icons/icon-192.png",

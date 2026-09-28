@@ -167,7 +167,7 @@ export default function Login() {
     }
 
     if (data.session) {
-      navigate(firstAccess.role === "teacher" ? "/insegnante" : "/", { replace: true });
+      navigate("/", { replace: true });
       return;
     }
 

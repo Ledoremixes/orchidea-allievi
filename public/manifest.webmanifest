@@ -1,7 +1,7 @@
 {
-  "name": "Orchidea Allievi",
+  "name": "Orchidea",
   "short_name": "Orchidea",
-  "description": "Orchidea Allievi: tessera digitale, corsi, eventi, pagamenti, rewards e notifiche.",
+  "description": "Orchidea: corsi, compensi, eventi, tessera digitale, video, rewards e notifiche.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

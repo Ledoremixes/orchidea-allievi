@@ -15,7 +15,13 @@ const studentNavItems = [
   { to: "/eventi", label: "Eventi", icon: "events" },
 ];
 
-const teacherNavItem = { to: "/insegnante", label: "Compensi", icon: "wallet" };
+const teacherNavItems = [
+  { to: "/", label: "Home", icon: "home", end: true },
+  { to: "/corsi", label: "Corsi", icon: "courses" },
+  { to: "/insegnante", label: "Compensi", icon: "wallet" },
+  { to: "/video", label: "Video", icon: "play" },
+  { to: "/eventi", label: "Eventi", icon: "events" },
+];
 const adminNavItem = { to: "/admin", label: "Admin", icon: "admin" };
 
 function NavIcon({ name }) {
@@ -162,13 +168,6 @@ export default function AppShell() {
     };
   }, []);
 
-  useEffect(() => {
-    if (loading) return;
-    if (teacher && !student && !isAdmin && location.pathname === "/") {
-      navigate("/insegnante", { replace: true });
-    }
-  }, [loading, teacher, student, isAdmin, location.pathname, navigate]);
-
   const displayName = useMemo(() => {
     if (student) {
       return `${student.nome || ""} ${student.cognome || ""}`.trim() || student.email || "Allievo Orchidea";
@@ -177,11 +176,15 @@ export default function AppShell() {
     return sessionUser?.email || "Account Orchidea";
   }, [student, teacher, sessionUser]);
 
-  const navItems = teacher && !student && !isAdmin
-    ? [teacherNavItem]
+  const teacherExperience = Boolean(teacher) && !isAdmin;
+  const navItems = teacherExperience
+    ? [
+        teacherNavItems[0],
+        ...(student ? [{ to: "/tessera", label: "Tessera", icon: "card" }] : []),
+        ...teacherNavItems.slice(1),
+      ]
     : [
         ...studentNavItems,
-        ...(teacher ? [teacherNavItem] : []),
         ...(isAdmin ? [adminNavItem] : []),
       ];
 
@@ -193,21 +196,21 @@ export default function AppShell() {
   return (
     <div className="app-layout app-layout-revolution orchidea-native-shell">
       <main className={`main-area ${isAdminPath ? "is-admin-area" : isTeacherPath ? "is-teacher-area" : "is-student-area"}`}>
-        {student && !isAdminPath && <InstallAppBanner />}
+        {(student || teacher) && !isAdminPath && <InstallAppBanner />}
         <header className="orchidea-app-header" aria-label="Intestazione Orchidea">
           <div className="orchidea-header-logo">
             <img src="/assets/logo.png" alt="Orchidea" />
           </div>
 
           <div className="orchidea-header-actions">
-            {student && !isAdminPath && (
+            {(student || teacher) && !isAdminPath && (
               <>
-                <button type="button" className="orchidea-header-icon-btn" onClick={() => navigate("/agenda")} aria-label="Apri agenda personale" title="Agenda">
+                <button type="button" className="orchidea-header-icon-btn" onClick={() => navigate(teacherExperience ? "/corsi" : "/agenda")} aria-label={teacherExperience ? "Apri agenda corsi" : "Apri agenda personale"} title="Agenda">
                   <span aria-hidden="true">◷</span>
                 </button>
-                <button type="button" className="orchidea-header-icon-btn" onClick={() => setQuickQrOpen(true)} aria-label="Apri QR tessera" title="Tessera rapida">
+                {student && <button type="button" className="orchidea-header-icon-btn" onClick={() => setQuickQrOpen(true)} aria-label="Apri QR tessera" title="Tessera rapida">
                   <span aria-hidden="true">▦</span>
-                </button>
+                </button>}
                 <button type="button" className="orchidea-header-icon-btn has-badge" onClick={() => setNotificationsOpen(true)} aria-label={`Notifiche${unreadNotifications ? `, ${unreadNotifications} non lette` : ""}`} title="Notifiche">
                   <span aria-hidden="true">♢</span>
                   {unreadNotifications > 0 && <b>{unreadNotifications > 9 ? "9+" : unreadNotifications}</b>}
@@ -243,11 +246,11 @@ export default function AppShell() {
         )}
       </main>
 
-      {student && !isAdminPath && (
+      {(student || teacher) && !isAdminPath && (
         <>
-          <NotificationCenter student={student} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
-          <QuickQrModal student={student} open={quickQrOpen} onClose={() => setQuickQrOpen(false)} />
-          <ClubMode student={student} />
+          {(student || teacher) && <NotificationCenter student={student} teacher={teacher} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />}
+          {student && <QuickQrModal student={student} open={quickQrOpen} onClose={() => setQuickQrOpen(false)} />}
+          <ClubMode student={student} teacher={teacher} />
         </>
       )}
 

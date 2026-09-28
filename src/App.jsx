@@ -5,7 +5,7 @@ import TeacherRoute from "./components/TeacherRoute.jsx";
 import AppShell from "./components/AppShell.jsx";
 import Login from "./pages/Login.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
+import Home from "./pages/Home.jsx";
 import Tessera from "./pages/Tessera.jsx";
 import Corsi from "./pages/Corsi.jsx";
 import Pagamenti from "./pages/Pagamenti.jsx";
@@ -28,7 +28,7 @@ export default function App() {
         </Route>
 
         <Route element={<AppShell />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Home />} />
           <Route path="tessera" element={<Tessera />} />
           <Route path="corsi" element={<Corsi />} />
           <Route path="pagamenti" element={<Pagamenti />} />

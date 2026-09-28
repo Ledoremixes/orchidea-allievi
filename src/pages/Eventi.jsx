@@ -73,7 +73,7 @@ function displayPerson(person) {
   return `${person?.nome || ""} ${person?.cognome || ""}`.trim() || "Allievo Orchidea";
 }
 
-function EventAttendance({ attendees = [], loading, voting, error, onToggle, compact = false }) {
+function EventAttendance({ attendees = [], loading, voting, error, onToggle, compact = false, canVote = true }) {
   const [showAll, setShowAll] = useState(false);
   const isAttending = attendees.some((person) => person.isMe);
   const companions = attendees.filter((person) => !person.isMe);
@@ -95,16 +95,18 @@ function EventAttendance({ attendees = [], loading, voting, error, onToggle, com
                 : `${companions.length} tuoi compagni hanno confermato`}
           </strong>
         </div>
-        <button
-          type="button"
-          className={`event-attendance-vote ${isAttending ? "is-attending" : ""}`.trim()}
-          onClick={onToggle}
-          disabled={loading || voting || Boolean(error)}
-          aria-pressed={isAttending}
-        >
-          <span>{isAttending ? "✓" : "+"}</span>
-          {voting ? "Salvataggio…" : isAttending ? "Ci sarò ✓" : "Ci sarò"}
-        </button>
+        {canVote ? (
+          <button
+            type="button"
+            className={`event-attendance-vote ${isAttending ? "is-attending" : ""}`.trim()}
+            onClick={onToggle}
+            disabled={loading || voting || Boolean(error)}
+            aria-pressed={isAttending}
+          >
+            <span>{isAttending ? "✓" : "+"}</span>
+            {voting ? "Salvataggio…" : isAttending ? "Ci sarò ✓" : "Ci sarò"}
+          </button>
+        ) : <span className="event-attendance-view-only">Community Orchidea</span>}
       </div>
 
       {error ? (
@@ -136,7 +138,8 @@ function EventAttendance({ attendees = [], loading, voting, error, onToggle, com
 }
 
 export default function Eventi() {
-  const { student } = useOutletContext();
+  const { student, teacher, isAdmin } = useOutletContext();
+  const teacherExperience = Boolean(teacher) && !isAdmin;
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -222,14 +225,14 @@ export default function Eventi() {
         <div>
           <span className="orchidea-kicker">Vivi Orchidea</span>
           <h2>Eventi e serate</h2>
-          <p>Scopri i prossimi appuntamenti, dì ai tuoi compagni che ci sarai e vieni a ballare con noi.</p>
+          <p>{teacherExperience ? "Tutte le serate, gli eventi e gli appuntamenti del club sempre a portata di mano." : "Scopri i prossimi appuntamenti, dì ai tuoi compagni che ci sarai e vieni a ballare con noi."}</p>
         </div>
       </div>
 
       {!loading && events.length > 0 && (
         <div className="event-community-summary" aria-label="Riepilogo eventi">
           <div><span>Prossimi eventi</span><strong>{events.length}</strong></div>
-          <div><span>Hai confermato</span><strong>{communityStats.myEvents}</strong></div>
+          <div><span>{teacherExperience ? "Community" : "Hai confermato"}</span><strong>{teacherExperience ? communityStats.companions : communityStats.myEvents}</strong></div>
           <div><span>Compagni presenti</span><strong>{attendanceLoading ? "…" : communityStats.companions}</strong></div>
         </div>
       )}
@@ -277,6 +280,7 @@ export default function Eventi() {
                 voting={isVoting(featuredEvent)}
                 error={attendanceError}
                 onToggle={() => handleAttendanceToggle(featuredEvent)}
+                canVote={Boolean(student?.id)}
               />
               <div className="event-actions-row">
                 <button type="button" className="event-calendar-button" onClick={() => downloadEventCalendar(featuredEvent)}>
@@ -316,6 +320,7 @@ export default function Eventi() {
                         voting={isVoting(event)}
                         error={attendanceError}
                         onToggle={() => handleAttendanceToggle(event)}
+                        canVote={Boolean(student?.id)}
                         compact
                       />
                       <button type="button" className="event-calendar-button is-compact" onClick={() => downloadEventCalendar(event)}>
