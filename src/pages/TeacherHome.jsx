@@ -28,6 +28,7 @@ export default function TeacherHome() {
   const [courseLinks, setCourseLinks] = useState([]);
   const [events, setEvents] = useState([]);
   const [compensations, setCompensations] = useState([]);
+  const [compensationError, setCompensationError] = useState(false);
   const [videoCount, setVideoCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -41,7 +42,7 @@ export default function TeacherHome() {
           .from("app_teacher_profile_courses")
           .select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
           .eq("profile_id", teacher.profile_id),
-        supabase.rpc("get_my_teacher_compensation", { p_month: currentMonthValue() }),
+        supabase.rpc("get_my_teacher_compensation_nova", { p_month: currentMonthValue() }),
         loadUpcomingEvents({ limit: 3 }),
       ]);
 
@@ -49,6 +50,7 @@ export default function TeacherHome() {
       const links = (linksResult.data || []).filter((row) => row.corsi?.attivo !== false).sort(sortCourses);
       setCourseLinks(links);
       setCompensations(compensationResult.error ? [] : (compensationResult.data || []));
+      setCompensationError(Boolean(compensationResult.error));
       setEvents(eventResult.events || []);
 
       const courseIds = links.map((row) => row.corso_id).filter(Boolean);
@@ -95,7 +97,7 @@ export default function TeacherHome() {
       <section className="neo-panel teacher-home-compensation-panel">
         <div className="neo-panel-title with-link"><div><span>€</span><h3>Compensi del mese</h3></div><Link to="/insegnante">Dettaglio</Link></div>
         <div className="teacher-home-pay-card">
-          <div><small>Totale maturato</small><strong>{loading ? "…" : formatMoney(monthTotal)}</strong><span>{compensations.length} {compensations.length === 1 ? "corso conteggiato" : "corsi conteggiati"}</span></div>
+          <div><small>Totale maturato</small><strong>{loading ? "…" : compensationError ? "Non disponibile" : formatMoney(monthTotal)}</strong><span>{compensationError ? "Sincronizzazione Nova non disponibile" : `${compensations.length} ${compensations.length === 1 ? "corso conteggiato" : "corsi conteggiati"}`}</span></div>
           <Link to="/insegnante">Apri compensi →</Link>
         </div>
       </section>

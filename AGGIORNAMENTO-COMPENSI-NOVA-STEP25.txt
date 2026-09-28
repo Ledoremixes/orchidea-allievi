@@ -1,0 +1,23 @@
+ORCHIDEA APP - STEP 25
+COMPENSI INSEGNANTI ALLINEATI ALLA LOGICA REALE DI NOVA
+
+Cosa cambia
+- Corretto il calcolo compensi: non usa piu' pagamenti.corso_id.
+- Usa il pagamento mensile autorevole per allievo e mese (quota_mensile), come Nova.
+- La quota realmente pagata viene ripartita tra TUTTI i corsi attivi dell'allievo in proporzione al prezzo mensile.
+- Viene poi applicata la regola salvata sul profilo insegnante Nova: percentuale, fisso o orario.
+- Prezzi storici delle iscrizioni letti da nova_package_pricing_history.
+- Omaggi = 0 euro; trimestrali/annuali seguono le righe mensili di competenza create da Nova; gettoni e record legacy restano compatibili.
+- L'area insegnante non mostra piu' l'incasso dei corsi.
+- Per ogni corso mostra solo il compenso personale e il numero di corsisti paganti.
+- Se la lettura compensi fallisce, l'app non mostra piu' un falso 0 euro: mostra "Non disponibile" e il pulsante Riprova.
+
+Installazione
+1. Supabase > SQL Editor.
+2. Eseguire supabase/step-25-compensi-insegnanti-nova-reali.sql.
+3. Pubblicare questa versione su Vercel.
+4. Chiudere e riaprire la PWA Orchidea.
+
+Nota tecnica
+La correzione replica il flusso usato dal gestionale Nova dopo il fix del 15/09/2026:
+pagamento mensile normalizzato -> ripartizione proporzionale sui corsi -> regola compenso del docente.

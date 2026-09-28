@@ -17658,3 +17658,54 @@ body,
     display: none;
   }
 }
+
+
+/* STEP 25 - compensi docente allineati a Nova, senza dati di incasso */
+.teacher-compensation-values-clean {
+  grid-template-columns: minmax(180px, 1fr);
+}
+
+.teacher-compensation-values-clean .teacher-pay-highlight {
+  min-height: 76px;
+  align-content: center;
+}
+
+.teacher-compensation-values-clean small {
+  color: rgba(255, 255, 255, .48);
+  font-size: 11px;
+}
+
+.teacher-kpi-grid-clean article:nth-child(3) strong {
+  font-size: 22px;
+}
+
+@media (max-width: 520px) {
+  .teacher-compensation-values-clean {
+    grid-template-columns: 1fr;
+  }
+}
+
+.teacher-compensation-sync-error {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 117, 117, .22);
+  background: rgba(124, 20, 45, .13);
+}
+
+.teacher-compensation-sync-error strong { color: #fff; }
+.teacher-compensation-sync-error span { color: rgba(255,255,255,.58); font-size: 13px; }
+.teacher-compensation-sync-error button {
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 16px;
+  margin-top: 3px;
+  border: 1px solid rgba(241, 194, 91, .30);
+  border-radius: 999px;
+  color: #f2c45c;
+  background: rgba(241, 194, 91, .08);
+  font: inherit;
+  font-weight: 800;
+}
