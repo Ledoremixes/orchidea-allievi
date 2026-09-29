@@ -12,6 +12,7 @@ import Pagamenti from "./pages/Pagamenti.jsx";
 import Video from "./pages/Video.jsx";
 import Eventi from "./pages/Eventi.jsx";
 import Agenda from "./pages/Agenda.jsx";
+import Profilo from "./pages/Profilo.jsx";
 import KioskCheckIn from "./pages/KioskCheckIn.jsx";
 import TeacherDashboard from "./pages/TeacherDashboard.jsx";
 import AdminPanel from "./pages/admin/AdminPanel.jsx";
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="video" element={<Video />} />
           <Route path="eventi" element={<Eventi />} />
           <Route path="agenda" element={<Agenda />} />
+          <Route path="profilo" element={<Profilo />} />
 
           <Route element={<TeacherRoute />}>
             <Route path="insegnante" element={<TeacherDashboard />} />

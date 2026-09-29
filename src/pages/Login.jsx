@@ -18,6 +18,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstAccess, setFirstAccess] = useState(firstAccessInitial);
+  const [resetIdentity, setResetIdentity] = useState({ email: "", cf: "" });
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -77,16 +78,50 @@ export default function Login() {
     navigate(from, { replace: true });
   }
 
-  async function handlePasswordReset() {
+  function openPasswordReset() {
+    resetFeedback();
+    setResetIdentity({ email: email.trim(), cf: "" });
+    setMode("forgot");
+  }
+
+  async function handlePasswordReset(e) {
+    e.preventDefault();
     resetFeedback();
 
-    const resetEmail = email.trim();
-    if (!resetEmail) {
-      setError("Inserisci prima la tua email nel campo di accesso.");
+    const resetEmail = resetIdentity.email.trim().toLowerCase();
+    const resetCf = resetIdentity.cf.replace(/\s+/g, "").toUpperCase();
+
+    if (!resetEmail) return setError("Inserisci l’email associata al tuo account Orchidea.");
+    if (!resetCf) return setError("Inserisci il tuo codice fiscale per confermare la tua identità.");
+
+    setResetLoading(true);
+
+    const verification = await supabase.rpc("verify_password_reset_identity", {
+      p_email: resetEmail,
+      p_cf: resetCf,
+    });
+
+    if (verification.error) {
+      setResetLoading(false);
+      setError(verification.error.message.includes("function")
+        ? "Il recupero password protetto non è ancora configurato su Supabase. Esegui lo STEP 27 e riprova."
+        : verification.error.message);
       return;
     }
 
-    setResetLoading(true);
+    const result = verification.data || {};
+    if (!result.ok) {
+      setResetLoading(false);
+      if (result.status === "first_access_required") {
+        setFirstAccess((current) => ({ ...current, email: resetEmail, cf: resetCf }));
+        setMode("first");
+        setError("Questo profilo non ha ancora completato il primo accesso. Attiva l’account qui sotto e scegli direttamente la password.");
+        return;
+      }
+      setError("Email e codice fiscale non corrispondono a un account Orchidea attivo. Controlla i dati inseriti.");
+      return;
+    }
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
       redirectTo: `${window.location.origin}/set-password`,
     });
@@ -97,7 +132,8 @@ export default function Login() {
       return;
     }
 
-    setMessage("Ti abbiamo inviato il link per scegliere una nuova password.");
+    setEmail(resetEmail);
+    setMessage("Identità verificata. Ti abbiamo inviato un’email con il link per scegliere una nuova password.");
   }
 
   async function handleFirstAccess(e) {
@@ -235,17 +271,58 @@ export default function Login() {
                 />
               </label>
 
-              <button className="primary-btn" type="submit" disabled={loading}>
-                {loading ? "Accesso in corso…" : "Accedi"}
+              <button className="link-btn comfort-link-btn forgot-password-link" type="button" onClick={openPasswordReset}>
+                Hai dimenticato la password?
               </button>
 
-              <button className="link-btn comfort-link-btn" type="button" onClick={handlePasswordReset} disabled={resetLoading}>
-                {resetLoading ? "Invio link…" : "Password dimenticata?"}
+              <button className="primary-btn" type="submit" disabled={loading}>
+                {loading ? "Accesso in corso…" : "Accedi"}
               </button>
 
               <div className="auth-safe-note upgraded-auth-note">
                 <strong>Non hai mai effettuato l’accesso?</strong>
                 <span>Apri “Primo accesso” qui sopra: verifichiamo il tuo profilo e scegli subito la password.</span>
+              </div>
+            </form>
+          ) : mode === "forgot" ? (
+            <form onSubmit={handlePasswordReset} className="auth-mode-panel password-recovery-panel">
+              <span className="eyebrow">Recupero account</span>
+              <h2>Reimposta la password</h2>
+              <p className="auth-form-intro">Prima di inviare il link controlliamo che l’email appartenga davvero al tuo profilo Orchidea.</p>
+
+              <label className="comfort-field">
+                Email registrata
+                <input
+                  type="email"
+                  value={resetIdentity.email}
+                  onChange={(e) => setResetIdentity((current) => ({ ...current, email: e.target.value }))}
+                  placeholder="nome@email.it"
+                  autoComplete="email"
+                />
+              </label>
+
+              <label className="comfort-field">
+                Codice fiscale
+                <input
+                  value={resetIdentity.cf}
+                  onChange={(e) => setResetIdentity((current) => ({ ...current, cf: e.target.value.toUpperCase() }))}
+                  placeholder="RSSMRA..."
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
+              </label>
+
+              <button className="primary-btn" type="submit" disabled={resetLoading}>
+                {resetLoading ? "Verifica in corso…" : "Verifica e invia link"}
+              </button>
+
+              <button className="link-btn comfort-link-btn" type="button" onClick={() => changeMode("login")} disabled={resetLoading}>
+                ← Torna all’accesso
+              </button>
+
+              <div className="auth-safe-note upgraded-auth-note password-reset-safe-note">
+                <strong>Controllo identità</strong>
+                <span>Il link parte soltanto se email e codice fiscale coincidono con i dati registrati in Orchidea.</span>
               </div>
             </form>
           ) : (

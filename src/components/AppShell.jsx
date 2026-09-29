@@ -5,6 +5,7 @@ import NotificationCenter from "./NotificationCenter.jsx";
 import QuickQrModal from "./QuickQrModal.jsx";
 import ClubMode from "./ClubMode.jsx";
 import InstallAppBanner from "./InstallAppBanner.jsx";
+import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
 
 const studentNavItems = [
   { to: "/", label: "Home", icon: "home", end: true },
@@ -101,6 +102,13 @@ function NavIcon({ name }) {
           </g>
         </svg>
       );
+    case "profile":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="8.2" r="3.2" />
+          <path d="M5.2 20c.7-4 3-6 6.8-6s6.1 2 6.8 6" />
+        </svg>
+      );
     case "logout":
       return (
         <svg {...common}>
@@ -128,6 +136,7 @@ export default function AppShell() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [quickQrOpen, setQuickQrOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -167,6 +176,35 @@ export default function AppShell() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfilePhoto() {
+      if (!student?.foto_profilo_path) {
+        if (active) setProfilePhotoUrl("");
+        return;
+      }
+      const url = await createProfilePhotoSignedUrl(student.foto_profilo_path);
+      if (active) setProfilePhotoUrl(url);
+    }
+
+    loadProfilePhoto();
+
+    function handleProfilePhotoUpdated(event) {
+      if (!active) return;
+      setProfilePhotoUrl(event?.detail?.url || "");
+      if (event?.detail && Object.prototype.hasOwnProperty.call(event.detail, "path")) {
+        setStudent((current) => current ? { ...current, foto_profilo_path: event.detail.path || null } : current);
+      }
+    }
+
+    window.addEventListener("orchidea-profile-photo-updated", handleProfilePhotoUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener("orchidea-profile-photo-updated", handleProfilePhotoUpdated);
+    };
+  }, [student?.foto_profilo_path]);
 
   const displayName = useMemo(() => {
     if (student) {
@@ -215,6 +253,11 @@ export default function AppShell() {
                   <span aria-hidden="true">♢</span>
                   {unreadNotifications > 0 && <b>{unreadNotifications > 9 ? "9+" : unreadNotifications}</b>}
                 </button>
+                {student && (
+                  <button type="button" className={`orchidea-header-icon-btn orchidea-profile-header-btn${profilePhotoUrl ? " has-photo" : ""}`} onClick={() => navigate("/profilo")} aria-label="Apri il mio profilo" title="Profilo">
+                    {profilePhotoUrl ? <img src={profilePhotoUrl} alt="" /> : <NavIcon name="profile" />}
+                  </button>
+                )}
               </>
             )}
             <button type="button" className="orchidea-logout-button" onClick={handleLogout}>
