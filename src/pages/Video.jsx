@@ -309,7 +309,7 @@ export default function Video() {
           <span className="eyebrow">{teacherExperience ? "Libreria docente" : "Il tuo diario di ballo"}</span>
           <h2>{teacherExperience ? "Video e materiali dei tuoi corsi" : "Ripassa quello che hai fatto a lezione"}</h2>
           <p>
-            {teacherExperience ? "Ritrova rapidamente i video pubblicati per i corsi che insegni e controlla cosa è disponibile agli allievi." : "Ogni corso ha il suo spazio: ultimi video, storico dei ripassi e ricerca veloce. Così ritrovi subito una figura anche settimane dopo."}
+            {teacherExperience ? "Ritrova rapidamente i video pubblicati per i corsi che insegni e controlla cosa è disponibile agli allievi." : "Usa l’Archivio Ripassi per filtrare per corso, cercare una figura e ritrovare subito una lezione anche settimane dopo."}
           </p>
         </div>
 
@@ -336,34 +336,6 @@ export default function Video() {
         </div>
       ) : (
         <>
-          <div className="video-course-overview-grid">
-            {enrolledCourses.map((course) => {
-              const courseVideos = allVideosByCourse[course.id] || [];
-              const lastVideo = courseVideos[0] || null;
-              const isSelected = selectedCourseId === course.id;
-              return (
-                <button
-                  type="button"
-                  className={`video-course-overview-card ${isSelected ? "is-selected" : ""}`}
-                  key={`overview-${course.id}`}
-                  onClick={() => setSelectedCourseId(isSelected ? "all" : course.id)}
-                >
-                  <span className="video-course-overview-icon">▶</span>
-                  <div>
-                    <small>{course.nome}</small>
-                    <strong>{course.livello || "Corso"}</strong>
-                    <span>{courseLabel(course)}{course.sala ? ` · ${course.sala}` : ""}</span>
-                  </div>
-                  <em>
-                    <b>{courseVideos.length}</b>
-                    <small>{courseVideos.length === 1 ? "ripasso" : "ripassi"}</small>
-                    {lastVideo && <span>Ultimo {formatDate(lastVideo.created_at)}</span>}
-                  </em>
-                </button>
-              );
-            })}
-          </div>
-
           <div className="video-toolbar content-card video-library-toolbar video-diary-toolbar">
             <div>
               <span className="eyebrow">Archivio ripassi</span>

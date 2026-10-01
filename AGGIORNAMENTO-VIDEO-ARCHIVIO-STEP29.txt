@@ -1,0 +1,9 @@
+STEP 29 - VIDEO: ARCHIVIO RIPASSI PIU PULITO
+
+Modifica:
+- Rimossa la lista riepilogativa dei corsi mostrata verticalmente sopra "Archivio ripassi".
+- I corsi restano selezionabili direttamente tramite i filtri orizzontali dell'Archivio Ripassi.
+- Rimangono ricerca, conteggio video, video in evidenza e libreria dei ripassi.
+- Aggiornato il testo introduttivo della pagina per riflettere il nuovo flusso.
+
+Nessuna modifica SQL necessaria.
