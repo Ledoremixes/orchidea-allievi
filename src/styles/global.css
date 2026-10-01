@@ -17991,3 +17991,35 @@ body,
     line-height: 1.25;
   }
 }
+
+/* STEP 28 - Quote allineate alla logica Nova */
+.payment-season-strip-head i.gift {
+  background: #ef58d7;
+  box-shadow: 0 0 10px rgba(239, 88, 215, .36);
+}
+
+.payment-season-month.is-gift {
+  border-color: rgba(239, 88, 215, .22);
+  background: linear-gradient(180deg, rgba(239, 88, 215, .08), rgba(255, 255, 255, .025));
+}
+
+.payment-season-month.is-gift b {
+  color: #ff72df;
+  text-shadow: 0 0 12px rgba(239, 88, 215, .35);
+}
+
+.payment-history-row.is-gift {
+  border-color: rgba(239, 88, 215, .22);
+  background: linear-gradient(90deg, rgba(239, 88, 215, .055), rgba(255, 255, 255, .018));
+}
+
+.payment-history-row.is-gift .payment-history-check {
+  color: #ff71df;
+  border-color: rgba(239, 88, 215, .42);
+}
+
+.payment-history-row.is-gift em {
+  color: #ff86e4;
+  font-style: normal;
+  font-weight: 900;
+}

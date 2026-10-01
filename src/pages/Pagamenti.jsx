@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatDate, formatMoney } from "../lib/format.js";
-import { buildStudentPaymentView, isPaymentPaid } from "../lib/payments.js";
+import { buildStudentPaymentView, isPaymentGift, isPaymentPaid } from "../lib/payments.js";
 import { useStudentLiveRefresh } from "../lib/useStudentLiveRefresh.js";
 
 
@@ -24,13 +24,14 @@ function buildSeasonMonths(payments) {
   return Array.from({ length: 10 }, (_, index) => {
     const date = new Date(seasonStartYear, 8 + index, 1);
     const related = payments.filter((payment) => paymentCoversMonth(payment, date.getFullYear(), date.getMonth()));
-    const paid = related.some((payment) => isPaymentPaid(payment));
+    const gift = related.some((payment) => isPaymentGift(payment));
+    const paid = related.some((payment) => isPaymentPaid(payment) && !isPaymentGift(payment));
     const open = related.some((payment) => !isPaymentPaid(payment) && payment.stato !== "annullato");
     return {
       key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       label: date.toLocaleDateString("it-IT", { month: "short" }).replace(".", ""),
       current: date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear(),
-      status: paid ? "paid" : open ? "open" : "empty",
+      status: gift ? "gift" : paid ? "paid" : open ? "open" : "empty",
     };
   });
 }
@@ -54,12 +55,12 @@ export default function Pagamenti() {
     const [paymentsResult, coursesResult] = await Promise.all([
       supabase
         .from("pagamenti")
-        .select("id, tesseramento_id, corso_id, iscrizione_id, descrizione, importo, periodo, scadenza, stato, metodo, pagato_il, created_at, updated_at, tipo_quota, billing_cycle, periodo_inizio, periodo_fine, copertura_mesi, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, quota_pacchetto_percentuale, sumup_payment_url")
+        .select("id, tesseramento_id, corso_id, iscrizione_id, descrizione, importo, periodo, mese, scadenza, stato, metodo, pagato_il, data_pagamento, created_at, updated_at, tipo, tipo_quota, billing_cycle, periodo_inizio, periodo_fine, copertura_mesi, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, quota_pacchetto_percentuale, sumup_payment_url, nova_package_id, nova_package_name, nova_package_type, nova_package_total, nova_package_duration_months, nova_payment_group_id, nova_coverage_from, nova_coverage_to, nova_coverage_complete, nova_cash_amount")
         .eq("tesseramento_id", student.id)
         .order("scadenza", { ascending: true }),
       supabase
         .from("iscrizioni_corsi")
-        .select("id, corso_id, stato, rinnovo_attivo, tariffa_mensile, tipo_pagamento, pacchetto_id, pacchetto_totale_mensile, corsi(id, prezzo_mensile)")
+        .select("id, corso_id, stato, rinnovo_attivo, tariffa_mensile, quota_allievo_mensile, tipo_pagamento, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, corsi(id, prezzo_mensile)")
         .eq("tesseramento_id", student.id)
         .eq("stato", "attivo"),
     ]);
@@ -89,9 +90,11 @@ export default function Pagamenti() {
     paidPayments,
     currentMonthOpenPayments,
     currentMonthPaidPayments,
+    currentMonthGiftPayments,
     currentMonthOpenTotal,
     nextPayment,
     totalPaid,
+    displayPayments,
     hasCurrentMonthPaymentContext,
   } = paymentView;
   const lastPaid = paidPayments[0] || null;
@@ -99,20 +102,21 @@ export default function Pagamenti() {
   const hasAnyCurrentQuote = currentMonthOpenPayments.length > 0 || currentMonthPaidPayments.length > 0;
   const hasAnyOpenQuote = openPayments.length > 0;
   const openTotal = openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
-  const seasonMonths = useMemo(() => buildSeasonMonths(payments), [payments]);
+  const seasonMonths = useMemo(() => buildSeasonMonths(displayPayments), [displayPayments]);
 
   function renderCompactPayment(payment) {
+    const gift = isPaymentGift(payment);
     const paid = isPaymentPaid(payment);
 
     return (
-      <article className={`payment-history-row ${paid ? "is-paid" : "is-open"}`} key={payment.id}>
-        <span className="payment-history-check">{paid ? "✓" : "€"}</span>
+      <article className={`payment-history-row ${paid ? "is-paid" : "is-open"} ${gift ? "is-gift" : ""}`} key={payment.id}>
+        <span className="payment-history-check">{gift ? "✦" : paid ? "✓" : "€"}</span>
         <div>
-          <strong>{payment.descrizione || "Quota Orchidea"}</strong>
-          <small>{paid ? `Saldata il ${formatDate(payment.pagato_il)}` : `Scadenza ${formatDate(payment.scadenza || payment.periodo_inizio)}`}</small>
+          <strong>{payment.descrizione || (gift ? "Omaggio Orchidea" : "Quota Orchidea")}</strong>
+          <small>{gift ? "Copertura gratuita · nessun importo addebitato" : paid ? `Saldata il ${formatDate(payment.pagato_il || payment.data_pagamento)}` : `Scadenza ${formatDate(payment.scadenza || payment.periodo_inizio)}`}</small>
         </div>
-        <em>{formatMoney(payment.importo)}</em>
-        {payment.sumup_payment_url && !paid ? (
+        <em>{gift ? "Omaggio" : formatMoney(payment.importo)}</em>
+        {payment.sumup_payment_url && !paid && !gift ? (
           <a className="payment-row-pay-button" href={payment.sumup_payment_url} target="_blank" rel="noreferrer" aria-label="Paga online">Paga</a>
         ) : (
           <span aria-hidden="true">›</span>
@@ -136,8 +140,8 @@ export default function Pagamenti() {
       <div className="payments-overview-grid">
         <div className="payments-overview-card is-month">
           <span>Questo mese</span>
-          <strong>{loading ? "…" : currentMonthOpenPayments.length ? formatMoney(currentMonthOpenTotal) : "OK"}</strong>
-          <small>{currentMonthOpenPayments.length ? "ancora da saldare" : "situazione regolare"}</small>
+          <strong>{loading ? "…" : currentMonthOpenPayments.length ? formatMoney(currentMonthOpenTotal) : currentMonthGiftPayments.length ? "OMAGGIO" : "OK"}</strong>
+          <small>{currentMonthOpenPayments.length ? "ancora da saldare" : currentMonthGiftPayments.length ? "mese coperto gratuitamente" : "situazione regolare"}</small>
         </div>
         <div className="payments-overview-card is-open">
           <span>Quote aperte</span>
@@ -145,9 +149,9 @@ export default function Pagamenti() {
           <small>{openPayments.length} {openPayments.length === 1 ? "quota" : "quote"}</small>
         </div>
         <div className="payments-overview-card is-paid">
-          <span>Totale registrato</span>
+          <span>Totale pagato</span>
           <strong>{loading ? "…" : formatMoney(totalPaid)}</strong>
-          <small>pagamenti saldati</small>
+          <small>solo importi realmente versati</small>
         </div>
         <div className="payments-overview-card is-courses">
           <span>Corsi attivi</span>
@@ -158,8 +162,8 @@ export default function Pagamenti() {
 
       {!loading && payments.length > 0 && (
         <section className="payment-season-strip">
-          <div className="payment-season-strip-head"><div><span>Stagione 2026/27</span><strong>Situazione mese per mese</strong></div><small><i className="paid" /> pagato <i className="open" /> da saldare</small></div>
-          <div className="payment-season-months">{seasonMonths.map((month) => <div className={`payment-season-month is-${month.status} ${month.current ? "is-current" : ""}`} key={month.key}><span>{month.label}</span><b>{month.status === "paid" ? "✓" : month.status === "open" ? "!" : "·"}</b></div>)}</div>
+          <div className="payment-season-strip-head"><div><span>Stagione 2026/27</span><strong>Situazione mese per mese</strong></div><small><i className="paid" /> pagato <i className="gift" /> omaggio <i className="open" /> da saldare</small></div>
+          <div className="payment-season-months">{seasonMonths.map((month) => <div className={`payment-season-month is-${month.status} ${month.current ? "is-current" : ""}`} key={month.key}><span>{month.label}</span><b>{month.status === "gift" ? "✦" : month.status === "paid" ? "✓" : month.status === "open" ? "!" : "·"}</b></div>)}</div>
         </section>
       )}
 
@@ -173,17 +177,19 @@ export default function Pagamenti() {
       ) : (
         <>
           <section className="neo-panel current-month-card">
-            <span className="current-month-icon">{currentMonthOpenPayments.length ? "!" : "✓"}</span>
+            <span className="current-month-icon">{currentMonthOpenPayments.length ? "!" : currentMonthGiftPayments.length ? "✦" : "✓"}</span>
             <div>
               <h3>Mese di {month}</h3>
               <div className={`current-month-status ${currentMonthOpenPayments.length ? "is-warning" : "is-ok"}`}>
-                <span>{currentMonthOpenPayments.length ? "!" : "✓"}</span>
+                <span>{currentMonthOpenPayments.length ? "!" : currentMonthGiftPayments.length ? "✦" : "✓"}</span>
                 <strong>
                   {currentMonthOpenPayments.length
                     ? `${formatMoney(currentMonthOpenTotal)} da saldare`
-                    : hasAnyCurrentQuote
-                      ? "Hai saldato tutte le quote del mese"
-                      : "Nessuna quota attiva in questo momento"}
+                    : currentMonthGiftPayments.length
+                      ? "Questo mese è coperto da un omaggio"
+                      : hasAnyCurrentQuote
+                        ? "Hai saldato tutte le quote del mese"
+                        : "Nessuna quota attiva in questo momento"}
                 </strong>
               </div>
             </div>
@@ -225,9 +231,11 @@ export default function Pagamenti() {
                 {nextPayment
                   ? `${nextPayment.descrizione || "Quota Orchidea"} — scadenza il ${formatDate(nextPayment.scadenza || nextPayment.periodo_inizio)}`
                   : lastPaid
-                    ? `Le quote aperte non risultano più attive. Ultima quota saldata: ${lastPaid.descrizione || "Quota Orchidea"}`
+                    ? isPaymentGift(lastPaid)
+                      ? `Ultima copertura: ${lastPaid.descrizione || "Omaggio Orchidea"} · nessun addebito`
+                      : `Le quote aperte non risultano più attive. Ultima quota saldata: ${lastPaid.descrizione || "Quota Orchidea"}`
                     : hasCurrentMonthPaymentContext
-                      ? `Totale registrato: ${formatMoney(totalPaid)}`
+                      ? `Totale effettivamente pagato: ${formatMoney(totalPaid)}`
                       : "Non risultano quote aperte associate a corsi attivi."}
               </p>
             </div>

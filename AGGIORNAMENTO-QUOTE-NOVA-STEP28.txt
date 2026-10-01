@@ -1,0 +1,26 @@
+ORCHIDEA APP - STEP 28 - QUOTE ALLINEATE A NOVA
+
+Problema corretto
+- La pagina Quote ricostruiva un importo quando trovava pagamenti da 0 €.
+- I mesi in omaggio di Nova hanno correttamente importo 0 €, ma l'app li sostituiva con la somma dei corsi attivi.
+- Con All You Can Dance questa ricostruzione era ancora più errata perché sommava i singoli corsi invece di usare il pacchetto.
+
+Nuova logica
+- I pagamenti Nova quota_mensile sono la fonte autorevole per la competenza mensile.
+- periodo/mese hanno priorità sulla data di pagamento.
+- nova_package_type=omaggio / nome-metodo-descrizione omaggio => importo effettivo 0 €.
+- Gli omaggi non entrano mai nel totale pagato.
+- I mesi omaggio sono mostrati esplicitamente come OMAGGIO nello storico e nella timeline.
+- Totale pagato somma solo importi realmente versati.
+- Per quote aperte senza importo valido, il fallback pacchetto conta All You Can Dance/pacchetti una sola volta tramite pacchetto_id, pacchetto_nome o pacchetto_totale_mensile.
+- La Home usa la stessa normalizzazione della pagina Quote.
+
+Campi Nova letti
+- periodo, mese, tipo, data_pagamento
+- nova_package_id, nova_package_name, nova_package_type
+- nova_package_total, nova_package_duration_months
+- nova_payment_group_id
+- nova_coverage_from, nova_coverage_to, nova_coverage_complete
+- nova_cash_amount
+
+Nessun nuovo SQL richiesto.

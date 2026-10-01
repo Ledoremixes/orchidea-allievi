@@ -58,7 +58,7 @@ export default function Dashboard() {
     const [coursesResult, attendanceResult, paymentsResult, publicCoursesResult, homeShowcaseResult, eventsResult] = await Promise.all([
       supabase
         .from("iscrizioni_corsi")
-        .select("id, corso_id, stato, rinnovo_attivo, data_iscrizione, tariffa_mensile, tipo_pagamento, pacchetto_id, pacchetto_totale_mensile, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile)")
+        .select("id, corso_id, stato, rinnovo_attivo, data_iscrizione, tariffa_mensile, quota_allievo_mensile, tipo_pagamento, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, prezzo_mensile)")
         .eq("tesseramento_id", student.id)
         .eq("stato", "attivo"),
       supabase
@@ -70,7 +70,7 @@ export default function Dashboard() {
         .order("checked_in_at", { ascending: false }),
       supabase
         .from("pagamenti")
-        .select("id, tesseramento_id, corso_id, iscrizione_id, descrizione, importo, periodo, scadenza, stato, metodo, pagato_il, created_at, updated_at, tipo_quota, billing_cycle, periodo_inizio, periodo_fine, copertura_mesi, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, quota_pacchetto_percentuale, sumup_payment_url")
+        .select("id, tesseramento_id, corso_id, iscrizione_id, descrizione, importo, periodo, mese, scadenza, stato, metodo, pagato_il, data_pagamento, created_at, updated_at, tipo, tipo_quota, billing_cycle, periodo_inizio, periodo_fine, copertura_mesi, pacchetto_id, pacchetto_nome, pacchetto_totale_mensile, quota_pacchetto_percentuale, sumup_payment_url, nova_package_id, nova_package_name, nova_package_type, nova_package_total, nova_package_duration_months, nova_payment_group_id, nova_coverage_from, nova_coverage_to, nova_coverage_complete, nova_cash_amount")
         .eq("tesseramento_id", student.id)
         .order("scadenza", { ascending: true }),
       supabase
@@ -135,9 +135,11 @@ export default function Dashboard() {
   });
   const currentPaymentLabel = paymentView.currentMonthOpenPayments.length
     ? `${formatMoney(paymentView.currentMonthOpenTotal)} da pagare`
-    : paymentView.currentMonthPaidPayments.length
-      ? "Mese saldato"
-      : "Nessuna quota del mese";
+    : paymentView.currentMonthGiftPayments.length
+      ? "Mese in omaggio"
+      : paymentView.currentMonthPaidPayments.length
+        ? "Mese saldato"
+        : "Nessuna quota del mese";
 
   useEffect(() => {
     setCarouselIndex(0);
@@ -162,7 +164,7 @@ export default function Dashboard() {
         <div className="neo-panel-title with-link"><div><span>€</span><h3>Situazione pagamenti</h3></div><Link to="/pagamenti">Apri storico</Link></div>
         <div className={`payment-status-ribbon ${paymentView.currentMonthOpenPayments.length ? "is-warning" : "is-ok"}`}>
           <span>{paymentView.currentMonthOpenPayments.length ? "!" : "✓"}</span>
-          <div><strong>{loading ? "Controllo le quote…" : currentPaymentLabel}</strong><small>{paymentView.openPayments.length ? `${paymentView.openPayments.length} quota/e ancora aperte` : "Nessuna quota aperta"}</small></div>
+          <div><strong>{loading ? "Controllo le quote…" : currentPaymentLabel}</strong><small>{paymentView.currentMonthGiftPayments.length ? "Copertura gratuita registrata da Orchidea" : paymentView.openPayments.length ? `${paymentView.openPayments.length} quota/e ancora aperte` : "Nessuna quota aperta"}</small></div>
         </div>
         <Link to="/pagamenti" className="home-payments-cta"><span>▣</span><strong>Vedi mesi, importi e pagamenti effettuati</strong><em>›</em></Link>
       </section>

@@ -1,153 +1,87 @@
-const OPEN_STATUSES = new Set(["da_pagare", "in_attesa"]);
-const PAID_STATUS = "pagato";
-const CANCELLED_STATUS = "annullato";
-const COVERAGE_TOLERANCE = 1;
+const OPEN_STATUSES = new Set(["da_pagare", "in_attesa", "unpaid", "pending"]);
+const PARTIAL_STATUSES = new Set(["parziale", "partial"]);
+const PAID_STATUSES = new Set(["pagato", "paid", "coperto"]);
+const CANCELLED_STATUSES = new Set(["annullato", "cancellato", "rimosso", "cancelled"]);
+const PAUSED_STATUSES = new Set(["sospeso", "chiuso", "paused", "closed"]);
 
-
-function positiveNumber(...values) {
-  for (const value of values) {
-    const number = Number(value);
-    if (Number.isFinite(number) && number > 0) return number;
-  }
-  return 0;
+function text(value) {
+  return String(value ?? "").trim();
 }
 
-function normalizeEnrollmentContext(activeEnrollments = []) {
-  const rows = (activeEnrollments || []).map((item) => {
-    if (typeof item === "string") return { id: item };
-    return item || {};
-  });
-
-  return {
-    rows,
-    ids: rows.map((item) => item.id).filter(Boolean),
-    byId: new Map(rows.filter((item) => item.id).map((item) => [item.id, item])),
-    byCourseId: new Map(rows.filter((item) => item.corso_id).map((item) => [item.corso_id, item])),
-  };
+function lower(value) {
+  return text(value).toLowerCase();
 }
 
-function enrollmentMonthlyAmount(enrollment) {
-  return positiveNumber(
-    enrollment?.tariffa_mensile,
-    enrollment?.corsi?.prezzo_mensile
-  );
-}
-
-function activeMonthlyTotal(enrollments) {
-  const packageGroups = new Map();
-  let total = 0;
-
-  (enrollments || []).forEach((enrollment) => {
-    if (!enrollment?.pacchetto_id) {
-      total += enrollmentMonthlyAmount(enrollment);
-      return;
-    }
-
-    if (!packageGroups.has(enrollment.pacchetto_id)) {
-      packageGroups.set(enrollment.pacchetto_id, []);
-    }
-    packageGroups.get(enrollment.pacchetto_id).push(enrollment);
-  });
-
-  packageGroups.forEach((rows) => {
-    const configuredTotal = Math.max(
-      0,
-      ...rows.map((row) => positiveNumber(row?.pacchetto_totale_mensile))
-    );
-    total += configuredTotal || rows.reduce((sum, row) => sum + enrollmentMonthlyAmount(row), 0);
-  });
-
-  return Number(total.toFixed(2));
-}
-
-function fallbackAmountForPayment(payment, enrollmentContext) {
-  const directAmount = positiveNumber(payment?.importo);
-  if (directAmount > 0) return directAmount;
-
-  const enrollment = payment?.iscrizione_id
-    ? enrollmentContext.byId.get(payment.iscrizione_id)
-    : payment?.corso_id
-      ? enrollmentContext.byCourseId.get(payment.corso_id)
-      : null;
-
-  if (enrollment) {
-    return enrollmentMonthlyAmount(enrollment);
-  }
-
-  if (payment?.pacchetto_id) {
-    const packageRows = enrollmentContext.rows.filter((row) => row?.pacchetto_id === payment.pacchetto_id);
-    const configuredTotal = Math.max(
-      0,
-      ...packageRows.map((row) => positiveNumber(row?.pacchetto_totale_mensile))
-    );
-    return configuredTotal || packageRows.reduce((sum, row) => sum + enrollmentMonthlyAmount(row), 0);
-  }
-
-  // Alcune vecchie righe create da Nova sono mensili generiche e non contengono
-  // iscrizione_id/corso_id. Se l'importo salvato è 0, la quota corretta è il totale
-  // mensile delle iscrizioni attive, la stessa cifra mostrata nella pagina Corsi.
-  return activeMonthlyTotal(enrollmentContext.rows);
-}
-
-function hydrateZeroAmounts(payments, activeEnrollments = []) {
-  const enrollmentContext = normalizeEnrollmentContext(activeEnrollments);
-
-  return {
-    enrollmentContext,
-    payments: (payments || []).map((payment) => {
-      const storedAmount = Number(payment?.importo || 0);
-      if (storedAmount > 0) return payment;
-
-      const fallbackAmount = fallbackAmountForPayment(payment, enrollmentContext);
-      if (!(fallbackAmount > 0)) return payment;
-
-      return {
-        ...payment,
-        importo: Number(fallbackAmount.toFixed(2)),
-        importo_db: storedAmount,
-        importo_ricostruito: true,
-      };
-    }),
-  };
-}
-
-export function isPaymentPaid(payment) {
-  return payment?.stato === PAID_STATUS;
-}
-
-export function isPaymentOpen(payment) {
-  return OPEN_STATUSES.has(payment?.stato);
-}
-
-export function isPaymentCancelled(payment) {
-  return payment?.stato === CANCELLED_STATUS;
+function amount(value) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
 function isoDate(value) {
   if (!value) return "";
-  const text = String(value);
-  const match = text.match(/^\d{4}-\d{2}-\d{2}/);
+  const raw = String(value);
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
   if (match) return match[0];
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
 }
 
-function monthIsoBounds(referenceDate = new Date()) {
-  const reference = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
-  const safeDate = Number.isNaN(reference.getTime()) ? new Date() : reference;
-  const year = safeDate.getFullYear();
-  const month = safeDate.getMonth();
-  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
+function monthKeyFromValue(value) {
+  const raw = text(value);
+  if (!raw) return "";
+  const direct = raw.match(/^(\d{4})-(\d{2})/);
+  if (direct) return `${direct[1]}-${direct[2]}`;
+
+  const months = {
+    gennaio: "01", febbraio: "02", marzo: "03", aprile: "04", maggio: "05", giugno: "06",
+    luglio: "07", agosto: "08", settembre: "09", ottobre: "10", novembre: "11", dicembre: "12",
+  };
+  const named = lower(raw).match(/(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(\d{4})/);
+  if (named) return `${named[2]}-${months[named[1]]}`;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function paymentBounds(payment) {
-  const start = isoDate(payment?.periodo_inizio || payment?.scadenza || payment?.pagato_il || payment?.created_at);
-  const end = isoDate(payment?.periodo_fine || payment?.periodo_inizio || payment?.scadenza || payment?.pagato_il || payment?.created_at) || start;
+function paymentMonthKey(payment = {}) {
+  return monthKeyFromValue(
+    payment.periodo ||
+    payment.mese ||
+    payment.competenza ||
+    payment.scadenza ||
+    payment.nova_coverage_from ||
+    payment.periodo_inizio ||
+    payment.data_pagamento ||
+    payment.pagato_il ||
+    payment.created_at
+  );
+}
+
+function monthBounds(monthKey) {
+  if (!/^\d{4}-\d{2}$/.test(String(monthKey || ""))) return { start: "", end: "" };
+  const [year, month] = monthKey.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return {
+    start: `${monthKey}-01`,
+    end: `${monthKey}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+function monthIsoBounds(referenceDate = new Date()) {
+  const reference = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const safe = Number.isNaN(reference.getTime()) ? new Date() : reference;
+  const monthKey = `${safe.getFullYear()}-${String(safe.getMonth() + 1).padStart(2, "0")}`;
+  return monthBounds(monthKey);
+}
+
+function paymentBounds(payment = {}) {
+  const monthKey = paymentMonthKey(payment);
+  if (monthKey) return monthBounds(monthKey);
+
+  const start = isoDate(payment.periodo_inizio || payment.nova_coverage_from || payment.scadenza || payment.pagato_il || payment.created_at);
+  const end = isoDate(payment.periodo_fine || payment.nova_coverage_to || payment.scadenza || start) || start;
   return { start, end };
 }
 
@@ -156,179 +90,233 @@ function rangesOverlap(a, b) {
   return a.start <= b.end && a.end >= b.start;
 }
 
+function status(payment = {}) {
+  return lower(payment.stato || payment.status);
+}
+
+function isPaidState(payment = {}) {
+  return PAID_STATUSES.has(status(payment)) || PARTIAL_STATUSES.has(status(payment));
+}
+
+function isPausedState(payment = {}) {
+  return PAUSED_STATUSES.has(status(payment));
+}
+
+function isCanonicalMonthlyPayment(payment = {}) {
+  const type = lower(payment.tipo || payment.tipo_quota || payment.type || payment.categoria);
+  const description = lower(payment.descrizione || payment.description || payment.causale);
+  return type === "quota_mensile" || type === "quota mensile" || description.startsWith("quota mensile ");
+}
+
+function isTokenPayment(payment = {}) {
+  const type = lower(payment.tipo || payment.tipo_quota || payment.type || payment.categoria);
+  const description = lower(payment.descrizione || payment.description || payment.causale);
+  const packageType = lower(payment.nova_package_type || payment.billing_cycle);
+  return packageType === "gettone" || type.includes("gettone") || description.includes("a gettone") || description.includes("lezione singola");
+}
+
+export function isPaymentGift(payment = {}) {
+  const packageType = lower(payment.nova_package_type || payment.billing_cycle);
+  const packageName = lower(payment.nova_package_name || payment.pacchetto_nome);
+  const type = lower(payment.tipo || payment.tipo_quota || payment.type || payment.categoria);
+  const description = lower(payment.descrizione || payment.description || payment.causale);
+  const method = lower(payment.metodo || payment.method);
+  return packageType === "omaggio"
+    || packageName.includes("omaggio")
+    || type.includes("omaggio")
+    || description.includes("omaggio")
+    || method === "omaggio";
+}
+
+export function isPaymentPaid(payment = {}) {
+  return status(payment) === "omaggio" || isPaymentGift(payment) || PAID_STATUSES.has(status(payment));
+}
+
+export function isPaymentOpen(payment = {}) {
+  return OPEN_STATUSES.has(status(payment)) || PARTIAL_STATUSES.has(status(payment));
+}
+
+export function isPaymentCancelled(payment = {}) {
+  return CANCELLED_STATUSES.has(status(payment));
+}
+
 export function paymentCoversMonth(payment, referenceDate = new Date()) {
-  const bounds = paymentBounds(payment);
-  if (!bounds.start) return true;
-  return rangesOverlap(bounds, monthIsoBounds(referenceDate));
+  return rangesOverlap(paymentBounds(payment), monthIsoBounds(referenceDate));
 }
 
-function isLinkedCoursePayment(payment) {
-  return Boolean(payment?.iscrizione_id || payment?.corso_id || payment?.pacchetto_id);
+function paymentTimestamp(payment = {}) {
+  const value = payment.updated_at || payment.data_pagamento || payment.pagato_il || payment.created_at || payment.scadenza || "";
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function looksLikeMonthlySettlement(payment) {
-  if (!isPaymentPaid(payment) || isLinkedCoursePayment(payment)) return false;
-
-  const description = String(payment?.descrizione || "").toLowerCase();
-  const genericMonthlyDescription = /(quota|saldo|mensil|mese|pacchetto)/.test(description);
-  const compatibleType = payment?.tipo_quota === "corso" || ["mensile", "trimestrale", "annuale"].includes(payment?.billing_cycle);
-
-  return genericMonthlyDescription || compatibleType;
+function enrollmentMonthlyAmount(enrollment = {}) {
+  return amount(
+    enrollment.quota_allievo_mensile ??
+    enrollment.tariffa_mensile ??
+    enrollment.corsi?.prezzo_mensile ??
+    enrollment.prezzo_mensile
+  );
 }
 
-function paymentTimestamp(payment) {
-  const value = payment?.updated_at || payment?.created_at || payment?.pagato_il || payment?.scadenza || "";
-  const timestamp = new Date(value).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
-}
-
-function chooseLatestPerEnrollment(payments) {
-  const grouped = new Map();
-
-  payments.forEach((payment) => {
-    const key = payment.iscrizione_id || payment.corso_id || payment.id;
-    const current = grouped.get(key);
-    if (!current || paymentTimestamp(payment) > paymentTimestamp(current)) grouped.set(key, payment);
-  });
-
-  return Array.from(grouped.values());
-}
-
-function getCoveredComponentIds(payments, activeEnrollmentIds) {
-  const settlements = payments.filter(looksLikeMonthlySettlement);
-  if (!settlements.length) return new Set();
-
-  const activeSet = new Set((activeEnrollmentIds || []).filter(Boolean));
-  const linkedPayments = payments.filter(isLinkedCoursePayment);
-  const coveredIds = new Set();
-
-  settlements.forEach((settlement) => {
-    const settlementBounds = paymentBounds(settlement);
-    const overlappingComponents = linkedPayments.filter((payment) => rangesOverlap(paymentBounds(payment), settlementBounds));
-    const activeComponents = overlappingComponents.filter((payment) => {
-      if (!activeSet.size) return true;
-      return payment.iscrizione_id ? activeSet.has(payment.iscrizione_id) : true;
-    });
-    const representativeComponents = chooseLatestPerEnrollment(activeComponents);
-    const expectedAmount = representativeComponents.reduce((sum, payment) => sum + Number(payment.importo || 0), 0);
-    const settlementAmount = Number(settlement.importo || 0);
-
-    // Nova può registrare il saldo mensile come riga unica, mentre Orchidea Allievi
-    // conserva le righe ripartite per corso. Quando gli importi coincidono, la riga
-    // unica è la fonte autorevole e le righe figlie non devono risultare ancora dovute.
-    if (expectedAmount > 0 && settlementAmount + COVERAGE_TOLERANCE >= expectedAmount) {
-      overlappingComponents.forEach((payment) => coveredIds.add(payment.id));
-    }
-  });
-
-  return coveredIds;
-}
-
-function paymentPeriodKey(payment) {
-  const bounds = paymentBounds(payment);
-  return `${bounds.start || "senza-inizio"}|${bounds.end || "senza-fine"}`;
-}
-
-function groupPackagePayments(payments) {
+/**
+ * Importo mensile attuale delle iscrizioni.
+ * I corsi appartenenti allo stesso pacchetto vengono conteggiati UNA SOLA VOLTA:
+ * questo evita che un All You Can Dance venga trasformato nella somma dei singoli corsi.
+ */
+function activeMonthlyTotal(enrollments = []) {
   const packageGroups = new Map();
-  const singlePayments = [];
+  let singles = 0;
 
-  payments.forEach((payment) => {
-    if (!payment.pacchetto_id) {
-      singlePayments.push(payment);
-      return;
+  (enrollments || []).forEach((row) => {
+    const configuredPackageTotal = amount(row?.pacchetto_totale_mensile);
+    const packageKey = row?.pacchetto_id
+      || row?.pacchetto_nome
+      || (configuredPackageTotal > 0 ? `totale:${configuredPackageTotal.toFixed(2)}` : "");
+
+    if (packageKey) {
+      if (!packageGroups.has(packageKey)) packageGroups.set(packageKey, []);
+      packageGroups.get(packageKey).push(row);
+    } else {
+      singles += enrollmentMonthlyAmount(row);
     }
-
-    const key = `${payment.pacchetto_id}|${paymentPeriodKey(payment)}`;
-    if (!packageGroups.has(key)) packageGroups.set(key, []);
-    packageGroups.get(key).push(payment);
   });
 
-  const groupedPackages = Array.from(packageGroups.entries()).map(([key, rows]) => {
-    const openRows = rows.filter(isPaymentOpen);
-    const paidRows = rows.filter(isPaymentPaid);
-    const representative = openRows[0] || paidRows[0] || rows[0];
-    const months = Math.max(1, ...rows.map((row) => Number(row.copertura_mesi || 1)));
-    const configuredMonthlyTotal = Math.max(0, ...rows.map((row) => Number(row.pacchetto_totale_mensile || 0)));
-    const paidTotal = paidRows.reduce((sum, row) => sum + Number(row.importo || 0), 0);
-    const openTotal = openRows.reduce((sum, row) => sum + Number(row.importo || 0), 0);
-    const configuredTotal = configuredMonthlyTotal > 0 ? configuredMonthlyTotal * months : 0;
-    const amount = openRows.length
-      ? openTotal
-      : configuredTotal > 0
-        ? configuredTotal
-        : paidTotal;
+  let total = singles;
+  packageGroups.forEach((rows) => {
+    const configured = Math.max(0, ...rows.map((row) => amount(row?.pacchetto_totale_mensile)));
+    total += configured > 0 ? configured : rows.reduce((sum, row) => sum + enrollmentMonthlyAmount(row), 0);
+  });
 
+  return Math.round(total * 100) / 100;
+}
+
+function chooseLatest(rows = []) {
+  return [...rows].sort((a, b) => paymentTimestamp(b) - paymentTimestamp(a))[0] || null;
+}
+
+function summarizeMonth(rows = [], monthKey, currentDue = 0) {
+  const monthRows = rows.filter((row) => paymentMonthKey(row) === monthKey && !isPaymentCancelled(row));
+  if (!monthRows.length) return null;
+
+  const tokenRows = monthRows.filter(isTokenPayment).filter((row) => isPaidState(row) && !isPausedState(row));
+  const nonTokenRows = monthRows.filter((row) => !isTokenPayment(row));
+  const canonicalRows = nonTokenRows.filter(isCanonicalMonthlyPayment);
+  const authoritative = chooseLatest(canonicalRows) || chooseLatest(nonTokenRows);
+  const tokenPaid = tokenRows.reduce((sum, row) => sum + amount(row.importo ?? row.amount), 0);
+
+  if (!authoritative && tokenRows.length) {
+    const latest = chooseLatest(tokenRows);
+    const bounds = monthBounds(monthKey);
     return {
-      ...representative,
-      id: `package:${key}`,
-      descrizione: representative.pacchetto_nome || "Pacchetto multicorso",
-      importo: Number(amount.toFixed(2)),
-      stato: openRows.length ? openRows[0].stato : PAID_STATUS,
-      metodo: openRows.length ? openRows[0].metodo : paidRows.find((row) => row.metodo)?.metodo || representative.metodo,
-      pagato_il: openRows.length
-        ? null
-        : paidRows
-            .map((row) => row.pagato_il)
-            .filter(Boolean)
-            .sort()
-            .at(-1) || representative.pagato_il,
-      sumup_payment_url: openRows.length === 1 ? openRows[0].sumup_payment_url : null,
-      sourcePayments: rows,
-      isPackageGroup: true,
+      ...latest,
+      id: `month:${monthKey}:gettone`,
+      periodo: monthKey,
+      periodo_inizio: bounds.start,
+      periodo_fine: bounds.end,
+      descrizione: latest?.nova_package_name || latest?.pacchetto_nome || "A gettone",
+      importo: tokenPaid,
+      paidAmount: tokenPaid,
+      remainingAmount: 0,
+      stato: "pagato",
+      isMonthlySummary: true,
     };
-  });
-
-  return [...singlePayments, ...groupedPackages];
-}
-
-function dueSortValue(payment) {
-  const bounds = paymentBounds(payment);
-  return bounds.start || "9999-12-31";
-}
-
-function isLinkedOpenPaymentRelevant(payment, activeEnrollmentIds = []) {
-  if (!isPaymentOpen(payment)) return false;
-
-  const activeSet = new Set((activeEnrollmentIds || []).filter(Boolean));
-  const isPackageGroup = Boolean(payment?.isPackageGroup);
-  const linkedEnrollmentIds = isPackageGroup
-    ? (payment.sourcePayments || []).map((row) => row?.iscrizione_id).filter(Boolean)
-    : [payment?.iscrizione_id].filter(Boolean);
-  const isLinkedToCourseContext = isPackageGroup
-    ? (payment.sourcePayments || []).some((row) => row?.iscrizione_id || row?.corso_id || row?.pacchetto_id)
-    : Boolean(payment?.iscrizione_id || payment?.corso_id || payment?.pacchetto_id);
-
-  if (!activeSet.size) {
-    return !isLinkedToCourseContext;
   }
 
-  if (!linkedEnrollmentIds.length) {
-    return true;
+  if (!authoritative) return null;
+
+  const bounds = monthBounds(monthKey);
+  const gift = isPaymentGift(authoritative);
+  const paused = isPausedState(authoritative);
+  const rawPaid = isPaidState(authoritative) && !paused ? amount(authoritative.importo ?? authoritative.amount) : 0;
+  const paidAmount = gift ? 0 : rawPaid + tokenPaid;
+  const packageComplete = authoritative.nova_coverage_complete === true;
+  const paidStatus = PAID_STATUSES.has(status(authoritative));
+  const partialStatus = PARTIAL_STATUSES.has(status(authoritative));
+  const openStatus = OPEN_STATUSES.has(status(authoritative));
+
+  let normalizedStatus = status(authoritative) || "da_pagare";
+  let remainingAmount = 0;
+
+  if (paused) {
+    normalizedStatus = "sospeso";
+  } else if (gift) {
+    normalizedStatus = "omaggio";
+  } else if (packageComplete || paidStatus) {
+    normalizedStatus = "pagato";
+  } else if (partialStatus) {
+    normalizedStatus = "parziale";
+    remainingAmount = Math.max(0, amount(currentDue) - rawPaid);
+  } else if (openStatus) {
+    normalizedStatus = status(authoritative);
+    remainingAmount = amount(authoritative.importo) || amount(currentDue);
   }
 
-  return linkedEnrollmentIds.some((id) => activeSet.has(id));
+  const displayAmount = normalizedStatus === "omaggio"
+    ? 0
+    : isPaymentOpen({ stato: normalizedStatus })
+      ? remainingAmount
+      : paidAmount;
+
+  return {
+    ...authoritative,
+    id: `month:${monthKey}`,
+    periodo: monthKey,
+    periodo_inizio: bounds.start,
+    periodo_fine: bounds.end,
+    importo: Math.round(displayAmount * 100) / 100,
+    paidAmount: Math.round(paidAmount * 100) / 100,
+    remainingAmount: Math.round(remainingAmount * 100) / 100,
+    stato: normalizedStatus,
+    descrizione: authoritative.descrizione || authoritative.nova_package_name || authoritative.pacchetto_nome || "Quota Orchidea",
+    isMonthlySummary: true,
+    sourcePayment: authoritative,
+  };
 }
 
-function paidSortValue(payment) {
-  return isoDate(payment.pagato_il || payment.updated_at || payment.scadenza || payment.created_at) || "0000-01-01";
+function paidSortValue(payment = {}) {
+  return paymentMonthKey(payment) || isoDate(payment.pagato_il || payment.updated_at || payment.created_at) || "0000-01";
 }
 
-export function buildStudentPaymentView(payments, activeEnrollments = [], referenceDate = new Date()) {
-  const { payments: hydratedPayments, enrollmentContext } = hydrateZeroAmounts(payments, activeEnrollments);
-  const validPayments = hydratedPayments.filter((payment) => payment && !isPaymentCancelled(payment));
-  const coveredComponentIds = getCoveredComponentIds(validPayments, enrollmentContext.ids);
-  const visiblePayments = validPayments.filter((payment) => !coveredComponentIds.has(payment.id));
-  const displayPayments = groupPackagePayments(visiblePayments);
+function dueSortValue(payment = {}) {
+  return paymentMonthKey(payment) || "9999-12";
+}
 
+export function buildStudentPaymentView(payments = [], activeEnrollments = [], referenceDate = new Date()) {
+  const validPayments = (payments || []).filter((row) => row && !isPaymentCancelled(row));
+  const currentMonthKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
+  const currentDue = activeMonthlyTotal(activeEnrollments);
+
+  const monthKeys = [...new Set(validPayments.map(paymentMonthKey).filter(Boolean))].sort();
+  const monthlySummaries = monthKeys
+    .map((monthKey) => summarizeMonth(validPayments, monthKey, monthKey === currentMonthKey ? currentDue : 0))
+    .filter(Boolean);
+
+  // Righe legacy senza una competenza mensile riconoscibile: le manteniamo solo
+  // se hanno un importo reale. Non ricostruiamo MAI un pagamento saldato da 0 €,
+  // perché potrebbe essere un omaggio o una vecchia riga tecnica di Nova.
+  const legacyRows = validPayments
+    .filter((row) => !paymentMonthKey(row))
+    .filter((row) => amount(row.importo) > 0)
+    .map((row) => ({ ...row, paidAmount: isPaymentPaid(row) ? amount(row.importo) : 0, remainingAmount: isPaymentOpen(row) ? amount(row.importo) : 0 }));
+
+  const displayPayments = [...monthlySummaries, ...legacyRows];
   const openPayments = displayPayments
-    .filter((payment) => isLinkedOpenPaymentRelevant(payment, enrollmentContext.ids))
+    .filter(isPaymentOpen)
+    .filter((row) => !isPaymentGift(row))
     .sort((a, b) => dueSortValue(a).localeCompare(dueSortValue(b)) || paymentTimestamp(a) - paymentTimestamp(b));
   const paidPayments = displayPayments
-    .filter(isPaymentPaid)
+    .filter((row) => isPaymentPaid(row) || isPaymentGift(row))
     .sort((a, b) => paidSortValue(b).localeCompare(paidSortValue(a)) || paymentTimestamp(b) - paymentTimestamp(a));
-  const currentMonthOpenPayments = openPayments.filter((payment) => paymentCoversMonth(payment, referenceDate));
-  const currentMonthPaidPayments = paidPayments.filter((payment) => paymentCoversMonth(payment, referenceDate));
+
+  const currentMonthOpenPayments = openPayments.filter((row) => paymentMonthKey(row) === currentMonthKey || paymentCoversMonth(row, referenceDate));
+  const currentMonthPaidPayments = paidPayments.filter((row) => paymentMonthKey(row) === currentMonthKey || paymentCoversMonth(row, referenceDate));
+  const currentMonthGiftPayments = currentMonthPaidPayments.filter(isPaymentGift);
+
+  const totalPaid = displayPayments.reduce((sum, row) => {
+    if (isPaymentGift(row)) return sum;
+    return sum + amount(row.paidAmount ?? (isPaymentPaid(row) ? row.importo : 0));
+  }, 0);
 
   return {
     displayPayments,
@@ -336,10 +324,12 @@ export function buildStudentPaymentView(payments, activeEnrollments = [], refere
     paidPayments,
     currentMonthOpenPayments,
     currentMonthPaidPayments,
+    currentMonthGiftPayments,
     nextPayment: openPayments[0] || null,
-    totalOpen: openPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0),
-    currentMonthOpenTotal: currentMonthOpenPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0),
-    totalPaid: paidPayments.reduce((sum, payment) => sum + Number(payment.importo || 0), 0),
+    totalOpen: openPayments.reduce((sum, row) => sum + amount(row.remainingAmount ?? row.importo), 0),
+    currentMonthOpenTotal: currentMonthOpenPayments.reduce((sum, row) => sum + amount(row.remainingAmount ?? row.importo), 0),
+    totalPaid: Math.round(totalPaid * 100) / 100,
+    currentMonthlyDue: currentDue,
     hasActiveOpenPayments: openPayments.length > 0,
     hasCurrentMonthPaymentContext: currentMonthOpenPayments.length > 0 || currentMonthPaidPayments.length > 0,
   };
