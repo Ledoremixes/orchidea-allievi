@@ -37,16 +37,18 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "VAPID secrets mancanti nella Edge Function." }, 500);
   }
 
-  // Manteniamo lo stesso controllo admin della funzione che già funzionava.
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: isAdmin, error: adminError } = await callerClient.rpc("is_admin");
-  if (adminError || isAdmin !== true) {
-    return json({ ok: false, error: "Operazione riservata agli amministratori." }, 403);
+  const { data: callerAuth, error: callerAuthError } = await callerClient.auth.getUser();
+  const callerUser = callerAuth?.user || null;
+  if (callerAuthError || !callerUser) {
+    return json({ ok: false, error: "Sessione non valida." }, 401);
   }
+
+  const { data: isAdmin } = await callerClient.rpc("is_admin");
 
   let body: { notification_id?: string } = {};
   try {
@@ -65,7 +67,7 @@ Deno.serve(async (req) => {
 
   const { data: notification, error: notificationError } = await adminClient
     .from("app_notifications")
-    .select("id, title, body, category, audience, course_id, target_tesseramento_id, link, starts_at, expires_at")
+    .select("id, title, body, category, audience, course_id, target_tesseramento_id, link, starts_at, expires_at, created_by, notification_kind, push_sent_at")
     .eq("id", body.notification_id)
     .single();
 
@@ -75,6 +77,21 @@ Deno.serve(async (req) => {
       error: "Notifica non trovata.",
       detail: notificationError?.message || null,
     }, 404);
+  }
+
+  // Gli Admin possono inviare tutte le push. Un utente normale può inviare
+  // esclusivamente la push generata dalla RPC sicura del proprio Mi piace.
+  const isOwnCommunityLike = notification.notification_kind === "community_like"
+    && notification.audience === "student"
+    && notification.created_by === callerUser.id;
+
+  if (isAdmin !== true && !isOwnCommunityLike) {
+    return json({ ok: false, error: "Operazione non consentita." }, 403);
+  }
+
+  // Evita che lo stesso notification_id venga usato per bombardare il destinatario.
+  if (notification.push_sent_at) {
+    return json({ ok: true, sent: 0, failed: 0, removed: 0, reason: "already_sent" });
   }
 
   let studentIds: string[] | null = null;

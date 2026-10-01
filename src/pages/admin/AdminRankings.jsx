@@ -239,9 +239,9 @@ export default function AdminRankings({ courses = [] }) {
                 <p>{row.corsi?.nome ? `${row.corsi.nome}${row.corsi.livello ? ` · ${row.corsi.livello}` : ""}` : "Tutti gli allievi"}</p>
                 <small>{dateLabel(row.starts_on)} → {dateLabel(row.ends_on)}</small>
                 <div className="rankings-admin-card-actions">
-                  <button type="button" onClick={(event) => { event.stopPropagation(); editRanking(row); }}>Modifica</button>
-                  <button type="button" onClick={(event) => { event.stopPropagation(); toggleVisibility(row); }}>{row.visible ? "Nascondi" : "Pubblica"}</button>
-                  <button type="button" className="danger" onClick={(event) => { event.stopPropagation(); deleteRanking(row); }}>Elimina</button>
+                  <button type="button" className="rank-action edit" onClick={(event) => { event.stopPropagation(); editRanking(row); }}>Modifica</button>
+                  <button type="button" className="rank-action visibility" onClick={(event) => { event.stopPropagation(); toggleVisibility(row); }}>{row.visible ? "Nascondi" : "Pubblica"}</button>
+                  <button type="button" className="rank-action danger" onClick={(event) => { event.stopPropagation(); deleteRanking(row); }}>Elimina</button>
                 </div>
                 {ended && !row.awards_granted_at && (Number(row.first_place_reward_points) + Number(row.second_place_reward_points) + Number(row.third_place_reward_points) > 0) && (
                   <button type="button" className="ranking-award-btn" onClick={(event) => { event.stopPropagation(); grantAwards(row); }}>Assegna premi Top 3</button>
@@ -273,8 +273,16 @@ export default function AdminRankings({ courses = [] }) {
           </div>
 
           <div className="ranking-admin-switches">
-            <label><span><strong>Visibile agli allievi</strong><small>Puoi nascondere una classifica senza eliminarla.</small></span><input type="checkbox" checked={form.visible} onChange={(event) => setForm({ ...form, visible: event.target.checked })} /></label>
-            <label><span><strong>Mostra punteggio</strong><small>Se disattivato gli allievi vedono l’ordine, ma non i voti/punti.</small></span><input type="checkbox" checked={form.show_scores_to_students} onChange={(event) => setForm({ ...form, show_scores_to_students: event.target.checked })} /></label>
+            <label className={`ranking-admin-switch-row ${form.visible ? "is-on" : "is-off"}`}>
+              <span><strong>Visibile agli allievi</strong><small>Puoi nascondere una classifica senza eliminarla.</small></span>
+              <input type="checkbox" checked={form.visible} onChange={(event) => setForm({ ...form, visible: event.target.checked })} />
+              <i className="ranking-admin-toggle" aria-hidden="true"><b /></i>
+            </label>
+            <label className={`ranking-admin-switch-row ${form.show_scores_to_students ? "is-on" : "is-off"}`}>
+              <span><strong>Mostra punteggio</strong><small>Se disattivato gli allievi vedono l’ordine, ma non i voti/punti.</small></span>
+              <input type="checkbox" checked={form.show_scores_to_students} onChange={(event) => setForm({ ...form, show_scores_to_students: event.target.checked })} />
+              <i className="ranking-admin-toggle" aria-hidden="true"><b /></i>
+            </label>
           </div>
 
           <div className="ranking-reward-points">

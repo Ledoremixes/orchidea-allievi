@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { compressImageToWebP } from "../lib/imageCompression.js";
+import ProfilePhotoCropper from "../components/ProfilePhotoCropper.jsx";
 import { createProfilePhotoSignedUrl, removeProfilePhoto } from "../lib/profilePhoto.js";
 import { supabase } from "../lib/supabaseClient.js";
 
@@ -29,11 +29,12 @@ function DataItem({ label, value, wide = false }) {
 }
 
 export default function Profilo() {
-  const { student = {}, sessionUser = null } = useOutletContext() || {};
+  const { student = {}, teacher = null, sessionUser = null } = useOutletContext() || {};
   const fileRef = useRef(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoPath, setPhotoPath] = useState(student.foto_profilo_path || "");
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [danceBio, setDanceBio] = useState(student.bio_ballerino || "");
@@ -41,6 +42,10 @@ export default function Profilo() {
   const [customDanceStyle, setCustomDanceStyle] = useState("");
   const [communityPublic, setCommunityPublic] = useState(student.profilo_community_pubblico !== false);
   const [savingCommunity, setSavingCommunity] = useState(false);
+  const [likers, setLikers] = useState([]);
+  const [likerPhotos, setLikerPhotos] = useState({});
+  const [likersOpen, setLikersOpen] = useState(false);
+  const [likersLoading, setLikersLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -52,7 +57,33 @@ export default function Profilo() {
     return () => { alive = false; };
   }, [photoPath]);
 
-  const fullName = useMemo(() => `${student.nome || ""} ${student.cognome || ""}`.trim() || "Allievo Orchidea", [student.nome, student.cognome]);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadLikers() {
+      setLikersLoading(true);
+      const { data, error: likesError } = await supabase.rpc("get_my_profile_likers");
+      if (!alive) return;
+      if (likesError) {
+        setLikers([]);
+        setLikersLoading(false);
+        return;
+      }
+      const rows = data || [];
+      setLikers(rows);
+      const entries = await Promise.all(rows.map(async (row) => [
+        row.tesseramento_id,
+        row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
+      ]));
+      if (alive) setLikerPhotos(Object.fromEntries(entries));
+      if (alive) setLikersLoading(false);
+    }
+    if (student?.id) loadLikers();
+    else setLikersLoading(false);
+    return () => { alive = false; };
+  }, [student?.id]);
+
+  const fullName = useMemo(() => `${student.nome || ""} ${student.cognome || ""}`.trim() || (teacher ? "Insegnante Orchidea" : "Allievo Orchidea"), [student.nome, student.cognome, teacher]);
   const fiscalCode = student.cf || student.codice_fiscale || "";
 
   async function savePhotoPath(nextPath) {
@@ -61,30 +92,34 @@ export default function Profilo() {
     if (data === false) throw new Error("Non riesco ad aggiornare la foto del profilo.");
   }
 
-  async function handlePhoto(file) {
+  function handlePhoto(file) {
     if (!file) return;
     setError("");
     setMessage("");
 
     if (!file.type?.startsWith("image/")) {
       setError("Seleziona una foto JPG, PNG o WebP.");
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     if (file.size > 15 * 1024 * 1024) {
       setError("La foto originale è troppo grande. Usa un file sotto i 15 MB.");
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
 
+    setCropFile(file);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleCroppedPhoto(optimized) {
+    if (!optimized?.blob || !cropFile) return false;
     setUploading(true);
+    setError("");
+    setMessage("");
     let uploadedPath = "";
 
     try {
-      const optimized = await compressImageToWebP(file, {
-        maxWidth: 720,
-        maxHeight: 720,
-        quality: 0.8,
-      });
-
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData?.user?.id) throw new Error("Sessione non valida. Accedi nuovamente.");
 
@@ -107,14 +142,16 @@ export default function Profilo() {
       setPhotoUrl(nextUrl);
       window.dispatchEvent(new CustomEvent("orchidea-profile-photo-updated", { detail: { path: uploadedPath, url: nextUrl } }));
 
-      const saving = file.size > 0 ? Math.max(0, Math.round((1 - optimized.compressedBytes / file.size) * 100)) : 0;
+      const saving = optimized.originalBytes > 0 ? Math.max(0, Math.round((1 - optimized.compressedBytes / optimized.originalBytes) * 100)) : 0;
       setMessage(saving > 0 ? `Foto aggiornata · ${saving}% più leggera dell’originale.` : "Foto profilo aggiornata.");
+      setCropFile(null);
+      return true;
     } catch (uploadError) {
       if (uploadedPath) await removeProfilePhoto(uploadedPath).catch(() => {});
       setError(uploadError?.message || "Non riesco a caricare la foto. Riprova.");
+      return false;
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -202,10 +239,41 @@ export default function Profilo() {
       {error && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
 
+      <section className="student-profile-likes-card">
+        <div className="student-profile-likes-summary">
+          <div className="student-profile-likes-icon">♥</div>
+          <div>
+            <span className="eyebrow">Community</span>
+            <h2>{likersLoading ? "…" : likers.length} {likers.length === 1 ? "Mi piace ricevuto" : "Mi piace ricevuti"}</h2>
+            <p>{teacher ? "I tuoi allievi e i membri della Community possono apprezzare il tuo profilo." : "Qui puoi vedere chi ha apprezzato il tuo profilo ballerino."}</p>
+          </div>
+        </div>
+        <button type="button" className="profile-likers-toggle" onClick={() => setLikersOpen((value) => !value)} disabled={likersLoading || !likers.length}>
+          {likers.length ? (likersOpen ? "Nascondi chi ti ha messo Mi piace" : "Vedi chi ti ha messo Mi piace") : "Ancora nessun Mi piace"}
+        </button>
+        {likersOpen && likers.length > 0 && (
+          <div className="profile-likers-list">
+            {likers.map((person) => (
+              <article key={`${person.tesseramento_id}-${person.liked_at || ""}`}>
+                <div className="profile-liker-avatar">
+                  {likerPhotos[person.tesseramento_id] ? <img src={likerPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}
+                </div>
+                <div><strong>{`${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea"}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span></div>
+                <b>♥</b>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <form className="student-dance-profile-card" onSubmit={saveCommunityProfile}>
         <div className="student-dance-profile-head">
           <div><span className="eyebrow">Profilo ballerino</span><h2>Raccontati alla Community</h2><p>Una mini bio, i tuoi balli preferiti e un profilo che i compagni possono trovare e apprezzare.</p></div>
-          <label className="community-public-toggle"><input type="checkbox" checked={communityPublic} onChange={(event) => setCommunityPublic(event.target.checked)} /><span><strong>{communityPublic ? "Profilo visibile" : "Profilo nascosto"}</strong><small>{communityPublic ? "Compari nella ricerca compagni" : "Non compari nella Community"}</small></span></label>
+          <label className={`community-public-toggle ${communityPublic ? "is-visible" : "is-hidden"}`}>
+            <input className="community-public-toggle-input" type="checkbox" checked={communityPublic} onChange={(event) => setCommunityPublic(event.target.checked)} />
+            <span className="community-public-toggle-copy"><strong>{communityPublic ? "Visibile nella Community" : "Profilo privato"}</strong><small>{communityPublic ? "Compagni e classifiche pubbliche possono mostrarti" : "Non compari a compagni o classifiche pubbliche"}</small></span>
+            <span className="community-public-switch" aria-hidden="true"><i /></span>
+          </label>
         </div>
 
         <label className="student-dance-bio-field"><span>Biografia / curriculum da ballerino</span><textarea rows="5" maxLength="1200" value={danceBio} onChange={(event) => setDanceBio(event.target.value)} placeholder="Da quanto balli? Quali stili ami? Hai partecipato a gare, show o stage? Racconta il tuo percorso…" /><small>{danceBio.length}/1200 caratteri</small></label>
@@ -219,6 +287,15 @@ export default function Profilo() {
 
         <div className="student-dance-profile-actions"><button type="submit" className="primary-btn" disabled={savingCommunity}>{savingCommunity ? "Salvataggio…" : "Salva profilo ballerino"}</button><a href="/community" className="ghost-btn">Apri Community</a></div>
       </form>
+
+      {cropFile && (
+        <ProfilePhotoCropper
+          file={cropFile}
+          saving={uploading}
+          onCancel={() => !uploading && setCropFile(null)}
+          onConfirm={handleCroppedPhoto}
+        />
+      )}
 
       <div className="student-profile-info-card">
         <div className="student-profile-info-head">

@@ -1,0 +1,12 @@
+STEP 31 - Community privacy + ritaglio foto profilo
+
+- Nuovo editor foto profilo prima dell'upload: trascinamento, zoom, reset e anteprima quadrata.
+- Output automatico WebP 720x720 ottimizzato.
+- Toggle "Visibile nella Community" ridisegnato come switch moderno.
+- Profilo privato: non compare nella ricerca Community né nelle classifiche pubbliche viste dagli allievi.
+- Admin e insegnanti autorizzati mantengono la visibilità privata necessaria a gestione e votazioni.
+- Le classifiche mostrano solo persone che hanno già ricevuto almeno un punteggio/like/voto.
+- In particolare, una classifica Like senza Mi piace non mostra nomi e cognomi a punteggio zero.
+
+Eseguire una volta su Supabase:
+  supabase/step-31-community-privacy.sql

@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
 
 function fullName(person = {}) {
-  return `${person.nome || ""} ${person.cognome || ""}`.trim() || "Allievo Orchidea";
+  return `${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea";
 }
 
 function initials(person = {}) {
@@ -163,16 +163,23 @@ export default function Community() {
   }, [selectedRankingId]);
 
   async function toggleLike(profile) {
-    if (!student?.id) {
-      setError("Per mettere Mi piace devi avere anche un profilo allievo Orchidea.");
-      return;
-    }
+    setError("");
     const { data, error: likeError } = await supabase.rpc("toggle_my_student_like", { p_target_tesseramento_id: profile.tesseramento_id });
     if (likeError || data?.ok === false) {
       setError(likeError?.message || data?.message || "Non riesco ad aggiornare il Mi piace.");
       return;
     }
-    setProfiles((current) => current.map((row) => row.tesseramento_id === profile.tesseramento_id ? { ...row, liked_by_me: Boolean(data.liked), likes_count: Number(data.likes_count || 0) } : row));
+
+    setProfiles((current) => current.map((row) => row.tesseramento_id === profile.tesseramento_id
+      ? { ...row, liked_by_me: Boolean(data.liked), likes_count: Number(data.likes_count || 0) }
+      : row));
+
+    // La notifica interna viene creata dalla RPC. Se il destinatario ha attivato
+    // le push, chiediamo anche alla Edge Function di recapitarla sul telefono.
+    if (data?.liked && data?.notification_id) {
+      supabase.functions.invoke("send-push", { body: { notification_id: data.notification_id } }).catch(() => {});
+    }
+
     if (selectedRanking?.scoring_mode === "likes") {
       const { data: rows } = await supabase.rpc("get_ranking_leaderboard", { p_ranking_id: selectedRanking.id, p_limit: 100 });
       setLeaderboard(rows || []);
@@ -265,30 +272,30 @@ export default function Community() {
         <>
           <div className="community-search-card">
             <span>⌕</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cerca un compagno, uno stile o una parola nella bio…" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cerca un compagno, un insegnante, uno stile o una parola nella bio…" />
           </div>
 
           <div className="community-profile-grid">
             {loadingProfiles ? <div className="community-empty-card">Sto caricando la Community…</div> : profiles.map((profile) => {
-              const isMe = student?.id === profile.tesseramento_id;
+              const isMe = profile.is_me === true || student?.id === profile.tesseramento_id;
               return (
-                <article className="community-profile-card" key={profile.tesseramento_id}>
+                <article className={`community-profile-card ${profile.is_teacher ? "is-teacher" : "is-student"}`} key={profile.tesseramento_id}>
                   <div className="community-profile-top">
                     <div className="community-avatar">
                       {profilePhotos[profile.tesseramento_id] ? <img src={profilePhotos[profile.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(profile)}</span>}
                     </div>
                     <div className="community-profile-name">
-                      <span className="eyebrow">Ballerino Orchidea</span>
+                      <span className="eyebrow">{profile.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span>
                       <h2>{fullName(profile)}</h2>
                       <div className="community-style-chips">
                         {(profile.balli_preferiti || []).slice(0, 4).map((style) => <span key={style}>{style}</span>)}
                       </div>
                     </div>
                   </div>
-                  <p className="community-profile-bio">{profile.bio_ballerino || "Questo allievo non ha ancora raccontato il suo percorso da ballerino."}</p>
+                  <p className="community-profile-bio">{profile.bio_ballerino || (profile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
                   <div className="community-profile-footer">
                     <div className="community-like-count"><b>♥</b><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></div>
-                    <button type="button" className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`} onClick={() => toggleLike(profile)} disabled={isMe || !student?.id}>
+                    <button type="button" className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`} onClick={() => toggleLike(profile)} disabled={isMe}>
                       <span>{profile.liked_by_me ? "♥" : "♡"}</span>{isMe ? "Il tuo profilo" : profile.liked_by_me ? "Ti piace" : "Mi piace"}
                     </button>
                   </div>
@@ -366,7 +373,7 @@ export default function Community() {
                     <div className="ranking-score"><strong>{scoreLabel(selectedRanking, row)}</strong>{selectedRanking.scoring_mode === "teacher_scores" && Number(row.votes_count || 0) > 0 && <span>{row.votes_count} valutaz.</span>}</div>
                   </article>
                 ))}
-                {!loadingLeaderboard && !leaderboard.length && <div className="community-empty-card">La classifica non ha ancora partecipanti.</div>}
+                {!loadingLeaderboard && !leaderboard.length && <div className="community-empty-card">{selectedRanking.scoring_mode === "likes" ? "Ancora nessun Mi piace: la classifica comparirà dopo il primo Like, senza mostrare nomi a punteggio zero." : "La classifica comparirà quando verrà registrato il primo punteggio."}</div>}
               </div>
             </div>
           )}

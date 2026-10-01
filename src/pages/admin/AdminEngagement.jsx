@@ -30,7 +30,7 @@ function normalizeTeacherIdentity(value) {
 }
 
 function emptyTeacherProfile() {
-  return { nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true };
+  return { nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true, tesseramento_id: "" };
 }
 
 function emptyTeacherAccess() {
@@ -47,11 +47,12 @@ export default function AdminEngagement() {
   const [teacherCourseLinks, setTeacherCourseLinks] = useState([]);
   const [teacherAccounts, setTeacherAccounts] = useState([]);
   const [compensationTeachers, setCompensationTeachers] = useState([]);
+  const [teacherMembers, setTeacherMembers] = useState([]);
   const [notificationForm, setNotificationForm] = useState(emptyNotification);
   const [rewardForm, setRewardForm] = useState(emptyReward);
   const [editingRewardId, setEditingRewardId] = useState("");
   const [teacherId, setTeacherId] = useState("");
-  const [teacherForm, setTeacherForm] = useState({ nome: "", cognome: "", bio: "", foto_url: "", foto_path: "", instagram_url: "", specialita: "", profilo_pubblico: true });
+  const [teacherForm, setTeacherForm] = useState(emptyTeacherProfile());
   const [teacherCourseIds, setTeacherCourseIds] = useState([]);
   const [teacherPhotoFile, setTeacherPhotoFile] = useState(null);
   const [teacherPhotoPreview, setTeacherPhotoPreview] = useState("");
@@ -74,16 +75,17 @@ export default function AdminEngagement() {
   const [rewardActionBusy, setRewardActionBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, teacherLinksResult, teacherAccountsResult, compensationTeachersResult, menuResult] = await Promise.all([
+    const [notificationResult, rewardResult, requestResult, redemptionResult, courseResult, teacherResult, teacherLinksResult, teacherAccountsResult, compensationTeachersResult, teacherMembersResult, menuResult] = await Promise.all([
       supabase.from("app_notifications").select("id, title, body, category, audience, course_id, link, starts_at, expires_at, push_sent_at, push_recipient_count, push_failure_count").order("created_at", { ascending: false }).limit(50),
       supabase.from("reward_catalog").select("id, title, description, points_cost, stock, icon, active").order("points_cost", { ascending: true }),
       supabase.from("course_trial_requests").select("id, tesseramento_id, corso_id, status, created_at, tesseramenti(nome, cognome, telefono, email), corsi(nome, livello, giorno_settimana)").order("created_at", { ascending: false }).limit(100),
       supabase.from("reward_redemptions").select("id, status, points_spent, requested_at, tesseramenti(nome, cognome, numero_tessera), reward_catalog(title, icon)").order("requested_at", { ascending: false }).limit(100),
       supabase.from("corsi").select("id, nome, livello, attivo").eq("attivo", true).order("nome"),
-      supabase.from("app_teacher_profiles").select("id, nome, cognome, bio, foto_url, foto_path, instagram_url, specialita, profilo_pubblico, ordine, created_at, updated_at").order("ordine", { ascending: true }).order("cognome", { ascending: true }).order("nome", { ascending: true }),
+      supabase.from("app_teacher_profiles").select("id, nome, cognome, bio, foto_url, foto_path, instagram_url, specialita, profilo_pubblico, ordine, tesseramento_id, created_at, updated_at").order("ordine", { ascending: true }).order("cognome", { ascending: true }).order("nome", { ascending: true }),
       supabase.from("app_teacher_profile_courses").select("id, profile_id, corso_id"),
       supabase.from("app_teacher_accounts").select("id, profile_id, compensation_teacher_id, email, telefono, codice_fiscale, auth_user_id, access_enabled, access_initialized_at"),
       supabase.from("insegnanti").select("id, nome, email, telefono, attivo").eq("attivo", true).order("nome"),
+      supabase.from("tesseramenti").select("id,nome,cognome,email,cf,bio_ballerino,balli_preferiti,tessera_attiva").order("cognome", { ascending: true }).order("nome", { ascending: true }).limit(2500),
       supabase.from("app_settings").select("value").eq("key", "bar_menu_url").maybeSingle(),
     ]);
     setNotifications(notificationResult.data || []);
@@ -95,6 +97,7 @@ export default function AdminEngagement() {
     setTeacherCourseLinks(teacherLinksResult.error ? [] : (teacherLinksResult.data || []));
     setTeacherAccounts(teacherAccountsResult.error ? [] : (teacherAccountsResult.data || []));
     setCompensationTeachers(compensationTeachersResult.error ? [] : (compensationTeachersResult.data || []));
+    setTeacherMembers(teacherMembersResult.error ? [] : (teacherMembersResult.data || []));
     const value = menuResult.data?.value;
     setMenuUrl(typeof value === "string" ? value : "");
     const { data: deviceCount } = await supabase.rpc("admin_push_device_count");
@@ -105,6 +108,7 @@ export default function AdminEngagement() {
 
   const selectedTeacher = useMemo(() => teachers.find((row) => row.id === teacherId), [teacherId, teachers]);
   const selectedTeacherAccount = useMemo(() => teacherAccounts.find((row) => row.profile_id === teacherId) || null, [teacherAccounts, teacherId]);
+  const linkedTeacherMember = useMemo(() => teacherMembers.find((row) => row.id === teacherForm.tesseramento_id) || null, [teacherMembers, teacherForm.tesseramento_id]);
   useEffect(() => {
     if (!selectedTeacher) return;
     setTeacherForm({
@@ -116,6 +120,7 @@ export default function AdminEngagement() {
       instagram_url: selectedTeacher.instagram_url || "",
       specialita: selectedTeacher.specialita || "",
       profilo_pubblico: selectedTeacher.profilo_pubblico !== false,
+      tesseramento_id: selectedTeacher.tesseramento_id || "",
     });
     setTeacherCourseIds(teacherCourseLinks.filter((row) => row.profile_id === selectedTeacher.id).map((row) => row.corso_id));
     setTeacherPhotoFile(null);
@@ -476,15 +481,34 @@ export default function AdminEngagement() {
         fotoPath = uploadedPath;
       }
 
+      let linkedTesseramentoId = teacherForm.tesseramento_id || "";
+      if (!linkedTesseramentoId && teacherAccessForm.enabled) {
+        const wantedEmail = normalizeTeacherIdentity(teacherAccessForm.email);
+        const wantedCf = String(teacherAccessForm.cf || "").replace(/\s+/g, "").toUpperCase();
+        const matches = teacherMembers.filter((member) => {
+          const sameEmail = wantedEmail && normalizeTeacherIdentity(member.email) === wantedEmail;
+          const sameCf = wantedCf && String(member.cf || "").replace(/\s+/g, "").toUpperCase() === wantedCf;
+          return sameEmail || sameCf;
+        });
+        if (matches.length === 1) linkedTesseramentoId = matches[0].id;
+      }
+
+      if (teacherAccessForm.enabled && !linkedTesseramentoId) {
+        throw new Error("Collega l’insegnante al suo tesseramento Orchidea: serve per Community, bio personale e Mi piace.");
+      }
+
       const payload = {
         nome,
         cognome,
         specialita: teacherForm.specialita.trim() || null,
-        bio: teacherForm.bio.trim() || null,
+        // Il curriculum visualizzato agli allievi arriva dal tesseramento reale.
+        // Manteniamo il vecchio campo soltanto per compatibilità, ma non viene più mostrato.
+        bio: teacherForm.bio || null,
         instagram_url: teacherForm.instagram_url.trim() || null,
         foto_url: fotoUrl,
         foto_path: fotoPath,
         profilo_pubblico: teacherForm.profilo_pubblico !== false,
+        tesseramento_id: linkedTesseramentoId || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -716,7 +740,7 @@ export default function AdminEngagement() {
               <div>
                 <span className="eyebrow">{teacherId ? "Modifica profilo" : "Nuovo profilo"}</span>
                 <h3>{teacherId ? teacherFullName(selectedTeacher) : "Aggiungi insegnante"}</h3>
-                <p>Compila il curriculum che vedranno gli allievi nella sezione Corsi.</p>
+                <p>Gestisci foto, specialità, Instagram e corsi. Il curriculum ballerino viene scritto direttamente dall’insegnante nel proprio profilo.</p>
               </div>
               <span className={`teacher-profile-state ${teacherForm.profilo_pubblico ? "is-on" : ""}`}>{teacherForm.profilo_pubblico ? "VISIBILE" : "NASCOSTO"}</span>
             </div>
@@ -743,7 +767,21 @@ export default function AdminEngagement() {
                   <label><span>Specialità</span><input value={teacherForm.specialita} onChange={(e) => setTeacherForm({ ...teacherForm, specialita: e.target.value })} placeholder="Bachata · Salsa · Lady Style" /></label>
                   <label><span>Instagram</span><input value={teacherForm.instagram_url} onChange={(e) => setTeacherForm({ ...teacherForm, instagram_url: e.target.value })} placeholder="https://instagram.com/..." /></label>
                 </div>
-                <label><span>Curriculum / Bio</span><textarea rows="6" value={teacherForm.bio} onChange={(e) => setTeacherForm({ ...teacherForm, bio: e.target.value })} placeholder="Esperienza, formazione, stile di insegnamento, risultati, progetti artistici…" /></label>
+
+                <label className="teacher-member-link-field">
+                  <span>Tesserato collegato</span>
+                  <select value={teacherForm.tesseramento_id || ""} onChange={(e) => setTeacherForm({ ...teacherForm, tesseramento_id: e.target.value })}>
+                    <option value="">Seleziona il tesseramento dell’insegnante</option>
+                    {teacherMembers.map((member) => <option key={member.id} value={member.id}>{[member.nome, member.cognome].filter(Boolean).join(" ")}{member.email ? ` · ${member.email}` : ""}</option>)}
+                  </select>
+                  <small>Questo collegamento rende l’insegnante ricercabile nella Community e usa il suo vero profilo ballerino.</small>
+                </label>
+
+                <div className="teacher-community-bio-preview">
+                  <div><span className="eyebrow">Curriculum ballerino</span><strong>Gestito dall’insegnante</strong></div>
+                  <p>{linkedTeacherMember?.bio_ballerino || "Il curriculum comparirà qui quando l’insegnante lo compilerà dal proprio Profilo nell’app."}</p>
+                  {Array.isArray(linkedTeacherMember?.balli_preferiti) && linkedTeacherMember.balli_preferiti.length > 0 && <div>{linkedTeacherMember.balli_preferiti.slice(0, 8).map((style) => <span key={style}>{style}</span>)}</div>}
+                </div>
               </div>
             </div>
 
@@ -771,7 +809,7 @@ export default function AdminEngagement() {
                 <div>
                   <span className="eyebrow">Versione insegnante</span>
                   <h4>Accesso personale e compensi</h4>
-                  <p>Attiva l’area insegnante. Il curriculum resta separato; per i compensi colleghiamo il profilo alla gestione quote del pannello Admin.</p>
+                  <p>Attiva l’area insegnante e collegala al tesseramento reale. Per i compensi continuiamo a usare il profilo Nova selezionato qui sotto.</p>
                 </div>
                 <label className="orchidea-switch" aria-label="Attiva area insegnante"><input type="checkbox" checked={teacherAccessForm.enabled} onChange={(e) => setTeacherAccessForm({ ...teacherAccessForm, enabled: e.target.checked })} /><span /></label>
               </div>

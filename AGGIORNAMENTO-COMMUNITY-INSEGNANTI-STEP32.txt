@@ -1,0 +1,23 @@
+ORCHIDEA APP - STEP 32
+Community Allievi + Insegnanti
+
+NOVITA
+- Gli insegnanti collegati al proprio tesseramento sono ricercabili nella Community.
+- Allievi e insegnanti possono mettere Mi piace ai profili Community.
+- Gli insegnanti NON entrano nella classifica generale Like degli allievi.
+- Ogni profilo vede quanti Mi piace ha ricevuto e chi li ha messi.
+- Ogni nuovo Mi piace crea una notifica personale e, se le push sono attive, arriva anche sul telefono.
+- Il profilo grafico insegnante nella pagina Corsi continua a usare foto, specialita, Instagram e corsi gestiti dall'Admin.
+- Il curriculum mostrato nella pagina Corsi viene invece letto dal profilo ballerino scritto direttamente dall'insegnante.
+- Admin puo collegare il profilo insegnante al relativo tesseramento Orchidea.
+- STEP 32 prova anche a collegare automaticamente i profili esistenti tramite CF/email.
+- Switch e pulsanti della gestione classifiche Admin sono stati ridisegnati.
+
+INSTALLAZIONE
+1. Eseguire supabase/step-32-community-insegnanti-like.sql dopo STEP 31.
+2. Aggiornare la Edge Function send-push con supabase/functions/send-push/index.ts e fare Deploy.
+3. Pubblicare il progetto su Vercel.
+4. In Admin > Community & app > Profili insegnanti verificare per ogni docente il campo "Tesserato collegato".
+
+NOTA
+Il curriculum amministrativo legacy non viene piu mostrato nella pagina Corsi. La bio/curriculum visibile agli allievi e quella inserita dal docente nel proprio Profilo > Profilo ballerino.

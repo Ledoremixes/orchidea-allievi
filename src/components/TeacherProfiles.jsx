@@ -30,9 +30,7 @@ export default function TeacherProfiles({ courseIds = [] }) {
     }
 
     supabase
-      .from("app_teacher_profile_courses")
-      .select("id, corso_id, profile_id, course:corsi(id, nome, livello), teacher:app_teacher_profiles(id, nome, cognome, bio, foto_url, instagram_url, specialita, profilo_pubblico, ordine)")
-      .in("corso_id", uniqueIds)
+      .rpc("get_app_teacher_profiles_for_courses", { p_course_ids: uniqueIds })
       .then(({ data, error }) => {
         if (!mounted) return;
         if (error) {
@@ -49,12 +47,24 @@ export default function TeacherProfiles({ courseIds = [] }) {
   const teachers = useMemo(() => {
     const map = new Map();
     rows.forEach((row) => {
-      const teacher = row.teacher;
-      if (!teacher?.id || teacher.profilo_pubblico === false) return;
-      if (!map.has(teacher.id)) map.set(teacher.id, { ...teacher, courses: [] });
-      const course = row.course;
-      if (course?.id && !map.get(teacher.id).courses.some((item) => item.id === course.id)) {
-        map.get(teacher.id).courses.push(course);
+      if (!row?.profile_id || row.profilo_pubblico === false) return;
+      if (!map.has(row.profile_id)) {
+        map.set(row.profile_id, {
+          id: row.profile_id,
+          tesseramento_id: row.tesseramento_id || null,
+          nome: row.nome || "",
+          cognome: row.cognome || "",
+          specialita: row.specialita || "",
+          instagram_url: row.instagram_url || "",
+          foto_url: row.foto_url || "",
+          bio_ballerino: row.bio_ballerino || "",
+          balli_preferiti: row.balli_preferiti || [],
+          ordine: row.ordine || 0,
+          courses: [],
+        });
+      }
+      if (row.corso_id && !map.get(row.profile_id).courses.some((item) => item.id === row.corso_id)) {
+        map.get(row.profile_id).courses.push({ id: row.corso_id, nome: row.corso_nome, livello: row.corso_livello });
       }
     });
     return Array.from(map.values()).sort((a, b) => {
@@ -90,7 +100,7 @@ export default function TeacherProfiles({ courseIds = [] }) {
                 <span className="teacher-public-role">INSEGNANTE</span>
                 <strong>{teacherName(teacher)}</strong>
                 {tags.length > 0 && <div className="teacher-public-tags">{tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div>}
-                <p>{teacher.bio || "Scopri il profilo, le specialità e i corsi che insegna in Orchidea."}</p>
+                <p>{teacher.bio_ballerino || "Curriculum ballerino non ancora compilato dall’insegnante."}</p>
                 <div className="teacher-public-card-footer"><span>{teacher.courses.length} {teacher.courses.length === 1 ? "corso" : "corsi"}</span><b>Scopri il profilo →</b></div>
               </div>
             </button>
@@ -114,8 +124,9 @@ export default function TeacherProfiles({ courseIds = [] }) {
             </div>
 
             <div className="teacher-public-modal-copy">
-              <span className="teacher-public-modal-label">CURRICULUM</span>
-              <p>{selected.bio || "Fa parte del team Orchidea e accompagna gli allievi nel loro percorso durante la stagione."}</p>
+              <span className="teacher-public-modal-label">CURRICULUM BALLERINO</span>
+              <p>{selected.bio_ballerino || "L’insegnante non ha ancora compilato il proprio curriculum ballerino nel profilo personale."}</p>
+              {selected.balli_preferiti?.length > 0 && <div className="teacher-public-tags">{selected.balli_preferiti.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>}
             </div>
 
             <div className="teacher-public-modal-copy">
