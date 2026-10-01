@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
 import { compressImageToWebP } from "../../lib/imageCompression.js";
+import AdminRankings from "./AdminRankings.jsx";
 
 const emptyNotification = { title: "", body: "", category: "news", audience: "all", course_id: "", link: "", expires_at: "" };
 const emptyReward = { title: "", description: "", points_cost: "120", stock: "", icon: "✦" };
@@ -599,6 +600,8 @@ export default function AdminEngagement() {
       {error && <div className="alert error">{error}</div>}
 
       <div className="content-card admin-card admin-engagement-hero"><span className="eyebrow">Esperienza allievi</span><h3>Community & app</h3><p>Gestisci notifiche, Rewards, prove corso, profili pubblici degli insegnanti e la modalità “Sono all’Orchidea”.</p></div>
+
+      <AdminRankings courses={courses} />
 
       <div className="admin-engagement-grid">
         <form className="content-card admin-card" onSubmit={publishNotification}>

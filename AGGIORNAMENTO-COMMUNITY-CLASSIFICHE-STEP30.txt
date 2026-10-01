@@ -1,0 +1,39 @@
+ORCHIDEA APP - STEP 30
+Community allievi + profilo ballerino + Mi piace + classifiche + voti insegnanti
+
+PRIMA DEL DEPLOY
+1. Apri Supabase > SQL Editor.
+2. Esegui integralmente: supabase/step-30-community-classifiche.sql
+3. Pubblica il progetto su Vercel.
+
+NOVITA ALLIEVI
+- Profilo: bio/curriculum da ballerino, balli preferiti e scelta visibilità Community.
+- Community: ricerca compagni, foto, bio, stili preferiti e Mi piace.
+- Ogni allievo può mettere un solo Mi piace a ciascun altro profilo e può rimuoverlo.
+- Classifiche con podio Oro / Argento / Bronzo.
+
+NOVITA ADMIN
+Admin > Community > Classifiche Orchidea:
+- crea / modifica / nascondi / elimina classifiche;
+- durata con data inizio/fine;
+- tipi: Mi piace, Voti insegnanti, Punti manuali Admin;
+- corso specifico oppure globale dove previsto;
+- scelta se mostrare o nascondere il punteggio agli allievi;
+- Orchidea Points configurabili per 1°, 2° e 3° posto;
+- assegnazione dei premi alla chiusura della classifica;
+- per classifiche Punti manuali puoi aggiungere/togliere punti agli allievi dal pannello.
+
+VOTI INSEGNANTI
+- Solo gli insegnanti collegati al corso possono votare la classifica di quel corso.
+- Parametri: Tempo, Tecnica, Figura completa, Feeling; ciascuno da 1 a 5.
+- Il singolo voto del docente non è mai visibile agli allievi.
+- L'admin decide se mostrare o meno il punteggio aggregato della classifica.
+- Il punteggio è la media dei quattro parametri e delle valutazioni dei docenti abilitati.
+
+CLASSIFICA LIKE
+Lo STEP 30 crea automaticamente una prima classifica "Più apprezzati in Orchidea".
+L'admin può modificarla, nasconderla o eliminarla come qualsiasi altra classifica.
+I Like vengono conteggiati solo se ricevuti durante la durata della classifica.
+
+PRIVACY FOTO
+Il bucket profile-photos resta privato: lo STEP 30 consente la lettura delle foto solamente agli utenti autenticati dell'app, necessaria per mostrare la Community. Upload/modifica/eliminazione rimangono limitati al proprietario.

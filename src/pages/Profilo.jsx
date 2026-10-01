@@ -36,6 +36,11 @@ export default function Profilo() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [danceBio, setDanceBio] = useState(student.bio_ballerino || "");
+  const [danceStyles, setDanceStyles] = useState(Array.isArray(student.balli_preferiti) ? student.balli_preferiti : []);
+  const [customDanceStyle, setCustomDanceStyle] = useState("");
+  const [communityPublic, setCommunityPublic] = useState(student.profilo_community_pubblico !== false);
+  const [savingCommunity, setSavingCommunity] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -133,6 +138,37 @@ export default function Profilo() {
     }
   }
 
+  const danceStylePresets = ["Bachata", "Salsa", "Kizomba", "Country", "Lady Style", "Reggaeton", "Heels", "Balli di gruppo"];
+
+  function toggleDanceStyle(style) {
+    setDanceStyles((current) => current.includes(style) ? current.filter((item) => item !== style) : current.length >= 12 ? current : [...current, style]);
+  }
+
+  function addCustomDanceStyle() {
+    const clean = customDanceStyle.trim();
+    if (!clean || danceStyles.some((item) => item.toLowerCase() === clean.toLowerCase()) || danceStyles.length >= 12) return;
+    setDanceStyles((current) => [...current, clean]);
+    setCustomDanceStyle("");
+  }
+
+  async function saveCommunityProfile(event) {
+    event.preventDefault();
+    setSavingCommunity(true);
+    setError("");
+    setMessage("");
+    const { data, error: saveError } = await supabase.rpc("update_my_community_profile", {
+      p_bio: danceBio.trim() || null,
+      p_balli: danceStyles,
+      p_pubblico: communityPublic,
+    });
+    setSavingCommunity(false);
+    if (saveError || data !== true) {
+      setError(saveError?.message || "Non riesco ad aggiornare il profilo Community.");
+      return;
+    }
+    setMessage("Profilo ballerino aggiornato. Le modifiche sono già visibili nella Community.");
+  }
+
   if (!student?.id) {
     return (
       <section className="page-section orchidea-page student-profile-page-v1">
@@ -165,6 +201,24 @@ export default function Profilo() {
 
       {error && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
+
+      <form className="student-dance-profile-card" onSubmit={saveCommunityProfile}>
+        <div className="student-dance-profile-head">
+          <div><span className="eyebrow">Profilo ballerino</span><h2>Raccontati alla Community</h2><p>Una mini bio, i tuoi balli preferiti e un profilo che i compagni possono trovare e apprezzare.</p></div>
+          <label className="community-public-toggle"><input type="checkbox" checked={communityPublic} onChange={(event) => setCommunityPublic(event.target.checked)} /><span><strong>{communityPublic ? "Profilo visibile" : "Profilo nascosto"}</strong><small>{communityPublic ? "Compari nella ricerca compagni" : "Non compari nella Community"}</small></span></label>
+        </div>
+
+        <label className="student-dance-bio-field"><span>Biografia / curriculum da ballerino</span><textarea rows="5" maxLength="1200" value={danceBio} onChange={(event) => setDanceBio(event.target.value)} placeholder="Da quanto balli? Quali stili ami? Hai partecipato a gare, show o stage? Racconta il tuo percorso…" /><small>{danceBio.length}/1200 caratteri</small></label>
+
+        <div className="student-dance-styles">
+          <div><strong>Balli preferiti</strong><span>Scegline fino a 12.</span></div>
+          <div className="student-dance-style-presets">{danceStylePresets.map((style) => <button type="button" key={style} className={danceStyles.includes(style) ? "is-selected" : ""} onClick={() => toggleDanceStyle(style)}>{danceStyles.includes(style) ? "✓ " : "+ "}{style}</button>)}</div>
+          <div className="student-custom-style-row"><input value={customDanceStyle} onChange={(event) => setCustomDanceStyle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomDanceStyle(); } }} placeholder="Aggiungi un altro stile…" /><button type="button" onClick={addCustomDanceStyle}>Aggiungi</button></div>
+          {danceStyles.length > 0 && <div className="student-selected-styles">{danceStyles.map((style) => <button type="button" key={style} onClick={() => toggleDanceStyle(style)}>{style} ×</button>)}</div>}
+        </div>
+
+        <div className="student-dance-profile-actions"><button type="submit" className="primary-btn" disabled={savingCommunity}>{savingCommunity ? "Salvataggio…" : "Salva profilo ballerino"}</button><a href="/community" className="ghost-btn">Apri Community</a></div>
+      </form>
 
       <div className="student-profile-info-card">
         <div className="student-profile-info-head">

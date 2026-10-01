@@ -102,6 +102,15 @@ function NavIcon({ name }) {
           </g>
         </svg>
       );
+    case "community":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8.5" r="2.5" />
+          <circle cx="16" cy="8.5" r="2.5" />
+          <path d="M3.8 19c.35-3.1 1.95-5 4.2-5s3.85 1.9 4.2 5" />
+          <path d="M11.8 19c.35-3.1 1.95-5 4.2-5s3.85 1.9 4.2 5" />
+        </svg>
+      );
     case "profile":
       return (
         <svg {...common}>
@@ -252,6 +261,9 @@ export default function AppShell() {
                 <button type="button" className="orchidea-header-icon-btn has-badge" onClick={() => setNotificationsOpen(true)} aria-label={`Notifiche${unreadNotifications ? `, ${unreadNotifications} non lette` : ""}`} title="Notifiche">
                   <span aria-hidden="true">♢</span>
                   {unreadNotifications > 0 && <b>{unreadNotifications > 9 ? "9+" : unreadNotifications}</b>}
+                </button>
+                <button type="button" className="orchidea-header-icon-btn" onClick={() => navigate("/community")} aria-label="Apri la Community Orchidea" title="Community">
+                  <NavIcon name="community" />
                 </button>
                 {student && (
                   <button type="button" className={`orchidea-header-icon-btn orchidea-profile-header-btn${profilePhotoUrl ? " has-photo" : ""}`} onClick={() => navigate("/profilo")} aria-label="Apri il mio profilo" title="Profilo">
