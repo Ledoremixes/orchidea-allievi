@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadUpcomingEvents, formatEventDate } from "../lib/events.js";
@@ -6,6 +6,7 @@ import { formatDate, formatTime } from "../lib/format.js";
 import { getCurrentPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications.js";
 
 const DAY_ORDER = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+const SWIPE_DELETE_WIDTH = 88;
 
 function daysBetween(a, b) {
   const one = new Date(a);
@@ -89,12 +90,104 @@ function buildAutomaticNotifications({ courses, payments, videos, events }) {
   return items;
 }
 
+function SwipeNotificationRow({ item, unread, onRead, onDismiss, onClose }) {
+  const [offset, setOffset] = useState(0);
+  const startXRef = useRef(null);
+  const startYRef = useRef(null);
+  const offsetStartRef = useRef(0);
+  const draggedRef = useRef(false);
+
+  function handlePointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    startXRef.current = event.clientX;
+    startYRef.current = event.clientY;
+    offsetStartRef.current = offset;
+    draggedRef.current = false;
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* noop */ }
+  }
+
+  function handlePointerMove(event) {
+    if (startXRef.current === null) return;
+    const dx = event.clientX - startXRef.current;
+    const dy = event.clientY - startYRef.current;
+
+    if (!draggedRef.current && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+      startXRef.current = null;
+      return;
+    }
+
+    if (Math.abs(dx) > 6) draggedRef.current = true;
+    const next = Math.max(-SWIPE_DELETE_WIDTH, Math.min(0, offsetStartRef.current + dx));
+    setOffset(next);
+  }
+
+  function handlePointerUp() {
+    if (startXRef.current === null) return;
+    setOffset((current) => current <= -42 ? -SWIPE_DELETE_WIDTH : 0);
+    startXRef.current = null;
+    startYRef.current = null;
+  }
+
+  function handleRowClick(event) {
+    if (draggedRef.current || offset < 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      draggedRef.current = false;
+      setOffset(0);
+      return;
+    }
+    onRead(item.key);
+    if (item.link) onClose?.();
+  }
+
+  const content = (
+    <>
+      <span className={`notification-symbol is-${item.category}`}>{categoryIcon(item.category)}</span>
+      <div><strong>{item.title}</strong><p>{item.body}</p></div>
+      {unread && <i className="notification-unread-dot" />}
+    </>
+  );
+
+  const interactiveProps = {
+    className: `notification-row ${unread ? "is-unread" : ""}`,
+    style: { transform: `translate3d(${offset}px,0,0)` },
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+    onPointerCancel: handlePointerUp,
+    onClick: handleRowClick,
+  };
+
+  return (
+    <div className={`notification-swipe-shell ${offset < 0 ? "is-open" : ""}`}>
+      <button
+        type="button"
+        className="notification-swipe-delete"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDismiss(item.key);
+        }}
+        aria-label={`Elimina notifica: ${item.title}`}
+      >
+        <span aria-hidden="true">×</span>
+        <small>Elimina</small>
+      </button>
+      {item.link ? (
+        <Link to={item.link} {...interactiveProps}>{content}</Link>
+      ) : (
+        <button type="button" {...interactiveProps}>{content}</button>
+      )}
+    </div>
+  );
+}
+
 export default function NotificationCenter({ student, teacher, open, onClose, onUnreadChange }) {
   const [items, setItems] = useState([]);
   const [readKeys, setReadKeys] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [pushState, setPushState] = useState({ loading: true, supported: true, subscription: null, permission: "default", requiresInstall: false, vapidConfigured: true });
   const [pushMessage, setPushMessage] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState("");
   const teacherAccountId = teacher?.account_id || null;
   const isTeacherExperience = Boolean(teacherAccountId);
   const pushOwner = isTeacherExperience
@@ -103,9 +196,16 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
       ? { studentId: student.id }
       : null;
 
+  const ownerFilter = useMemo(() => teacherAccountId
+    ? { column: "teacher_account_id", value: teacherAccountId }
+    : student?.id
+      ? { column: "tesseramento_id", value: student.id }
+      : null, [student?.id, teacherAccountId]);
+
   const loadNotifications = useCallback(async () => {
     if (!student?.id && !teacherAccountId) return;
     setLoading(true);
+    setDeleteMessage("");
 
     const [adminResult, eventsResult] = await Promise.all([
       supabase.from("app_notifications").select("id, title, body, category, link, starts_at, created_at").order("starts_at", { ascending: false }).limit(40),
@@ -116,7 +216,13 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
     readsQuery = teacherAccountId
       ? readsQuery.eq("teacher_account_id", teacherAccountId)
       : readsQuery.eq("tesseramento_id", student.id);
-    const readsResult = await readsQuery;
+
+    let dismissalsQuery = supabase.from("app_notification_dismissals").select("notification_key");
+    dismissalsQuery = teacherAccountId
+      ? dismissalsQuery.eq("teacher_account_id", teacherAccountId)
+      : dismissalsQuery.eq("tesseramento_id", student.id);
+
+    const [readsResult, dismissalsResult] = await Promise.all([readsQuery, dismissalsQuery]);
 
     let courses = [];
     let payments = [];
@@ -167,8 +273,10 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
       events: eventsResult.events || [],
     });
 
+    const dismissedKeys = new Set((dismissalsResult.data || []).map((row) => row.notification_key));
     const merged = [...adminItems, ...automatic]
       .filter((item, index, array) => array.findIndex((entry) => entry.key === item.key) === index)
+      .filter((item) => !dismissedKeys.has(item.key))
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
     setItems(merged);
@@ -217,6 +325,47 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
       : { tesseramento_id: student.id, notification_key: item.key });
     const conflict = teacherAccountId ? "teacher_account_id,notification_key" : "tesseramento_id,notification_key";
     await supabase.from("app_notification_reads").upsert(rows, { onConflict: conflict });
+  }
+
+  async function persistDismissed(keys) {
+    if (!keys.length || !ownerFilter) return;
+    const rows = keys.map((key) => ({ [ownerFilter.column]: ownerFilter.value, notification_key: key }));
+    const conflict = `${ownerFilter.column},notification_key`;
+    const { error } = await supabase
+      .from("app_notification_dismissals")
+      .upsert(rows, { onConflict: conflict, ignoreDuplicates: true });
+    if (error) throw error;
+  }
+
+  async function dismissNotification(key) {
+    const previous = items;
+    setItems((current) => current.filter((item) => item.key !== key));
+    setDeleteMessage("");
+    try {
+      await persistDismissed([key]);
+    } catch (error) {
+      console.warn("dismiss notification:", error);
+      setItems(previous);
+      setDeleteMessage("Non sono riuscito a eliminare la notifica. Riprova.");
+    }
+  }
+
+  async function dismissAllNotifications() {
+    if (!items.length || !ownerFilter) return;
+    const confirmed = window.confirm("Eliminare tutte le notifiche visualizzate? Le nuove notifiche continueranno ad arrivare normalmente.");
+    if (!confirmed) return;
+
+    const previous = items;
+    const keys = items.map((item) => item.key);
+    setItems([]);
+    setDeleteMessage("");
+    try {
+      await persistDismissed(keys);
+    } catch (error) {
+      console.warn("dismiss all notifications:", error);
+      setItems(previous);
+      setDeleteMessage("Non sono riuscito a eliminare tutte le notifiche. Riprova.");
+    }
   }
 
   async function enablePush() {
@@ -276,25 +425,24 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
 
         <div className="notification-tools">
           <button type="button" onClick={markAllRead} disabled={!unreadCount}>Segna tutte come lette</button>
+          <button type="button" className="notification-delete-all" onClick={dismissAllNotifications} disabled={!items.length}>Elimina tutte</button>
           {pushActive && <span>Push telefono attive ✓</span>}
         </div>
 
+        <div className="notification-swipe-hint" aria-hidden="true">← Scorri una notifica verso sinistra per eliminarla</div>
+        {deleteMessage && <div className="notification-delete-message">{deleteMessage}</div>}
+
         <div className="notification-list">
-          {loading ? <div className="notification-empty">Carico notifiche…</div> : items.length === 0 ? <div className="notification-empty">Nessuna novità al momento.</div> : items.map((item) => {
-            const unread = !readKeys.has(item.key);
-            const content = (
-              <>
-                <span className={`notification-symbol is-${item.category}`}>{categoryIcon(item.category)}</span>
-                <div><strong>{item.title}</strong><p>{item.body}</p></div>
-                {unread && <i className="notification-unread-dot" />}
-              </>
-            );
-            return item.link ? (
-              <Link key={item.key} to={item.link} className={`notification-row ${unread ? "is-unread" : ""}`} onClick={() => { markRead(item.key); onClose?.(); }}>{content}</Link>
-            ) : (
-              <button key={item.key} type="button" className={`notification-row ${unread ? "is-unread" : ""}`} onClick={() => markRead(item.key)}>{content}</button>
-            );
-          })}
+          {loading ? <div className="notification-empty">Carico notifiche…</div> : items.length === 0 ? <div className="notification-empty">Nessuna novità al momento.</div> : items.map((item) => (
+            <SwipeNotificationRow
+              key={item.key}
+              item={item}
+              unread={!readKeys.has(item.key)}
+              onRead={markRead}
+              onDismiss={dismissNotification}
+              onClose={onClose}
+            />
+          ))}
         </div>
       </aside>
     </div>

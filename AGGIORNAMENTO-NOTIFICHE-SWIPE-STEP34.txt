@@ -1,0 +1,17 @@
+STEP 34 - NOTIFICHE: SWIPE PER ELIMINARE + ELIMINA TUTTE
+
+Novità
+- Swipe verso sinistra su una singola notifica per mostrare il comando Elimina.
+- Eliminazione personale: una notifica eliminata da un utente resta disponibile agli altri destinatari.
+- Pulsante "Elimina tutte" con conferma.
+- "Elimina tutte" riguarda solo le notifiche presenti in quel momento: le nuove continueranno ad arrivare.
+- Le notifiche eliminate non ricompaiono riaprendo l'app.
+- Compatibile sia con account allievo sia con account insegnante.
+- Suggerimento grafico nel Centro Notifiche: "Scorri una notifica verso sinistra per eliminarla".
+
+Prima del deploy
+1. Eseguire su Supabase SQL Editor:
+   supabase/step-34-notifiche-swipe-elimina.sql
+2. Pubblicare la nuova versione su Vercel.
+
+Lo script crea app_notification_dismissals con RLS: ciascun utente può vedere e modificare esclusivamente le proprie eliminazioni.

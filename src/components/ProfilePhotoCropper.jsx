@@ -97,9 +97,11 @@ export default function ProfilePhotoCropper({ file, saving = false, onCancel, on
     setError("");
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.classList.add("profile-crop-open");
     return () => {
       URL.revokeObjectURL(url);
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove("profile-crop-open");
     };
   }, [file]);
 

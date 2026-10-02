@@ -28,6 +28,8 @@ export default function KioskCheckIn() {
   const [result, setResult] = useState(null);
   const [courseChoiceMessage, setCourseChoiceMessage] = useState("");
   const [pendingCheckIn, setPendingCheckIn] = useState(null);
+  const [pendingCourses, setPendingCourses] = useState([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [searchingStudents, setSearchingStudents] = useState(false);
   const [searchScope, setSearchScope] = useState("");
@@ -90,7 +92,7 @@ export default function KioskCheckIn() {
 
       const { data, error } = await supabase.rpc("cerca_allievi_checkin", {
         p_query: query,
-        p_corso_id: selectedCourseId || null,
+        p_corso_id: null,
       });
 
       if (searchRequestRef.current !== requestId) return;
@@ -121,6 +123,8 @@ export default function KioskCheckIn() {
     setResult(null);
     setCourseChoiceMessage("");
     setPendingCheckIn(null);
+    setPendingCourses([]);
+    setSelectedCourseIds([]);
     setSearchResults([]);
     setSearchScope("");
     setSearchMessage("");
@@ -135,14 +139,39 @@ export default function KioskCheckIn() {
   }
 
   function handleCheckInResult(nextResult, pending) {
+    if (nextResult?.status === "choose_courses") {
+      const options = Array.isArray(nextResult.courses) ? nextResult.courses : [];
+      const selectable = options.filter((course) => !course.already_registered);
+      const consecutive = selectable.filter((course) => course.consecutive);
+      const defaultSelection = selectable.length === 1
+        ? selectable
+        : consecutive.length >= 2
+          ? consecutive
+          : [];
+      setPendingCheckIn({
+        ...pending,
+        tesseramentoId: nextResult.tesseramento_id || pending?.student?.tesseramento_id || null,
+      });
+      setPendingCourses(options);
+      setSelectedCourseIds(defaultSelection.map((course) => course.id));
+      setCourseChoiceMessage(nextResult.message || "Seleziona tutte le lezioni che frequenti.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Retrocompatibilità con eventuale SQL precedente non ancora aggiornato.
     if (nextResult?.status === "choose_course") {
       setPendingCheckIn(pending);
+      setPendingCourses([]);
+      setSelectedCourseIds([]);
       setCourseChoiceMessage(nextResult.message || "Seleziona il corso che stai frequentando.");
       setSubmitting(false);
       return;
     }
 
     setPendingCheckIn(null);
+    setPendingCourses([]);
+    setSelectedCourseIds([]);
     setCourseChoiceMessage("");
     setResult(nextResult);
     setSubmitting(false);
@@ -160,7 +189,7 @@ export default function KioskCheckIn() {
 
     const { data, error } = await supabase.rpc("registra_presenza_corso", {
       p_identificativo: cleanValue,
-      p_corso_id: forcedCourseId || selectedCourseId || null,
+      p_corso_id: forcedCourseId || null,
     });
 
     const nextResult = error
@@ -181,7 +210,7 @@ export default function KioskCheckIn() {
 
     const { data, error } = await supabase.rpc("registra_presenza_corso_per_allievo", {
       p_tesseramento_id: student.tesseramento_id,
-      p_corso_id: forcedCourseId || selectedCourseId || null,
+      p_corso_id: forcedCourseId || null,
     });
 
     const nextResult = error
@@ -197,6 +226,7 @@ export default function KioskCheckIn() {
   }
 
   function chooseCourse(course) {
+    // Solo fallback per installazioni che non hanno ancora eseguito STEP 35.
     setSelectedCourseId(course.id);
     setCourseChoiceMessage("");
 
@@ -204,11 +234,37 @@ export default function KioskCheckIn() {
 
     const pending = pendingCheckIn;
     setPendingCheckIn(null);
+    setPendingCourses([]);
+    setSelectedCourseIds([]);
     if (pending.type === "student") {
       registerByStudent(pending.student, course.id);
     } else {
       registerByIdentifier(pending.value, course.id);
     }
+  }
+
+  function togglePendingCourse(courseId) {
+    const course = pendingCourses.find((item) => item.id === courseId);
+    if (!course || course.already_registered || submitting) return;
+    setSelectedCourseIds((current) => current.includes(courseId)
+      ? current.filter((id) => id !== courseId)
+      : [...current, courseId]);
+  }
+
+  async function confirmMultipleCourses() {
+    if (!pendingCheckIn?.tesseramentoId || selectedCourseIds.length === 0 || submitting) return;
+
+    setSubmitting(true);
+    const { data, error } = await supabase.rpc("registra_presenze_corsi_per_allievo", {
+      p_tesseramento_id: pendingCheckIn.tesseramentoId,
+      p_corso_ids: selectedCourseIds,
+    });
+
+    const nextResult = error
+      ? { status: "error", message: error.message || "Non è stato possibile registrare le presenze." }
+      : data;
+
+    handleCheckInResult(nextResult, pendingCheckIn);
   }
 
   async function enterFullscreen() {
@@ -258,10 +314,21 @@ export default function KioskCheckIn() {
               <>
                 <span className="kiosk-result-kicker">{isSuccess ? "Presenza registrata" : "Check-in già effettuato"}</span>
                 <h1>{isSuccess ? personalWelcome : "Ciao"}, {result.first_name || "allievo"}!</h1>
-                <p className="kiosk-result-course">
-                  {[result.course_name, result.course_level].filter(Boolean).join(" · ")}
-                </p>
-                <small>{result.course_time ? `Lezione delle ${result.course_time}` : result.message}</small>
+                {Array.isArray(result.courses) && result.courses.length > 1 ? (
+                  <div className="kiosk-result-courses">
+                    {result.courses.map((course) => (
+                      <span key={course.id}>
+                        <strong>{[course.name, course.level].filter(Boolean).join(" · ")}</strong>
+                        <small>{course.start}{course.end ? ` - ${course.end}` : ""}</small>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="kiosk-result-course">
+                    {[result.course_name, result.course_level].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                <small>{result.message || (result.course_time ? `Lezione ${result.course_time}` : "")}</small>
               </>
             )}
             {!isSuccess && !isAlready && (
@@ -285,6 +352,68 @@ export default function KioskCheckIn() {
             <div className="kiosk-course-context">
               {loadingCourses ? (
                 <span>Controllo il corso in programma…</span>
+              ) : courseChoiceMessage ? (
+                <div className="kiosk-course-picker kiosk-multi-course-picker">
+                  <span>{courseChoiceMessage}</span>
+                  {pendingCourses.length > 0 ? (
+                    <>
+                      <p>Se fai due ore consecutive, lascia selezionati entrambi i corsi e conferma una sola volta.</p>
+                      <div>
+                        {pendingCourses.map((course) => {
+                          const active = selectedCourseIds.includes(course.id);
+                          const already = course.already_registered;
+                          return (
+                            <button
+                              type="button"
+                              key={course.id}
+                              className={`${active ? "active" : ""} ${already ? "already" : ""}`.trim()}
+                              onClick={() => togglePendingCourse(course.id)}
+                              disabled={submitting || already}
+                              aria-pressed={active}
+                            >
+                              <span className="kiosk-course-check" aria-hidden="true">{already ? "✓" : active ? "✓" : ""}</span>
+                              <span className="kiosk-course-option-copy">
+                                <strong>{courseLabel(course)}</strong>
+                                <small>
+                                  {formatTime(course.ora_inizio)} - {formatTime(course.ora_fine)}{course.sala ? ` · ${course.sala}` : ""}
+                                  {course.consecutive ? " · ora consecutiva" : ""}
+                                </small>
+                                {already && <em>Presenza già registrata</em>}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        className="kiosk-multi-confirm"
+                        onClick={confirmMultipleCourses}
+                        disabled={submitting || selectedCourseIds.length === 0}
+                      >
+                        {submitting
+                          ? "Registro le presenze…"
+                          : selectedCourseIds.length > 1
+                            ? `Registra ${selectedCourseIds.length} corsi con un solo check-in`
+                            : "Registra il corso selezionato"}
+                      </button>
+                    </>
+                  ) : (
+                    <div>
+                      {courses.map((course) => (
+                        <button
+                          type="button"
+                          key={course.id}
+                          className={selectedCourseId === course.id ? "active" : ""}
+                          onClick={() => chooseCourse(course)}
+                          disabled={submitting}
+                        >
+                          <strong>{courseLabel(course)}</strong>
+                          <small>{formatTime(course.ora_inizio)} · {course.sala || "Sala"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : courses.length === 0 ? (
                 <div className="kiosk-no-course">
                   <strong>Nessun corso disponibile adesso</strong>
@@ -296,38 +425,16 @@ export default function KioskCheckIn() {
                   <strong>{courseLabel(courses[0])}</strong>
                   <small>{formatTime(courses[0].ora_inizio)} - {formatTime(courses[0].ora_fine)}{courses[0].sala ? ` · ${courses[0].sala}` : ""}</small>
                 </div>
-              ) : courseChoiceMessage ? (
-                <div className="kiosk-course-picker">
-                  <span>Seleziona la lezione che stai frequentando</span>
-                  <div>
-                    {courses.map((course) => (
-                      <button
-                        type="button"
-                        key={course.id}
-                        className={selectedCourseId === course.id ? "active" : ""}
-                        onClick={() => chooseCourse(course)}
-                        disabled={submitting}
-                      >
-                        <strong>{courseLabel(course)}</strong>
-                        <small>{formatTime(course.ora_inizio)} · {course.sala || "Sala"}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               ) : (
                 <div className="kiosk-current-course">
-                  <span>Più lezioni sono in corso</span>
-                  <strong>Il tuo corso verrà riconosciuto automaticamente</strong>
-                  <small>La ricerca parte dagli iscritti alle lezioni attive in questo momento.</small>
+                  <span>Più lezioni sono disponibili</span>
+                  <strong>I tuoi corsi verranno riconosciuti automaticamente</strong>
+                  <small>Se frequenti più ore consecutive potrai registrarle insieme con un solo check-in.</small>
                 </div>
               )}
             </div>
 
-            {courseChoiceMessage && (
-              <div className="kiosk-choice-alert" role="alert">{courseChoiceMessage}</div>
-            )}
-
-            <form className="kiosk-form" onSubmit={submitCheckIn}>
+            {!courseChoiceMessage && <form className="kiosk-form" onSubmit={submitCheckIn}>
               <label htmlFor="kiosk-identifier">Nome, cognome, numero tessera o cellulare</label>
               <input
                 ref={inputRef}
@@ -337,6 +444,8 @@ export default function KioskCheckIn() {
                 onChange={(event) => {
                   setIdentifier(event.target.value);
                   setPendingCheckIn(null);
+                  setPendingCourses([]);
+                  setSelectedCourseIds([]);
                   setCourseChoiceMessage("");
                 }}
                 placeholder="Es. Giulia Rossi oppure ORC-2026-0123"
@@ -394,7 +503,7 @@ export default function KioskCheckIn() {
               <button type="submit" disabled={submitting || courses.length === 0 || !identifier.trim()}>
                 {submitting ? "Registro la presenza…" : "Registra con tessera o cellulare"}
               </button>
-            </form>
+            </form>}
 
             {selectedCourse && courses.length > 1 && !courseChoiceMessage && (
               <div className="kiosk-selected-course">Corso selezionato: <strong>{courseLabel(selectedCourse)}</strong></div>

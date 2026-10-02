@@ -1,0 +1,22 @@
+STEP 35 - CHECK-IN MULTIPLO PER CORSI CONSECUTIVI
+
+Problema risolto
+- Un allievo che frequenta due ore consecutive (es. Bachata Base + Salsa Base) non deve fare due check-in e uscire dalla pista tra una lezione e l'altra.
+
+Nuovo comportamento
+- L'allievo si identifica una sola volta.
+- Se ha un solo corso disponibile, la presenza viene registrata automaticamente come prima.
+- Se ha due o più corsi consecutivi a cui è iscritto, il tablet mostra una selezione multipla.
+- Tutti i corsi ancora da registrare sono preselezionati: l'allievo può togliere quelli che non frequenta.
+- Premendo una sola volta “Registra corsi selezionati” vengono create le presenze per tutte le lezioni scelte.
+- Il corso successivo direttamente consecutivo può essere registrato già all'inizio della prima ora, senza attendere l'apertura della sua finestra di 30 minuti.
+- Le presenze già esistenti non vengono duplicate.
+
+Esempio
+Bachata Base 20:30-21:30 + Salsa Base 21:30-22:30.
+Alle 20:10 l'allievo effettua il check-in e può selezionare entrambe le lezioni.
+Il database registra due presenze con un'unica operazione.
+
+Installazione
+1. Pubblicare la nuova versione dell'app.
+2. Eseguire supabase/step-48-checkin-multiplo-corsi-consecutivi.sql nel SQL Editor di Supabase.

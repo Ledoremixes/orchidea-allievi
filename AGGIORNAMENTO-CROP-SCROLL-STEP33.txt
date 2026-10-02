@@ -1,0 +1,7 @@
+STEP 33 — Crop foto mobile
+
+- Il modal di ritaglio foto ora ha scroll verticale touch indipendente.
+- I pulsanti Annulla / Usa questa foto restano sticky e sempre raggiungibili.
+- Durante il crop vengono nascosti temporaneamente bottom navigation e pulsante “Sono all’Orchidea”.
+- Su mobile il viewport foto è leggermente più compatto per lasciare spazio ai controlli.
+- Nessuna modifica SQL richiesta.
