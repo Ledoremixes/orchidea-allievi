@@ -97,22 +97,22 @@ function SwipeNotificationRow({ item, unread, onRead, onDismiss, onClose }) {
   const offsetStartRef = useRef(0);
   const draggedRef = useRef(false);
 
-  function handlePointerDown(event) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    startXRef.current = event.clientX;
-    startYRef.current = event.clientY;
+  function beginSwipe(clientX, clientY) {
+    startXRef.current = clientX;
+    startYRef.current = clientY;
     offsetStartRef.current = offset;
     draggedRef.current = false;
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* noop */ }
   }
 
-  function handlePointerMove(event) {
+  function moveSwipe(clientX, clientY) {
     if (startXRef.current === null) return;
-    const dx = event.clientX - startXRef.current;
-    const dy = event.clientY - startYRef.current;
+    const dx = clientX - startXRef.current;
+    const dy = clientY - startYRef.current;
 
+    // Se il gesto e chiaramente verticale, lasciamo lo scroll della lista al browser.
     if (!draggedRef.current && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
       startXRef.current = null;
+      startYRef.current = null;
       return;
     }
 
@@ -121,11 +121,46 @@ function SwipeNotificationRow({ item, unread, onRead, onDismiss, onClose }) {
     setOffset(next);
   }
 
-  function handlePointerUp() {
+  function endSwipe() {
     if (startXRef.current === null) return;
     setOffset((current) => current <= -42 ? -SWIPE_DELETE_WIDTH : 0);
     startXRef.current = null;
     startYRef.current = null;
+  }
+
+  // Mouse/pen: utile anche da desktop. Sui dispositivi touch usiamo invece
+  // gli handler touch espliciti qui sotto: sono piu affidabili nelle PWA iOS.
+  function handlePointerDown(event) {
+    if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    beginSwipe(event.clientX, event.clientY);
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* noop */ }
+  }
+
+  function handlePointerMove(event) {
+    if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+    moveSwipe(event.clientX, event.clientY);
+  }
+
+  function handlePointerUp(event) {
+    if (event?.pointerType && event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+    endSwipe();
+  }
+
+  function handleTouchStart(event) {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    beginSwipe(touch.clientX, touch.clientY);
+  }
+
+  function handleTouchMove(event) {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    moveSwipe(touch.clientX, touch.clientY);
+  }
+
+  function handleTouchEnd() {
+    endSwipe();
   }
 
   function handleRowClick(event) {
@@ -155,6 +190,10 @@ function SwipeNotificationRow({ item, unread, onRead, onDismiss, onClose }) {
     onPointerMove: handlePointerMove,
     onPointerUp: handlePointerUp,
     onPointerCancel: handlePointerUp,
+    onTouchStart: handleTouchStart,
+    onTouchMove: handleTouchMove,
+    onTouchEnd: handleTouchEnd,
+    onTouchCancel: handleTouchEnd,
     onClick: handleRowClick,
   };
 

@@ -14214,6 +14214,20 @@ body,
   background:linear-gradient(145deg,#e72d63,#a61245);
   color:white;
   cursor:pointer;
+  /* L'azione non deve mai essere visibile a riposo. Questo evita la X fissa
+     che compariva soprattutto nella PWA iOS degli insegnanti. */
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateX(18px);
+  transition:opacity .14s ease, transform .18s ease, visibility 0s linear .18s;
+}
+.notification-swipe-shell.is-open .notification-swipe-delete {
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateX(0);
+  transition-delay:0s;
 }
 .notification-swipe-delete > span { font-size:1.45rem; line-height:1; font-weight:500; }
 .notification-swipe-delete > small { font-size:.64rem; font-weight:950; }

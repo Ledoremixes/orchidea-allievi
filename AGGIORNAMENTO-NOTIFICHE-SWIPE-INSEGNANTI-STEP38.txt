@@ -1,0 +1,7 @@
+ORCHIDEA APP - STEP 38 - SWIPE NOTIFICHE INSEGNANTI
+
+- Uniformato il Centro Notifiche tra allievi e insegnanti.
+- La X / azione Elimina non e piu visibile a riposo.
+- Lo swipe verso sinistra apre l azione Elimina anche su iPhone/PWA grazie a handler touch dedicati.
+- Swipe disponibile anche da desktop con mouse/pen.
+- Nessuna modifica al database: resta la cancellazione personale introdotta nello STEP 34.
