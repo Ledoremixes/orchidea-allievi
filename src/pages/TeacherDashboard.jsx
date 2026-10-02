@@ -26,11 +26,20 @@ function initials(person) {
   return `${person?.nome?.[0] || ""}${person?.cognome?.[0] || ""}`.trim().toUpperCase() || "O";
 }
 
-function compensationRuleLabel(source) {
+function compensationRuleLabel(source, rows = []) {
   const type = String(source?.payment_type || "percentuale").toLowerCase();
   if (type.includes("fiss")) return `${money(source?.fixed_monthly_compensation)} fissi`;
   if (type.includes("orar")) return `${Number(source?.hourly_rate || 0).toLocaleString("it-IT")} €/h`;
-  return `${Number(source?.percentage_compensation || 0).toLocaleString("it-IT")}%`;
+
+  const base = Number(source?.percentage_compensation || 0);
+  const overrides = rows
+    .filter((row) => Number.isFinite(Number(row?.aliquota)) && Number(row.aliquota) !== base)
+    .map((row) => ({ course: row.corso_nome || "Corso", rate: Number(row.aliquota) }));
+  const unique = [...new Map(overrides.map((item) => [`${item.course}-${item.rate}`, item])).values()];
+
+  if (!unique.length) return `${base.toLocaleString("it-IT")}%`;
+  if (unique.length === 1) return `${base.toLocaleString("it-IT")}% base · ${unique[0].rate.toLocaleString("it-IT")}% ${unique[0].course}`;
+  return `${base.toLocaleString("it-IT")}% base · ${unique.length} regole per corso`;
 }
 
 export default function TeacherDashboard() {
@@ -139,7 +148,7 @@ export default function TeacherDashboard() {
         <div className="teacher-kpi-grid teacher-kpi-grid-clean">
           <article><span>Il tuo compenso</span><strong>{monthError ? "Non disponibile" : money(total)}</strong><small>{monthError ? "Errore di sincronizzazione con Nova" : "Totale del mese selezionato"}</small></article>
           <article><span>Corsi</span><strong>{Number(compensationSource?.active_course_links || rows.length)}</strong><small>Corsi assegnati in Nova</small></article>
-          <article><span>Regola compenso</span><strong>{compensationRuleLabel(compensationSource)}</strong><small>{String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("fiss") ? "Compenso mensile" : String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("orar") ? "Tariffa oraria" : "Sulle quote pagate"}</small></article>
+          <article><span>Regola compenso</span><strong>{compensationRuleLabel(compensationSource, rows)}</strong><small>{String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("fiss") ? "Compenso mensile" : String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("orar") ? "Tariffa oraria" : "Sulle quote pagate"}</small></article>
         </div>
 
         {monthLoading ? (
@@ -168,6 +177,9 @@ export default function TeacherDashboard() {
                     <span>Il tuo compenso</span>
                     <strong>{money(row.compenso)}</strong>
                     <small>{Number(row.corsisti_paganti || 0)} {Number(row.corsisti_paganti || 0) === 1 ? "corsista pagante" : "corsisti paganti"}</small>
+                    {String(row.metodo_compenso || "").toLowerCase().includes("percent") && (
+                      <small className="teacher-course-rate">Regola del corso: {Number(row.aliquota || 0).toLocaleString("it-IT")}% sulle quote pagate</small>
+                    )}
                   </div>
                 </div>
               </article>
@@ -206,7 +218,7 @@ export default function TeacherDashboard() {
 
       <div className="teacher-area-note">
         <strong>Dati collegati a Nova{compensationSource?.compensation_teacher_name ? ` · ${compensationSource.compensation_teacher_name}` : ""}</strong>
-        <span>Il calcolo usa la stessa logica di Nova: quota mensile dell’allievo, ripartizione sui corsi attivi e regola compenso del docente. Ogni insegnante vede esclusivamente i propri compensi.</span>
+        <span>Il calcolo usa la stessa logica di Nova: quota mensile dell’allievo, ripartizione sui corsi attivi e percentuale specifica del singolo corso quando presente; in assenza di override usa la regola generale del docente. Ogni insegnante vede esclusivamente i propri compensi.</span>
       </div>
     </div>
   );

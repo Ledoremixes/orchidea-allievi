@@ -18866,3 +18866,16 @@ body.profile-crop-open .bottom-nav.orchidea-bottom-nav {
   .kiosk-course-check { width: 32px; height: 32px; border-radius: 10px; }
   .kiosk-result-courses > span { align-items: flex-start; flex-direction: column; gap: 3px; }
 }
+
+/* STEP 37 - evidenzia la regola specifica per corso nella pagina compensi docente */
+.teacher-course-rate {
+  display: inline-flex;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 211, 84, 0.26);
+  background: rgba(255, 211, 84, 0.08);
+  color: #f5cf6a !important;
+  font-weight: 700;
+  width: fit-content;
+}

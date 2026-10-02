@@ -1,0 +1,18 @@
+ORCHIDEA APP - STEP 37 - COMPENSI CON REGOLE SPECIFICHE PER CORSO
+
+Problema:
+- L'app usava la percentuale generale del docente su tutti i corsi.
+- Nova supporta una percentuale specifica salvata sul collegamento insegnanti_corsi.percentuale_compenso.
+- Esempio reale: Laura 20% generale, Lady Style 40%.
+
+Correzione:
+- get_my_teacher_compensation_nova usa la percentuale del singolo corso quando presente.
+- Se il corso non ha override, usa la percentuale generale dell'insegnante.
+- Il totale mensile e lo storico vengono ricalcolati dalla stessa funzione.
+- Nell'app ogni riga corso mostra la percentuale effettivamente applicata.
+- Il riquadro Regola compenso segnala quando esistono regole miste.
+
+Eseguire in Supabase:
+supabase/step-37-compensi-regole-per-corso.sql
+
+Non sono necessarie nuove Edge Functions o variabili Vercel.
