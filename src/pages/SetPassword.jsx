@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 
@@ -7,13 +7,70 @@ export default function SetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingRecovery, setCheckingRecovery] = useState(true);
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    let recoveryEventSeen = false;
+
+    const markReady = () => {
+      if (!mounted) return;
+      recoveryEventSeen = true;
+      setRecoveryReady(true);
+      setCheckingRecovery(false);
+      setError("");
+    };
+
+    // Supabase emette PASSWORD_RECOVERY dopo aver elaborato il link ricevuto
+    // via email. detectSessionInUrl=true nel client gestisce sia hash legacy
+    // sia i redirect moderni supportati da Supabase.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        markReady();
+        return;
+      }
+      if (event === "SIGNED_IN" && session?.user) {
+        // Alcuni link/versioni SDK ripristinano direttamente la sessione senza
+        // riemettere PASSWORD_RECOVERY al remount della SPA.
+        markReady();
+      }
+    });
+
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!mounted || recoveryEventSeen) return;
+      if (!sessionError && data?.session?.user) {
+        markReady();
+        return;
+      }
+
+      // Lasciamo qualche istante a detectSessionInUrl per scambiare/leggere i
+      // parametri del link prima di dichiararlo non valido.
+      window.setTimeout(() => {
+        if (!mounted || recoveryEventSeen) return;
+        setCheckingRecovery(false);
+        setRecoveryReady(false);
+        setError("Il link di recupero non è valido o è scaduto. Torna al login e richiedine uno nuovo.");
+      }, 1200);
+    });
+
+    return () => {
+      mounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setMessage("");
+
+    if (!recoveryReady) {
+      setError("Apri questa pagina dal link di recupero ricevuto via email.");
+      return;
+    }
 
     if (password.length < 8) {
       setError("La password deve avere almeno 8 caratteri.");
@@ -34,7 +91,7 @@ export default function SetPassword() {
       return;
     }
 
-    setMessage("Password impostata correttamente. Ti porto nella tua area…");
+    setMessage("Password aggiornata correttamente. Ti porto nella tua area…");
     setTimeout(() => navigate("/", { replace: true }), 900);
   }
 
@@ -43,15 +100,16 @@ export default function SetPassword() {
       <div className="auth-hero comfort-auth-hero password-side-card">
         <img src="/assets/logo.png" alt="Orchidea" className="auth-logo" />
         <span className="eyebrow">Sicurezza account</span>
-        <h1>Imposta la tua password in modo sicuro.</h1>
-        <p>Scegli una password personale. Ti servirà per accedere alla tua tessera, ai corsi e ai video riservati.</p>
+        <h1>Scegli la tua nuova password.</h1>
+        <p>Il link ti ha riportato direttamente in Orchidea. Imposta una nuova password e potrai continuare a usare l’app normalmente.</p>
       </div>
 
       <form className="auth-card compact-card comfort-auth-card" onSubmit={handleSubmit}>
-        <span className="eyebrow">Nuova password</span>
-        <h1>Completa l’accesso</h1>
-        <p>Usa almeno 8 caratteri. Meglio ancora se includi lettere, numeri e simboli.</p>
+        <span className="eyebrow">Recupero password</span>
+        <h1>Nuova password</h1>
+        <p>Usa almeno 8 caratteri. Il link di recupero può essere utilizzato solo per il tuo account.</p>
 
+        {checkingRecovery && <div className="alert">Verifica del link di recupero…</div>}
         {error && <div className="alert error">{error}</div>}
         {message && <div className="alert success">{message}</div>}
 
@@ -63,6 +121,7 @@ export default function SetPassword() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Almeno 8 caratteri"
             autoComplete="new-password"
+            disabled={!recoveryReady || loading}
           />
         </label>
 
@@ -74,6 +133,7 @@ export default function SetPassword() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Ripeti password"
             autoComplete="new-password"
+            disabled={!recoveryReady || loading}
           />
         </label>
 
@@ -82,9 +142,15 @@ export default function SetPassword() {
           <span className={password && password === confirmPassword ? "is-ok" : ""}>✓ Le password coincidono</span>
         </div>
 
-        <button className="primary-btn" type="submit" disabled={loading}>
-          {loading ? "Salvataggio…" : "Salva password"}
+        <button className="primary-btn" type="submit" disabled={loading || !recoveryReady}>
+          {loading ? "Salvataggio…" : checkingRecovery ? "Verifica link…" : "Salva nuova password"}
         </button>
+
+        {!checkingRecovery && !recoveryReady && (
+          <button className="secondary-btn" type="button" onClick={() => navigate("/login", { replace: true })}>
+            Torna al login
+          </button>
+        )}
       </form>
     </div>
   );

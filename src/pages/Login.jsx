@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import InstallAppBanner from "../components/InstallAppBanner.jsx";
+import { emailConfirmationRedirectUrl, passwordRecoveryRedirectUrl } from "../lib/appUrl.js";
 
 const firstAccessInitial = {
   role: "student",
@@ -123,7 +124,7 @@ export default function Login() {
     }
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/set-password`,
+      redirectTo: passwordRecoveryRedirectUrl(),
     });
     setResetLoading(false);
 
@@ -185,7 +186,7 @@ export default function Login() {
       email: cleanEmail,
       password: firstAccess.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/login?confirmed=1`,
+        emailRedirectTo: emailConfirmationRedirectUrl(),
       },
     });
 
