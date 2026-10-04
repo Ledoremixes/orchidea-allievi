@@ -1,0 +1,15 @@
+ORCHIDEA APP - STEP 39
+LIKE COMMUNITY: NOTIFICHE SOLO AL DESTINATARIO
+
+Correzioni:
+- Il Centro Notifiche usa get_my_app_notifications(): non legge più genericamente app_notifications.
+- Le notifiche con audience=student sono restituite solo alla persona proprietaria del tesseramento destinatario.
+- Le notifiche community_like hanno un vincolo DB: devono avere audience=student e target_tesseramento_id valorizzato.
+- send-push rifiuta una community_like non personale.
+- La push personale cerca soltanto i dispositivi della persona destinataria.
+- Se il destinatario è anche insegnante, vengono inclusi esclusivamente i suoi device registrati come teacher_account_id.
+
+Da fare:
+1. Eseguire supabase/step-39-like-notifiche-solo-destinatario.sql.
+2. Sostituire/deployare supabase/functions/send-push/index.ts.
+3. Pubblicare l'app su Vercel.

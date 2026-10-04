@@ -224,16 +224,18 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
   const [items, setItems] = useState([]);
   const [readKeys, setReadKeys] = useState(new Set());
   const [loading, setLoading] = useState(false);
-  const [pushState, setPushState] = useState({ loading: true, supported: true, subscription: null, permission: "default", requiresInstall: false, vapidConfigured: true });
+  const [pushState, setPushState] = useState({ loading: true, supported: true, subscription: null, permission: "default", requiresInstall: false, vapidConfigured: true, synced: false, syncError: "" });
   const [pushMessage, setPushMessage] = useState("");
+  const [pushTesting, setPushTesting] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
   const teacherAccountId = teacher?.account_id || null;
   const isTeacherExperience = Boolean(teacherAccountId);
-  const pushOwner = isTeacherExperience
-    ? { teacherAccountId }
-    : student?.id
-      ? { studentId: student.id }
-      : null;
+  // STEP 40: se la persona è sia tesserata sia insegnante registriamo ENTRAMBI
+  // i riferimenti sullo stesso endpoint. Così le push personali funzionano anche
+  // quando l'app sta mostrando l'esperienza docente.
+  const pushOwner = (student?.id || teacherAccountId)
+    ? { studentId: student?.id || null, teacherAccountId: teacherAccountId || null }
+    : null;
 
   const ownerFilter = useMemo(() => teacherAccountId
     ? { column: "teacher_account_id", value: teacherAccountId }
@@ -247,7 +249,9 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
     setDeleteMessage("");
 
     const [adminResult, eventsResult] = await Promise.all([
-      supabase.from("app_notifications").select("id, title, body, category, link, starts_at, created_at").order("starts_at", { ascending: false }).limit(40),
+      // La RPC filtra lato database le notifiche pertinenti alla persona loggata.
+      // In particolare una notifica Community Like non può mai finire ad altri utenti.
+      supabase.rpc("get_my_app_notifications", { p_limit: 40 }),
       loadUpcomingEvents({ limit: 8 }),
     ]);
 
@@ -430,14 +434,54 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
     }
   }
 
+  async function testPush() {
+    if (!pushOwner || pushTesting) return;
+    setPushTesting(true);
+    setPushMessage("");
+    try {
+      // Prima risincronizza sempre il dispositivo: il test deve verificare il
+      // percorso reale browser -> DB -> Edge Function -> Web Push.
+      await subscribeToPush(pushOwner);
+      const { data: notificationId, error: createError } = await supabase.rpc("create_my_push_test_notification");
+      if (createError) throw createError;
+      if (!notificationId) throw new Error("Non sono riuscito a creare la notifica di test.");
+
+      const { data: result, error: invokeError } = await supabase.functions.invoke("send-push", {
+        body: { notification_id: notificationId },
+      });
+      if (invokeError) throw invokeError;
+      if (result?.ok === false) throw new Error(result.error || "La Edge Function ha rifiutato il test.");
+
+      if (Number(result?.sent || 0) > 0) {
+        setPushMessage(`Test riuscito: push inviata a ${result.sent} dispositivo${Number(result.sent) === 1 ? "" : "i"}. Ora puoi chiudere l'app: le prossime notifiche arriveranno comunque.`);
+      } else if (result?.reason === "no_active_push_subscription") {
+        setPushMessage("La Edge Function funziona, ma non trova questo telefono nel database. Premi Riattiva notifiche e riprova.");
+      } else {
+        const failure = result?.failures?.[0];
+        setPushMessage(failure?.message
+          ? `Edge Function raggiunta, ma il servizio push ha risposto con errore: ${failure.message}`
+          : `Edge Function raggiunta ma nessuna push consegnata (${result?.reason || "nessun destinatario"}).`);
+      }
+      await refreshPushState();
+    } catch (error) {
+      console.warn("Push test:", error);
+      setPushMessage(error?.message || "Test push non riuscito.");
+      await refreshPushState();
+    } finally {
+      setPushTesting(false);
+    }
+  }
+
   if (!open) return null;
 
-  const pushActive = Boolean(pushState.subscription && pushState.permission === "granted");
+  const browserHasSubscription = Boolean(pushState.subscription && pushState.permission === "granted");
+  const pushActive = Boolean(browserHasSubscription && pushState.synced);
   let pushDescription = "Ricevi avvisi di Orchidea anche quando l’app è chiusa.";
   if (!pushState.vapidConfigured) pushDescription = "Configurazione push da completare sul server.";
   else if (!pushState.supported) pushDescription = "Questo browser non supporta le notifiche push.";
   else if (pushState.requiresInstall) pushDescription = "Su iPhone installa prima Orchidea nella schermata Home, poi aprila dall’icona.";
-  else if (pushActive) pushDescription = "Questo telefono è registrato e può ricevere notifiche anche ad app chiusa.";
+  else if (pushActive) pushDescription = "Questo telefono è registrato nel database e può ricevere notifiche anche ad app chiusa.";
+  else if (browserHasSubscription && pushState.syncError) pushDescription = `Il browser ha il permesso, ma il telefono non è sincronizzato con il tuo account: ${pushState.syncError}`;
   else if (pushState.permission === "denied") pushDescription = "Le notifiche sono bloccate nelle impostazioni del dispositivo/browser.";
 
   return (
@@ -454,11 +498,18 @@ export default function NotificationCenter({ student, teacher, open, onClose, on
             <strong>{pushActive ? "Notifiche push attive" : "Notifiche sul telefono"}</strong>
             <span>{pushDescription}</span>
           </div>
-          {!pushState.loading && pushState.supported && pushState.vapidConfigured && !pushState.requiresInstall && pushState.permission !== "denied" && (
-            <button type="button" className={`push-status-action ${pushActive ? "is-off" : ""}`} onClick={pushActive ? disablePush : enablePush}>
-              {pushActive ? "Disattiva" : "Attiva"}
-            </button>
-          )}
+          <div className="push-status-actions">
+            {!pushState.loading && pushState.supported && pushState.vapidConfigured && !pushState.requiresInstall && pushState.permission !== "denied" && (
+              <button type="button" className={`push-status-action ${pushActive ? "is-off" : ""}`} onClick={pushActive ? disablePush : enablePush}>
+                {pushActive ? "Disattiva" : browserHasSubscription ? "Riattiva" : "Attiva"}
+              </button>
+            )}
+            {pushActive && (
+              <button type="button" className="push-status-action push-test-action" onClick={testPush} disabled={pushTesting}>
+                {pushTesting ? "Test…" : "Prova push"}
+              </button>
+            )}
+          </div>
           {pushMessage && <p className="push-status-message">{pushMessage}</p>}
         </div>
 

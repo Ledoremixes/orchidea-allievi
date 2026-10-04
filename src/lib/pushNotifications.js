@@ -53,47 +53,69 @@ function normalizePushOwner(owner) {
 
 async function saveSubscription(owner, subscription) {
   const { studentId, teacherAccountId } = normalizePushOwner(owner);
-  if ((!studentId && !teacherAccountId) || !subscription || !supabase) return;
-  const json = subscription.toJSON();
-  const payload = {
-    tesseramento_id: studentId,
-    teacher_account_id: teacherAccountId,
-    endpoint: json.endpoint,
-    p256dh: json.keys?.p256dh || null,
-    auth: json.keys?.auth || null,
-    expiration_time: json.expirationTime || null,
-    user_agent: navigator.userAgent || null,
-    enabled: true,
-    last_seen_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  if ((!studentId && !teacherAccountId) || !subscription || !supabase) {
+    throw new Error("Profilo Orchidea non disponibile per registrare questo telefono.");
+  }
 
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .upsert(payload, { onConflict: "endpoint" });
+  const json = subscription.toJSON();
+  const endpoint = json.endpoint || subscription.endpoint;
+  const p256dh = json.keys?.p256dh || null;
+  const auth = json.keys?.auth || null;
+
+  if (!endpoint || !p256dh || !auth) {
+    throw new Error("Subscription push incompleta. Disattiva e riattiva le notifiche.");
+  }
+
+  // STEP 40: la sincronizzazione passa da una RPC SECURITY DEFINER.
+  // In questo modo lo stesso browser può essere riassociato in sicurezza quando
+  // sul telefono si cambia account o ruolo (allievo / insegnante / admin).
+  const { data, error } = await supabase.rpc("sync_my_push_subscription", {
+    p_endpoint: endpoint,
+    p_p256dh: p256dh,
+    p_auth: auth,
+    p_expiration_time: json.expirationTime || null,
+    p_user_agent: navigator.userAgent || null,
+    p_tesseramento_id: studentId,
+    p_teacher_account_id: teacherAccountId,
+  });
 
   if (error) throw error;
+  if (data?.ok === false) throw new Error(data?.message || "Non riesco a collegare questo telefono al tuo account.");
+  return data || { ok: true };
 }
 
 export async function getCurrentPushSubscription(owner) {
   const info = getPushSupportInfo();
   if (!info.supported || !info.vapidConfigured) {
-    return { ...info, permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission, subscription: null };
+    return {
+      ...info,
+      permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+      subscription: null,
+      synced: false,
+      syncError: "",
+    };
   }
 
   const registration = await getRegistration();
-  if (!registration) return { ...info, permission: Notification.permission, subscription: null };
+  if (!registration) {
+    return { ...info, permission: Notification.permission, subscription: null, synced: false, syncError: "" };
+  }
 
   const subscription = await registration.pushManager.getSubscription();
+  let synced = false;
+  let syncError = "";
+
   if (subscription && owner) {
     try {
       await saveSubscription(owner, subscription);
+      synced = true;
     } catch (error) {
+      syncError = error?.message || "Subscription presente nel browser ma non collegata al profilo Orchidea.";
       console.warn("Impossibile sincronizzare la subscription push:", error);
     }
   }
 
-  return { ...info, permission: Notification.permission, subscription };
+  return { ...info, permission: Notification.permission, subscription, synced, syncError };
 }
 
 export async function subscribeToPush(owner) {
@@ -124,8 +146,8 @@ export async function subscribeToPush(owner) {
     });
   }
 
-  await saveSubscription(owner, subscription);
-  return subscription;
+  const sync = await saveSubscription(owner, subscription);
+  return { subscription, sync };
 }
 
 export async function unsubscribeFromPush(owner) {
@@ -135,14 +157,12 @@ export async function unsubscribeFromPush(owner) {
   if (!subscription) return;
 
   const endpoint = subscription.endpoint;
-  await subscription.unsubscribe();
-
   const { studentId, teacherAccountId } = normalizePushOwner(owner);
+
   if (supabase && endpoint && (studentId || teacherAccountId)) {
-    let query = supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
-    if (studentId) query = query.eq("tesseramento_id", studentId);
-    if (teacherAccountId) query = query.eq("teacher_account_id", teacherAccountId);
-    const { error } = await query;
+    const { error } = await supabase.rpc("remove_my_push_subscription", { p_endpoint: endpoint });
     if (error) throw error;
   }
+
+  await subscription.unsubscribe();
 }

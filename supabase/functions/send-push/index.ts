@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
   const { data: notification, error: notificationError } = await adminClient
     .from("app_notifications")
-    .select("id, title, body, category, audience, course_id, target_tesseramento_id, link, starts_at, expires_at, created_by, notification_kind, push_sent_at")
+    .select("id, title, body, category, audience, course_id, target_tesseramento_id, link, starts_at, expires_at, created_by, notification_kind, push_sent_at, push_recipient_count, push_failure_count")
     .eq("id", body.notification_id)
     .single();
 
@@ -79,22 +79,47 @@ Deno.serve(async (req) => {
     }, 404);
   }
 
-  // Gli Admin possono inviare tutte le push. Un utente normale può inviare
-  // esclusivamente la push generata dalla RPC sicura del proprio Mi piace.
-  const isOwnCommunityLike = notification.notification_kind === "community_like"
+  const isCommunityLike = notification.notification_kind === "community_like";
+  const isPushTest = notification.notification_kind === "push_test";
+
+  // Una notifica generata da un Mi piace deve essere SEMPRE personale.
+  // Se per qualsiasi motivo arriva una riga community_like globale/corsisti/corso,
+  // la funzione si rifiuta di inviarla.
+  if (isCommunityLike && (notification.audience !== "student" || !notification.target_tesseramento_id)) {
+    return json({
+      ok: false,
+      error: "Notifica Mi piace non valida: destinatario personale mancante.",
+    }, 400);
+  }
+
+  // Gli Admin possono inviare le normali push. Un utente normale può inviare
+  // esclusivamente la push community_like creata dalla RPC durante il SUO Like.
+  const isOwnCommunityLike = isCommunityLike
     && notification.audience === "student"
+    && Boolean(notification.target_tesseramento_id)
     && notification.created_by === callerUser.id;
 
-  if (isAdmin !== true && !isOwnCommunityLike) {
+  let isOwnPushTest = false;
+  if (isPushTest && notification.audience === "student" && notification.target_tesseramento_id && notification.created_by === callerUser.id) {
+    const { data: ownsTarget } = await callerClient.rpc("is_my_tesseramento", {
+      p_tesseramento_id: notification.target_tesseramento_id,
+    });
+    isOwnPushTest = ownsTarget === true;
+  }
+
+  if (isAdmin !== true && !isOwnCommunityLike && !isOwnPushTest) {
     return json({ ok: false, error: "Operazione non consentita." }, 403);
   }
 
-  // Evita che lo stesso notification_id venga usato per bombardare il destinatario.
-  if (notification.push_sent_at) {
+  // Blocchiamo i duplicati solo se una push è già stata realmente consegnata.
+  // Le vecchie versioni segnavano push_sent_at anche quando trovavano 0 dispositivi:
+  // quei casi devono poter essere ritentati dopo la risincronizzazione del telefono.
+  if (notification.push_sent_at && Number(notification.push_recipient_count || 0) > 0) {
     return json({ ok: true, sent: 0, failed: 0, removed: 0, reason: "already_sent" });
   }
 
   let studentIds: string[] | null = null;
+  let teacherAccountIds: string[] = [];
   let targetIdentity: { id: string; auth_user_id?: string | null; email?: string | null } | null = null;
 
   if (notification.audience === "corsisti") {
@@ -171,45 +196,136 @@ Deno.serve(async (req) => {
     }
 
     studentIds = [...resolvedIds];
-  }
 
-  let subscriptionsQuery = adminClient
-    .from("push_subscriptions")
-    .select("id, tesseramento_id, endpoint, p256dh, auth")
-    .eq("enabled", true);
+    // Se la stessa persona è anche insegnante, la sua PWA può aver registrato
+    // il dispositivo tramite teacher_account_id invece che tesseramento_id.
+    // Recuperiamo SOLO gli account docente collegati al tesseramento destinatario.
+    const { data: linkedTeacherProfiles, error: teacherProfilesError } = await adminClient
+      .from("app_teacher_profiles")
+      .select("id")
+      .in("tesseramento_id", studentIds);
 
-  if (studentIds) {
-    if (studentIds.length === 0) {
-      await adminClient.from("app_notifications").update({
-        push_sent_at: new Date().toISOString(),
-        push_recipient_count: 0,
-        push_failure_count: 0,
-      }).eq("id", notification.id);
-
-      return json({
-        ok: true,
-        sent: 0,
-        failed: 0,
-        removed: 0,
-        subscriptions: 0,
-        reason: "no_recipient_ids",
-        audience: notification.audience,
-      });
+    if (teacherProfilesError) {
+      return json({ ok: false, error: teacherProfilesError.message }, 500);
     }
 
-    subscriptionsQuery = subscriptionsQuery.in("tesseramento_id", studentIds);
+    const profileIds = (linkedTeacherProfiles || []).map((row) => row.id).filter(Boolean);
+    if (profileIds.length) {
+      const { data: linkedTeacherAccounts, error: teacherAccountsError } = await adminClient
+        .from("app_teacher_accounts")
+        .select("id")
+        .in("profile_id", profileIds)
+        .eq("access_enabled", true);
+
+      if (teacherAccountsError) {
+        return json({ ok: false, error: teacherAccountsError.message }, 500);
+      }
+      for (const row of linkedTeacherAccounts || []) if (row.id) teacherAccountIds.push(row.id);
+    }
+
+    // Fallback importante: se il profilo grafico docente non è ancora collegato al
+    // tesseramento, risolviamo comunque l'account docente tramite auth_user_id/email.
+    if (target.auth_user_id) {
+      const { data: byAuth, error: byAuthError } = await adminClient
+        .from("app_teacher_accounts")
+        .select("id")
+        .eq("auth_user_id", target.auth_user_id)
+        .eq("access_enabled", true);
+      if (byAuthError) return json({ ok: false, error: byAuthError.message }, 500);
+      for (const row of byAuth || []) if (row.id) teacherAccountIds.push(row.id);
+    }
+
+    const targetEmail = normalizeEmail(target.email);
+    if (targetEmail) {
+      const { data: byEmail, error: byEmailError } = await adminClient
+        .from("app_teacher_accounts")
+        .select("id, email")
+        .ilike("email", target.email.trim())
+        .eq("access_enabled", true);
+      if (byEmailError) return json({ ok: false, error: byEmailError.message }, 500);
+      for (const row of byEmail || []) {
+        if (row.id && normalizeEmail(row.email) === targetEmail) teacherAccountIds.push(row.id);
+      }
+    }
+
+    teacherAccountIds = [...new Set(teacherAccountIds)];
   }
 
-  const { data: subscriptions, error: subscriptionsError } = await subscriptionsQuery;
-  if (subscriptionsError) {
-    return json({ ok: false, error: subscriptionsError.message }, 500);
+  if (studentIds && studentIds.length === 0 && teacherAccountIds.length === 0) {
+    await adminClient.from("app_notifications").update({
+      push_recipient_count: 0,
+      push_failure_count: 0,
+    }).eq("id", notification.id);
+
+    return json({
+      ok: true,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+      subscriptions: 0,
+      reason: "no_recipient_ids",
+      audience: notification.audience,
+    });
   }
 
-  const rows = subscriptions || [];
+  let rows: Array<{
+    id: string;
+    tesseramento_id?: string | null;
+    teacher_account_id?: string | null;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+  }> = [];
+
+  if (studentIds) {
+    // Notifica personale/corso/corsisti: NON eseguiamo mai una query senza filtro.
+    // In questo modo un Like non può per errore trasformarsi in una push globale.
+    const queries = [];
+
+    if (studentIds.length) {
+      queries.push(
+        adminClient
+          .from("push_subscriptions")
+          .select("id, tesseramento_id, teacher_account_id, endpoint, p256dh, auth")
+          .eq("enabled", true)
+          .in("tesseramento_id", studentIds),
+      );
+    }
+
+    if (notification.audience === "student" && teacherAccountIds.length) {
+      queries.push(
+        adminClient
+          .from("push_subscriptions")
+          .select("id, tesseramento_id, teacher_account_id, endpoint, p256dh, auth")
+          .eq("enabled", true)
+          .in("teacher_account_id", teacherAccountIds),
+      );
+    }
+
+    const results = await Promise.all(queries);
+    for (const result of results) {
+      if (result.error) return json({ ok: false, error: result.error.message }, 500);
+      rows.push(...((result.data || []) as typeof rows));
+    }
+
+    // Lo stesso telefono può essere stato sincronizzato sia come allievo sia come docente.
+    // Una sola push per endpoint.
+    rows = [...new Map(rows.map((row) => [row.endpoint, row])).values()];
+  } else {
+    // Solo le notifiche globali amministrative arrivano a tutte le subscription.
+    const { data: subscriptions, error: subscriptionsError } = await adminClient
+      .from("push_subscriptions")
+      .select("id, tesseramento_id, teacher_account_id, endpoint, p256dh, auth")
+      .eq("enabled", true);
+
+    if (subscriptionsError) {
+      return json({ ok: false, error: subscriptionsError.message }, 500);
+    }
+    rows = (subscriptions || []) as typeof rows;
+  }
 
   if (rows.length === 0) {
     await adminClient.from("app_notifications").update({
-      push_sent_at: new Date().toISOString(),
       push_recipient_count: 0,
       push_failure_count: 0,
     }).eq("id", notification.id);
@@ -224,6 +340,7 @@ Deno.serve(async (req) => {
       audience: notification.audience,
       target_tesseramento_id: notification.target_tesseramento_id || null,
       resolved_tesseramento_ids: studentIds || null,
+      resolved_teacher_account_ids: teacherAccountIds,
       target_has_auth_user: Boolean(targetIdentity?.auth_user_id),
       target_has_email: Boolean(normalizeEmail(targetIdentity?.email)),
     });
@@ -278,7 +395,7 @@ Deno.serve(async (req) => {
   }
 
   await adminClient.from("app_notifications").update({
-    push_sent_at: new Date().toISOString(),
+    push_sent_at: sent > 0 ? new Date().toISOString() : null,
     push_recipient_count: sent,
     push_failure_count: failed,
   }).eq("id", notification.id);
@@ -292,6 +409,7 @@ Deno.serve(async (req) => {
     audience: notification.audience,
     target_tesseramento_id: notification.target_tesseramento_id || null,
     resolved_tesseramento_ids: notification.audience === "student" ? studentIds : undefined,
+    resolved_teacher_account_ids: notification.audience === "student" ? teacherAccountIds : undefined,
     failures,
   });
 });

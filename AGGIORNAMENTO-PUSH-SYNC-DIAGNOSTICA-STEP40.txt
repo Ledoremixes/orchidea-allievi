@@ -1,0 +1,21 @@
+ORCHIDEA APP - STEP 40 - PUSH SYNC & DIAGNOSTICA
+
+Problema corretto
+- Il browser poteva avere una subscription PushManager valida mentre la riga push_subscriptions era ancora collegata a un account/ruolo precedente sullo stesso telefono.
+- L'app mostrava quindi "push attive", ma send-push poteva trovare 0 dispositivi.
+- Le versioni precedenti marcavano push_sent_at anche quando non era stato trovato nessun dispositivo, impedendo un retry successivo.
+
+Correzioni
+1. sync_my_push_subscription: sincronizzazione server-side sicura dell'endpoint col profilo attualmente loggato.
+2. Se un utente e' sia tesserato sia insegnante, la stessa subscription conserva entrambi i riferimenti.
+3. L'app considera Push attive solo se browser + database risultano entrambi sincronizzati.
+4. Pulsante "Prova push" nel Centro Notifiche: crea una notifica personale di test e chiama realmente send-push.
+5. send-push non marca piu' come inviata una notifica con 0 destinatari o 0 consegne riuscite.
+6. Le notifiche personali risolvono l'eventuale account docente anche tramite auth_user_id/email, oltre al collegamento grafico profilo insegnante/tesserato.
+7. Le vecchie notifiche con push_sent_at ma push_recipient_count=0 possono essere ritentate.
+
+Installazione
+- Eseguire supabase/step-40-push-sync-diagnostics.sql.
+- Sostituire Edge Functions > send-push > index.ts con la versione STEP 40 e fare Deploy.
+- Pubblicare il progetto su Vercel.
+- Aprire Notifiche nell'app: se compare Riattiva, premerlo; poi usare Prova push.

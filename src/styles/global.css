@@ -18893,3 +18893,17 @@ body.profile-crop-open .bottom-nav.orchidea-bottom-nav {
   font-weight: 700;
   width: fit-content;
 }
+
+/* STEP 40 — push sync / diagnostica */
+.push-status-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.push-test-action { border-color:rgba(231,65,185,.28); color:#ff9bdd; background:rgba(226,45,176,.09); }
+.push-status-action:disabled { opacity:.5; cursor:wait; }
+@media (max-width:640px) {
+  .push-status-actions { grid-column:2; justify-content:flex-start; }
+}
