@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import NotificationCenter from "./NotificationCenter.jsx";
@@ -6,6 +6,7 @@ import QuickQrModal from "./QuickQrModal.jsx";
 import ClubMode from "./ClubMode.jsx";
 import InstallAppBanner from "./InstallAppBanner.jsx";
 import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
+import { heartbeatAppPresence, setAppPresenceOffline } from "../lib/appPresence.js";
 
 const studentNavItems = [
   { to: "/", label: "Home", icon: "home", end: true },
@@ -146,6 +147,7 @@ export default function AppShell() {
   const [quickQrOpen, setQuickQrOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const presencePathRef = useRef(location.pathname);
 
   useEffect(() => {
     let mounted = true;
@@ -185,6 +187,37 @@ export default function AppShell() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    presencePathRef.current = location.pathname;
+    if (!sessionUser?.id) return;
+    heartbeatAppPresence(location.pathname, document.visibilityState === "visible").catch(() => {});
+  }, [location.pathname, sessionUser?.id]);
+
+  useEffect(() => {
+    if (!sessionUser?.id) return undefined;
+    let alive = true;
+
+    const sendHeartbeat = () => {
+      if (!alive) return;
+      heartbeatAppPresence(presencePathRef.current, document.visibilityState === "visible").catch(() => {});
+    };
+
+    const onVisibilityChange = () => sendHeartbeat();
+    const onFocus = () => sendHeartbeat();
+
+    sendHeartbeat();
+    const timer = window.setInterval(sendHeartbeat, 25000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [sessionUser?.id]);
 
   useEffect(() => {
     let active = true;
@@ -236,6 +269,7 @@ export default function AppShell() {
       ];
 
   async function handleLogout() {
+    await setAppPresenceOffline().catch(() => {});
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
   }

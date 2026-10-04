@@ -1,0 +1,18 @@
+ORCHIDEA APP - STEP 45
+
+1) FIX FOLLOW COMMUNITY
+- Il pulsante Segui non cambia più la larghezza della card quando passa a "Segui già".
+- Card, statistiche e azioni hanno larghezza bloccata al contenitore e overflow protetto.
+- Nessun ingrandimento/orizzontal scroll dopo il follow.
+
+2) PRESENZA ONLINE ADMIN
+- Nuova sezione Admin > Online.
+- Heartbeat app ogni 25 secondi.
+- Online = app visibile + heartbeat negli ultimi 90 secondi.
+- Mostra anche gli utenti attivi negli ultimi 30 minuti.
+- Nome, email, ruolo (Allievo/Insegnante/Admin), pagina corrente e ultima attività.
+- Aggiornamento automatico ogni 15 secondi.
+- La tabella presenza è leggibile solo dall'Admin tramite RPC protetta.
+
+PRIMA DEL DEPLOY
+Eseguire su Supabase: supabase/step-45-presenza-online-admin.sql

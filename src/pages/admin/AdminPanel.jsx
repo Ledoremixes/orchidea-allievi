@@ -5,6 +5,7 @@ import { membershipCode, hasCustomMembershipNumber } from "../../lib/membership.
 import { getCourseVisual } from "../../lib/courseVisuals.js";
 import AttendanceAdmin from "./AttendanceAdmin.jsx";
 import AdminEngagement from "./AdminEngagement.jsx";
+import AdminOnline from "./AdminOnline.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
 
@@ -55,6 +56,7 @@ const emptyStudentForm = {
 
 const adminSections = [
   { id: "overview", label: "Dashboard", icon: "✦" },
+  { id: "online", label: "Online", icon: "●" },
   { id: "attendance", label: "Presenze", icon: "✓" },
   { id: "students", label: "Tesserati", icon: "◆" },
   { id: "courses", label: "Corsi", icon: "◷" },
@@ -4070,6 +4072,7 @@ export default function AdminPanel() {
 
   function renderActiveSection() {
     switch (activeSection) {
+      case "online": return <AdminOnline />;
       case "attendance": return renderAttendance();
       case "students": return renderStudents();
       case "courses": return renderCourses();
