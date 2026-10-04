@@ -1,0 +1,16 @@
+ORCHIDEA APP - STEP 42 - COMMUNITY SCHEDA PROFILO
+
+- La bio nelle card di ricerca Community è ora limitata a 2 righe.
+- Le card di allievi e insegnanti sono cliccabili da mouse, touch e tastiera.
+- Il click apre una scheda profilo in modale con:
+  - foto profilo grande
+  - nome e cognome
+  - ruolo Community (ballerino / insegnante)
+  - balli preferiti
+  - biografia / curriculum completo
+  - numero di Mi piace e pulsante Mi piace
+- Il pulsante Mi piace nella card non apre accidentalmente il modale.
+- Il modale è scrollabile su mobile e si chiude con X, tap sullo sfondo o ESC.
+
+DATABASE
+Nessun nuovo SQL richiesto.

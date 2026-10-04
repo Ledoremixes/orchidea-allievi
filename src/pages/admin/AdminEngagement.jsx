@@ -48,6 +48,7 @@ export default function AdminEngagement() {
   const [teacherAccounts, setTeacherAccounts] = useState([]);
   const [compensationTeachers, setCompensationTeachers] = useState([]);
   const [teacherMembers, setTeacherMembers] = useState([]);
+  const [teacherMemberSearch, setTeacherMemberSearch] = useState("");
   const [notificationForm, setNotificationForm] = useState(emptyNotification);
   const [rewardForm, setRewardForm] = useState(emptyReward);
   const [editingRewardId, setEditingRewardId] = useState("");
@@ -109,6 +110,16 @@ export default function AdminEngagement() {
   const selectedTeacher = useMemo(() => teachers.find((row) => row.id === teacherId), [teacherId, teachers]);
   const selectedTeacherAccount = useMemo(() => teacherAccounts.find((row) => row.profile_id === teacherId) || null, [teacherAccounts, teacherId]);
   const linkedTeacherMember = useMemo(() => teacherMembers.find((row) => row.id === teacherForm.tesseramento_id) || null, [teacherMembers, teacherForm.tesseramento_id]);
+  const filteredTeacherMembers = useMemo(() => {
+    const term = normalizeTeacherIdentity(teacherMemberSearch);
+    if (term.length < 2) return [];
+    return teacherMembers
+      .filter((member) => {
+        const haystack = normalizeTeacherIdentity([member.nome, member.cognome, member.email, member.cf].filter(Boolean).join(" "));
+        return haystack.includes(term);
+      })
+      .slice(0, 10);
+  }, [teacherMembers, teacherMemberSearch]);
   useEffect(() => {
     if (!selectedTeacher) return;
     setTeacherForm({
@@ -437,11 +448,13 @@ export default function AdminEngagement() {
     setTeacherPhotoFile(null);
     setTeacherPhotoPreview("");
     setTeacherAccessForm(emptyTeacherAccess());
+    setTeacherMemberSearch("");
     setError("");
   }
 
   function chooseTeacherProfile(teacher) {
     setTeacherId(teacher.id);
+    setTeacherMemberSearch("");
     setError("");
   }
 
@@ -768,14 +781,59 @@ export default function AdminEngagement() {
                   <label><span>Instagram</span><input value={teacherForm.instagram_url} onChange={(e) => setTeacherForm({ ...teacherForm, instagram_url: e.target.value })} placeholder="https://instagram.com/..." /></label>
                 </div>
 
-                <label className="teacher-member-link-field">
+                <div className="teacher-member-link-field">
                   <span>Tesserato collegato</span>
-                  <select value={teacherForm.tesseramento_id || ""} onChange={(e) => setTeacherForm({ ...teacherForm, tesseramento_id: e.target.value })}>
-                    <option value="">Seleziona il tesseramento dell’insegnante</option>
-                    {teacherMembers.map((member) => <option key={member.id} value={member.id}>{[member.nome, member.cognome].filter(Boolean).join(" ")}{member.email ? ` · ${member.email}` : ""}</option>)}
-                  </select>
-                  <small>Questo collegamento rende l’insegnante ricercabile nella Community e usa il suo vero profilo ballerino.</small>
-                </label>
+                  {linkedTeacherMember ? (
+                    <div className="teacher-member-selected">
+                      <div className="teacher-member-selected-avatar">{initials(linkedTeacherMember)}</div>
+                      <div>
+                        <strong>{fullName(linkedTeacherMember)}</strong>
+                        <small>{linkedTeacherMember.email || linkedTeacherMember.cf || "Tesserato Orchidea"}</small>
+                      </div>
+                      <button type="button" onClick={() => { setTeacherForm({ ...teacherForm, tesseramento_id: "" }); setTeacherMemberSearch(""); }}>Cambia</button>
+                    </div>
+                  ) : (
+                    <div className="teacher-member-searchbox">
+                      <div className="teacher-member-search-input">
+                        <span aria-hidden="true">⌕</span>
+                        <input
+                          value={teacherMemberSearch}
+                          onChange={(e) => setTeacherMemberSearch(e.target.value)}
+                          placeholder="Cerca per nome o cognome…"
+                          autoComplete="off"
+                        />
+                      </div>
+                      {normalizeTeacherIdentity(teacherMemberSearch).length >= 2 && (
+                        <div className="teacher-member-search-results">
+                          {filteredTeacherMembers.map((member) => (
+                            <button
+                              type="button"
+                              key={member.id}
+                              onClick={() => {
+                                setTeacherForm({ ...teacherForm, tesseramento_id: member.id });
+                                setTeacherMemberSearch("");
+                              }}
+                            >
+                              <span className="teacher-member-result-avatar">{initials(member)}</span>
+                              <span>
+                                <strong>{fullName(member)}</strong>
+                                <small>{member.email || member.cf || "Tesserato Orchidea"}</small>
+                              </span>
+                              <b>Seleziona</b>
+                            </button>
+                          ))}
+                          {!filteredTeacherMembers.length && (
+                            <div className="teacher-member-no-results">
+                              <strong>Nessun tesserato trovato</strong>
+                              <span>Prova con nome, cognome, email o codice fiscale.</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <small>Digita almeno 2 caratteri: verranno mostrati solo i tesserati corrispondenti. Il collegamento rende l’insegnante ricercabile nella Community e usa il suo vero profilo ballerino.</small>
+                </div>
 
                 <div className="teacher-community-bio-preview">
                   <div><span className="eyebrow">Curriculum ballerino</span><strong>Gestito dall’insegnante</strong></div>

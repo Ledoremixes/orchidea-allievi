@@ -1,0 +1,8 @@
+ORCHIDEA APP - STEP 41 - RICERCA TESSERATO PER PROFILO INSEGNANTE
+
+- Rimossa la select con l'elenco completo dei tesserati.
+- Aggiunta ricerca istantanea per nome, cognome, email o codice fiscale.
+- I risultati compaiono solo dopo almeno 2 caratteri e sono limitati ai primi 10 match.
+- Una volta scelto il tesserato viene mostrata una card compatta con nome e contatto.
+- Pulsante "Cambia" per scollegare e cercare un altro tesserato.
+- Nessuna modifica SQL richiesta.

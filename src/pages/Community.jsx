@@ -74,10 +74,25 @@ export default function Community() {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [voteBusyId, setVoteBusyId] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const selectedRanking = useMemo(() => rankings.find((row) => row.id === selectedRankingId) || null, [rankings, selectedRankingId]);
+
+  useEffect(() => {
+    if (!selectedProfile) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setSelectedProfile(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedProfile]);
 
   useEffect(() => {
     let active = true;
@@ -173,6 +188,9 @@ export default function Community() {
     setProfiles((current) => current.map((row) => row.tesseramento_id === profile.tesseramento_id
       ? { ...row, liked_by_me: Boolean(data.liked), likes_count: Number(data.likes_count || 0) }
       : row));
+    setSelectedProfile((current) => current?.tesseramento_id === profile.tesseramento_id
+      ? { ...current, liked_by_me: Boolean(data.liked), likes_count: Number(data.likes_count || 0) }
+      : current);
 
     // La notifica interna viene creata dalla RPC. Se il destinatario ha attivato
     // le push, chiediamo anche alla Edge Function di recapitarla sul telefono.
@@ -279,7 +297,20 @@ export default function Community() {
             {loadingProfiles ? <div className="community-empty-card">Sto caricando la Community…</div> : profiles.map((profile) => {
               const isMe = profile.is_me === true || student?.id === profile.tesseramento_id;
               return (
-                <article className={`community-profile-card ${profile.is_teacher ? "is-teacher" : "is-student"}`} key={profile.tesseramento_id}>
+                <article
+                  className={`community-profile-card ${profile.is_teacher ? "is-teacher" : "is-student"}`}
+                  key={profile.tesseramento_id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Apri il profilo di ${fullName(profile)}`}
+                  onClick={() => setSelectedProfile(profile)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedProfile(profile);
+                    }
+                  }}
+                >
                   <div className="community-profile-top">
                     <div className="community-avatar">
                       {profilePhotos[profile.tesseramento_id] ? <img src={profilePhotos[profile.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(profile)}</span>}
@@ -288,14 +319,20 @@ export default function Community() {
                       <span className="eyebrow">{profile.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span>
                       <h2>{fullName(profile)}</h2>
                       <div className="community-style-chips">
-                        {(profile.balli_preferiti || []).slice(0, 4).map((style) => <span key={style}>{style}</span>)}
+                        {(profile.balli_preferiti || []).slice(0, 3).map((style) => <span key={style}>{style}</span>)}
                       </div>
                     </div>
                   </div>
-                  <p className="community-profile-bio">{profile.bio_ballerino || (profile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
+                  <p className="community-profile-bio community-profile-bio--preview">{profile.bio_ballerino || (profile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
+                  <div className="community-profile-read-more">Apri profilo <span>→</span></div>
                   <div className="community-profile-footer">
                     <div className="community-like-count"><b>♥</b><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></div>
-                    <button type="button" className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`} onClick={() => toggleLike(profile)} disabled={isMe}>
+                    <button
+                      type="button"
+                      className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`}
+                      onClick={(event) => { event.stopPropagation(); toggleLike(profile); }}
+                      disabled={isMe}
+                    >
                       <span>{profile.liked_by_me ? "♥" : "♡"}</span>{isMe ? "Il tuo profilo" : profile.liked_by_me ? "Ti piace" : "Mi piace"}
                     </button>
                   </div>
@@ -377,6 +414,44 @@ export default function Community() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {selectedProfile && (
+        <div className="community-profile-modal-overlay" role="presentation" onMouseDown={() => setSelectedProfile(null)}>
+          <div className="community-profile-modal" role="dialog" aria-modal="true" aria-label={`Profilo di ${fullName(selectedProfile)}`} onMouseDown={(event) => event.stopPropagation()}>
+            <button type="button" className="community-profile-modal-close" onClick={() => setSelectedProfile(null)} aria-label="Chiudi profilo">×</button>
+            <div className="community-profile-modal-photo">
+              {profilePhotos[selectedProfile.tesseramento_id]
+                ? <img src={profilePhotos[selectedProfile.tesseramento_id]} alt={`Foto profilo di ${fullName(selectedProfile)}`} />
+                : <span>{initials(selectedProfile)}</span>}
+            </div>
+            <div className="community-profile-modal-content">
+              <span className="eyebrow">{selectedProfile.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span>
+              <h2>{fullName(selectedProfile)}</h2>
+              {(selectedProfile.balli_preferiti || []).length > 0 && (
+                <div className="community-style-chips community-profile-modal-styles">
+                  {(selectedProfile.balli_preferiti || []).map((style) => <span key={style}>{style}</span>)}
+                </div>
+              )}
+              <div className="community-profile-modal-bio">
+                <strong>Il mio percorso</strong>
+                <p>{selectedProfile.bio_ballerino || (selectedProfile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
+              </div>
+              <div className="community-profile-modal-footer">
+                <div className="community-like-count"><b>♥</b><strong>{selectedProfile.likes_count || 0}</strong><span>Mi piace</span></div>
+                <button
+                  type="button"
+                  className={`community-like-btn ${selectedProfile.liked_by_me ? "is-liked" : ""}`}
+                  onClick={() => toggleLike(selectedProfile)}
+                  disabled={selectedProfile.is_me === true || student?.id === selectedProfile.tesseramento_id}
+                >
+                  <span>{selectedProfile.liked_by_me ? "♥" : "♡"}</span>
+                  {(selectedProfile.is_me === true || student?.id === selectedProfile.tesseramento_id) ? "Il tuo profilo" : selectedProfile.liked_by_me ? "Ti piace" : "Mi piace"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </section>

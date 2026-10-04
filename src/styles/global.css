@@ -18907,3 +18907,333 @@ body.profile-crop-open .bottom-nav.orchidea-bottom-nav {
 @media (max-width:640px) {
   .push-status-actions { grid-column:2; justify-content:flex-start; }
 }
+
+/* STEP 41 · ricerca tesserato nel profilo insegnante */
+.teacher-member-link-field {
+  display: block;
+  min-width: 0;
+}
+.teacher-member-link-field > span:first-child {
+  display: block;
+  margin-bottom: 7px;
+  color: rgba(255, 255, 255, .72);
+  font-size: .72rem;
+  font-weight: 850;
+}
+.teacher-member-searchbox {
+  position: relative;
+  width: 100%;
+}
+.teacher-member-search-input {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 14px;
+  background: rgba(4, 2, 10, .62);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.teacher-member-search-input:focus-within {
+  border-color: rgba(231, 54, 184, .55);
+  box-shadow: 0 0 0 3px rgba(231, 54, 184, .08);
+}
+.teacher-member-search-input > span {
+  flex: 0 0 auto;
+  color: #f1ca65;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.teacher-member-search-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0 !important;
+  outline: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #fff;
+}
+.teacher-member-search-results {
+  display: grid;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 7px;
+  border: 1px solid rgba(231, 54, 184, .18);
+  border-radius: 16px;
+  background: rgba(13, 5, 19, .98);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .35);
+}
+.teacher-member-search-results > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .025);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.teacher-member-search-results > button:hover,
+.teacher-member-search-results > button:focus-visible {
+  border-color: rgba(231, 54, 184, .24);
+  background: rgba(231, 54, 184, .08);
+}
+.teacher-member-search-results > button > span:nth-child(2) { min-width: 0; }
+.teacher-member-search-results strong,
+.teacher-member-search-results small { display: block; }
+.teacher-member-search-results strong {
+  color: #fff;
+  font-size: .78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.teacher-member-search-results small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, .43);
+  font-size: .64rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.teacher-member-search-results b {
+  color: #f2cd67;
+  font-size: .65rem;
+}
+.teacher-member-result-avatar,
+.teacher-member-selected-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(232, 53, 183, .25), rgba(103, 39, 138, .45));
+  border: 1px solid rgba(236, 93, 200, .18);
+  color: #ffb4e9;
+  font-size: .7rem;
+  font-weight: 950;
+}
+.teacher-member-selected {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 58px;
+  padding: 9px 10px;
+  border: 1px solid rgba(96, 221, 167, .18);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(57, 196, 139, .065), rgba(255,255,255,.018));
+}
+.teacher-member-selected > div:nth-child(2) { min-width: 0; }
+.teacher-member-selected strong,
+.teacher-member-selected small { display: block; }
+.teacher-member-selected strong { color: #fff; font-size: .8rem; }
+.teacher-member-selected small {
+  margin-top: 2px;
+  color: rgba(255,255,255,.45);
+  font-size: .65rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.teacher-member-selected button {
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  background: rgba(255,255,255,.045);
+  color: #f2cd67;
+  padding: 7px 9px;
+  font-size: .66rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.teacher-member-no-results {
+  padding: 14px 10px;
+  text-align: center;
+}
+.teacher-member-no-results strong,
+.teacher-member-no-results span { display: block; }
+.teacher-member-no-results strong { color: rgba(255,255,255,.75); font-size: .75rem; }
+.teacher-member-no-results span { margin-top: 3px; color: rgba(255,255,255,.38); font-size: .65rem; }
+@media (max-width: 640px) {
+  .teacher-member-search-results > button { grid-template-columns: 36px minmax(0, 1fr); }
+  .teacher-member-search-results b { display: none; }
+  .teacher-member-selected { grid-template-columns: 38px minmax(0, 1fr) auto; }
+}
+
+/* =========================================================
+   STEP 42 — Community: card compatte + scheda profilo
+   ========================================================= */
+.community-profile-card {
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.community-profile-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 91, 210, .22);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, .28), 0 0 28px rgba(215, 42, 169, .07);
+}
+.community-profile-card:focus-visible {
+  outline: 2px solid rgba(246, 199, 74, .72);
+  outline-offset: 3px;
+}
+.community-profile-bio--preview {
+  min-height: 0;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-clamp: 2;
+  max-height: 3.15em;
+}
+.community-profile-read-more {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin: -1px 0 12px;
+  color: #f3cf6b;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .01em;
+}
+.community-profile-read-more span { font-size: .9rem; }
+
+.community-profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(3, 2, 7, .82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow-y: auto;
+}
+.community-profile-modal {
+  position: relative;
+  width: min(580px, 100%);
+  max-height: min(760px, calc(100dvh - 44px));
+  overflow-y: auto;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 80, 207, .28);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(216, 42, 174, .18), transparent 34%),
+    linear-gradient(160deg, rgba(37, 15, 43, .99), rgba(10, 7, 16, .995) 58%);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .56), 0 0 44px rgba(213, 42, 173, .12);
+  scrollbar-width: thin;
+}
+.community-profile-modal-close {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 15px;
+  background: rgba(11, 8, 17, .78);
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0,0,0,.26);
+}
+.community-profile-modal-photo {
+  width: 100%;
+  aspect-ratio: 1 / .82;
+  max-height: 410px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #d72bb1, #67207e);
+  border-radius: 31px 31px 0 0;
+}
+.community-profile-modal-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.community-profile-modal-photo > span {
+  color: #fff;
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 950;
+}
+.community-profile-modal-content { padding: 25px 27px 28px; }
+.community-profile-modal-content h2 {
+  margin: 5px 0 13px;
+  color: #fff;
+  font-size: clamp(1.7rem, 5vw, 2.35rem);
+  line-height: 1.05;
+}
+.community-profile-modal-styles { margin-bottom: 20px; }
+.community-profile-modal-bio {
+  margin-top: 18px;
+  padding: 18px 19px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 20px;
+  background: rgba(255,255,255,.028);
+}
+.community-profile-modal-bio strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #f3cf6b;
+  font-size: .72rem;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.community-profile-modal-bio p {
+  margin: 0;
+  color: rgba(255,255,255,.72);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.community-profile-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.075);
+}
+
+@media (max-width: 640px) {
+  .community-profile-bio--preview {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-height: 3em;
+    font-size: .88rem;
+  }
+  .community-profile-modal-overlay {
+    align-items: end;
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+  }
+  .community-profile-modal {
+    width: 100%;
+    max-height: 88dvh;
+    border-radius: 28px 28px 22px 22px;
+  }
+  .community-profile-modal-photo {
+    aspect-ratio: 1 / .78;
+    max-height: 330px;
+    border-radius: 27px 27px 0 0;
+  }
+  .community-profile-modal-content { padding: 21px 20px 23px; }
+  .community-profile-modal-footer { align-items: stretch; }
+  .community-profile-modal-footer .community-like-btn { margin-left: auto; }
+}
