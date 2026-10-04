@@ -46,6 +46,9 @@ export default function Profilo() {
   const [likerPhotos, setLikerPhotos] = useState({});
   const [likersOpen, setLikersOpen] = useState(false);
   const [likersLoading, setLikersLoading] = useState(true);
+  const [socialStats, setSocialStats] = useState({ followers_count: 0, following_count: 0, likes_count: 0 });
+  const [socialList, setSocialList] = useState({ kind: "", rows: [], loading: false });
+  const [socialListPhotos, setSocialListPhotos] = useState({});
 
   useEffect(() => {
     let alive = true;
@@ -82,6 +85,47 @@ export default function Profilo() {
     else setLikersLoading(false);
     return () => { alive = false; };
   }, [student?.id]);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadSocialStats() {
+      const { data } = await supabase.rpc("get_my_social_stats");
+      if (!alive || !data) return;
+      setSocialStats({
+        followers_count: Number(data.followers_count || 0),
+        following_count: Number(data.following_count || 0),
+        likes_count: Number(data.likes_count || 0),
+      });
+    }
+    if (student?.id) loadSocialStats();
+    return () => { alive = false; };
+  }, [student?.id]);
+
+  async function openSocialList(kind) {
+    if (!student?.id) return;
+    if (socialList.kind === kind && !socialList.loading) {
+      setSocialList({ kind: "", rows: [], loading: false });
+      setSocialListPhotos({});
+      return;
+    }
+    setSocialList({ kind, rows: [], loading: true });
+    const { data, error: listError } = await supabase.rpc("get_profile_connections", {
+      p_target_tesseramento_id: student.id,
+      p_kind: kind,
+    });
+    if (listError) {
+      setError(listError.message);
+      setSocialList({ kind, rows: [], loading: false });
+      return;
+    }
+    const rows = data || [];
+    setSocialList({ kind, rows, loading: false });
+    const entries = await Promise.all(rows.map(async (row) => [
+      row.tesseramento_id,
+      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
+    ]));
+    setSocialListPhotos(Object.fromEntries(entries));
+  }
 
   const fullName = useMemo(() => `${student.nome || ""} ${student.cognome || ""}`.trim() || (teacher ? "Insegnante Orchidea" : "Allievo Orchidea"), [student.nome, student.cognome, teacher]);
   const fiscalCode = student.cf || student.codice_fiscale || "";
@@ -239,18 +283,36 @@ export default function Profilo() {
       {error && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
 
-      <section className="student-profile-likes-card">
+      <section className="student-profile-likes-card student-profile-social-card">
         <div className="student-profile-likes-summary">
-          <div className="student-profile-likes-icon">♥</div>
+          <div className="student-profile-likes-icon">◎</div>
           <div>
-            <span className="eyebrow">Community</span>
-            <h2>{likersLoading ? "…" : likers.length} {likers.length === 1 ? "Mi piace ricevuto" : "Mi piace ricevuti"}</h2>
-            <p>{teacher ? "I tuoi allievi e i membri della Community possono apprezzare il tuo profilo." : "Qui puoi vedere chi ha apprezzato il tuo profilo ballerino."}</p>
+            <span className="eyebrow">Orchidea Social</span>
+            <h2>La tua Community</h2>
+            <p>{teacher ? "Segui allievi e colleghi, scopri chi ti segue e chi apprezza il tuo profilo." : "Segui i tuoi compagni, scopri chi ti segue e chi apprezza il tuo profilo ballerino."}</p>
           </div>
         </div>
-        <button type="button" className="profile-likers-toggle" onClick={() => setLikersOpen((value) => !value)} disabled={likersLoading || !likers.length}>
-          {likers.length ? (likersOpen ? "Nascondi chi ti ha messo Mi piace" : "Vedi chi ti ha messo Mi piace") : "Ancora nessun Mi piace"}
-        </button>
+
+        <div className="profile-social-stats">
+          <button type="button" className={socialList.kind === "followers" ? "active" : ""} onClick={() => openSocialList("followers")}><strong>{socialStats.followers_count}</strong><span>Follower</span></button>
+          <button type="button" className={socialList.kind === "following" ? "active" : ""} onClick={() => openSocialList("following")}><strong>{socialStats.following_count}</strong><span>Seguiti</span></button>
+          <button type="button" className={likersOpen ? "active" : ""} onClick={() => { setLikersOpen((value) => !value); setSocialList({ kind: "", rows: [], loading: false }); }} disabled={likersLoading}><strong>{likersLoading ? "…" : socialStats.likes_count}</strong><span>Mi piace</span></button>
+        </div>
+
+        {socialList.kind && (
+          <div className="profile-likers-list profile-social-list">
+            {socialList.loading && <div className="profile-social-empty">Carico i profili…</div>}
+            {!socialList.loading && socialList.rows.map((person) => (
+              <article key={`${socialList.kind}-${person.tesseramento_id}`}>
+                <div className="profile-liker-avatar">{socialListPhotos[person.tesseramento_id] ? <img src={socialListPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}</div>
+                <div><strong>{`${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea"}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
+                <b>{socialList.kind === "followers" ? "Follower" : "Seguito"}</b>
+              </article>
+            ))}
+            {!socialList.loading && !socialList.rows.length && <div className="profile-social-empty">{socialList.kind === "followers" ? "Non hai ancora follower." : "Non stai ancora seguendo nessuno."}</div>}
+          </div>
+        )}
+
         {likersOpen && likers.length > 0 && (
           <div className="profile-likers-list">
             {likers.map((person) => (
@@ -264,6 +326,7 @@ export default function Profilo() {
             ))}
           </div>
         )}
+        {likersOpen && !likersLoading && !likers.length && <div className="profile-social-empty">Ancora nessun Mi piace ricevuto.</div>}
       </section>
 
       <form className="student-dance-profile-card" onSubmit={saveCommunityProfile}>

@@ -80,21 +80,27 @@ Deno.serve(async (req) => {
   }
 
   const isCommunityLike = notification.notification_kind === "community_like";
+  const isCommunityFollow = notification.notification_kind === "community_follow";
+  const isSocialPersonal = isCommunityLike || isCommunityFollow;
   const isPushTest = notification.notification_kind === "push_test";
 
-  // Una notifica generata da un Mi piace deve essere SEMPRE personale.
-  // Se per qualsiasi motivo arriva una riga community_like globale/corsisti/corso,
-  // la funzione si rifiuta di inviarla.
-  if (isCommunityLike && (notification.audience !== "student" || !notification.target_tesseramento_id)) {
+  // Like e nuovi follower devono essere SEMPRE notifiche personali.
+  // Se una notifica social arriva senza destinatario individuale, blocchiamo l'invio.
+  if (isSocialPersonal && (notification.audience !== "student" || !notification.target_tesseramento_id)) {
     return json({
       ok: false,
-      error: "Notifica Mi piace non valida: destinatario personale mancante.",
+      error: "Notifica social non valida: destinatario personale mancante.",
     }, 400);
   }
 
   // Gli Admin possono inviare le normali push. Un utente normale può inviare
-  // esclusivamente la push community_like creata dalla RPC durante il SUO Like.
+  // esclusivamente la push social che la RPC ha appena creato a suo nome.
   const isOwnCommunityLike = isCommunityLike
+    && notification.audience === "student"
+    && Boolean(notification.target_tesseramento_id)
+    && notification.created_by === callerUser.id;
+
+  const isOwnCommunityFollow = isCommunityFollow
     && notification.audience === "student"
     && Boolean(notification.target_tesseramento_id)
     && notification.created_by === callerUser.id;
@@ -107,7 +113,7 @@ Deno.serve(async (req) => {
     isOwnPushTest = ownsTarget === true;
   }
 
-  if (isAdmin !== true && !isOwnCommunityLike && !isOwnPushTest) {
+  if (isAdmin !== true && !isOwnCommunityLike && !isOwnCommunityFollow && !isOwnPushTest) {
     return json({ ok: false, error: "Operazione non consentita." }, 403);
   }
 

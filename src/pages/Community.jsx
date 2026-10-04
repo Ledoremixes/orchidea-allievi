@@ -74,25 +74,32 @@ export default function Community() {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [voteBusyId, setVoteBusyId] = useState("");
+  const [followBusyId, setFollowBusyId] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [connections, setConnections] = useState({ open: false, kind: "followers", title: "", profileId: "", rows: [], loading: false });
+  const [connectionPhotos, setConnectionPhotos] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const selectedRanking = useMemo(() => rankings.find((row) => row.id === selectedRankingId) || null, [rankings, selectedRankingId]);
 
   useEffect(() => {
-    if (!selectedProfile) return undefined;
+    if (!selectedProfile && !connections.open) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.classList.add("community-profile-open");
     const onKeyDown = (event) => {
-      if (event.key === "Escape") setSelectedProfile(null);
+      if (event.key !== "Escape") return;
+      if (connections.open) setConnections((current) => ({ ...current, open: false }));
+      else setSelectedProfile(null);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove("community-profile-open");
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [selectedProfile]);
+  }, [selectedProfile, connections.open]);
 
   useEffect(() => {
     let active = true;
@@ -202,6 +209,52 @@ export default function Community() {
       const { data: rows } = await supabase.rpc("get_ranking_leaderboard", { p_ranking_id: selectedRanking.id, p_limit: 100 });
       setLeaderboard(rows || []);
     }
+  }
+
+  async function toggleFollow(profile) {
+    if (!profile?.tesseramento_id) return;
+    setFollowBusyId(profile.tesseramento_id);
+    setError("");
+    const { data, error: followError } = await supabase.rpc("toggle_my_profile_follow", { p_target_tesseramento_id: profile.tesseramento_id });
+    setFollowBusyId("");
+    if (followError || data?.ok === false) {
+      setError(followError?.message || data?.message || "Non riesco ad aggiornare il follow.");
+      return;
+    }
+
+    const patch = (row) => row.tesseramento_id === profile.tesseramento_id
+      ? { ...row, followed_by_me: Boolean(data.following), followers_count: Number(data.followers_count || 0) }
+      : row;
+    setProfiles((current) => current.map(patch));
+    setSelectedProfile((current) => current?.tesseramento_id === profile.tesseramento_id ? patch(current) : current);
+    setConnections((current) => current.open ? { ...current, rows: current.rows.map(patch) } : current);
+
+    if (data?.following && data?.notification_id) {
+      supabase.functions.invoke("send-push", { body: { notification_id: data.notification_id } }).catch(() => {});
+    }
+  }
+
+  async function openConnections(profile, kind = "followers") {
+    if (!profile?.tesseramento_id) return;
+    const title = kind === "following" ? `Seguiti da ${fullName(profile)}` : `Follower di ${fullName(profile)}`;
+    setConnections({ open: true, kind, title, profileId: profile.tesseramento_id, rows: [], loading: true });
+    setConnectionPhotos({});
+    const { data, error: connectionError } = await supabase.rpc("get_profile_connections", {
+      p_target_tesseramento_id: profile.tesseramento_id,
+      p_kind: kind,
+    });
+    if (connectionError) {
+      setError(connectionError.message);
+      setConnections((current) => ({ ...current, loading: false, rows: [] }));
+      return;
+    }
+    const rows = data || [];
+    setConnections((current) => ({ ...current, loading: false, rows }));
+    const entries = await Promise.all(rows.map(async (row) => [
+      row.tesseramento_id,
+      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
+    ]));
+    setConnectionPhotos(Object.fromEntries(entries));
   }
 
   async function openTeacherVoting() {
@@ -325,16 +378,32 @@ export default function Community() {
                   </div>
                   <p className="community-profile-bio community-profile-bio--preview">{profile.bio_ballerino || (profile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
                   <div className="community-profile-read-more">Apri profilo <span>→</span></div>
-                  <div className="community-profile-footer">
-                    <div className="community-like-count"><b>♥</b><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></div>
-                    <button
-                      type="button"
-                      className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`}
-                      onClick={(event) => { event.stopPropagation(); toggleLike(profile); }}
-                      disabled={isMe}
-                    >
-                      <span>{profile.liked_by_me ? "♥" : "♡"}</span>{isMe ? "Il tuo profilo" : profile.liked_by_me ? "Ti piace" : "Mi piace"}
-                    </button>
+                  <div className="community-profile-footer community-profile-footer--social">
+                    <div className="community-social-stats">
+                      <button type="button" onClick={(event) => { event.stopPropagation(); openConnections(profile, "followers"); }}><strong>{profile.followers_count || 0}</strong><span>Follower</span></button>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); openConnections(profile, "following"); }}><strong>{profile.following_count || 0}</strong><span>Seguiti</span></button>
+                      <div><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></div>
+                    </div>
+                    <div className="community-social-actions">
+                      {!isMe && (
+                        <button
+                          type="button"
+                          className={`community-follow-btn ${profile.followed_by_me ? "is-following" : ""}`}
+                          onClick={(event) => { event.stopPropagation(); toggleFollow(profile); }}
+                          disabled={followBusyId === profile.tesseramento_id}
+                        >
+                          {followBusyId === profile.tesseramento_id ? "…" : profile.followed_by_me ? "Segui già" : "Segui"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={`community-like-btn ${profile.liked_by_me ? "is-liked" : ""}`}
+                        onClick={(event) => { event.stopPropagation(); toggleLike(profile); }}
+                        disabled={isMe}
+                      >
+                        <span>{profile.liked_by_me ? "♥" : "♡"}</span>{isMe ? "Tu" : profile.liked_by_me ? "Ti piace" : "Mi piace"}
+                      </button>
+                    </div>
                   </div>
                 </article>
               );
@@ -429,6 +498,12 @@ export default function Community() {
             <div className="community-profile-modal-content">
               <span className="eyebrow">{selectedProfile.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span>
               <h2>{fullName(selectedProfile)}</h2>
+              {selectedProfile.follows_me && !selectedProfile.is_me && <span className="community-follows-you">Ti segue</span>}
+              <div className="community-profile-modal-stats">
+                <button type="button" onClick={() => openConnections(selectedProfile, "followers")}><strong>{selectedProfile.followers_count || 0}</strong><span>Follower</span></button>
+                <button type="button" onClick={() => openConnections(selectedProfile, "following")}><strong>{selectedProfile.following_count || 0}</strong><span>Seguiti</span></button>
+                <div><strong>{selectedProfile.likes_count || 0}</strong><span>Mi piace</span></div>
+              </div>
               {(selectedProfile.balli_preferiti || []).length > 0 && (
                 <div className="community-style-chips community-profile-modal-styles">
                   {(selectedProfile.balli_preferiti || []).map((style) => <span key={style}>{style}</span>)}
@@ -438,8 +513,17 @@ export default function Community() {
                 <strong>Il mio percorso</strong>
                 <p>{selectedProfile.bio_ballerino || (selectedProfile.is_teacher ? "Questo insegnante non ha ancora compilato il proprio curriculum ballerino." : "Questo allievo non ha ancora raccontato il suo percorso da ballerino.")}</p>
               </div>
-              <div className="community-profile-modal-footer">
-                <div className="community-like-count"><b>♥</b><strong>{selectedProfile.likes_count || 0}</strong><span>Mi piace</span></div>
+              <div className="community-profile-modal-footer community-profile-modal-footer--social">
+                {!(selectedProfile.is_me === true || student?.id === selectedProfile.tesseramento_id) && (
+                  <button
+                    type="button"
+                    className={`community-follow-btn large ${selectedProfile.followed_by_me ? "is-following" : ""}`}
+                    onClick={() => toggleFollow(selectedProfile)}
+                    disabled={followBusyId === selectedProfile.tesseramento_id}
+                  >
+                    {followBusyId === selectedProfile.tesseramento_id ? "Aggiorno…" : selectedProfile.followed_by_me ? "✓ Segui già" : "+ Segui"}
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`community-like-btn ${selectedProfile.liked_by_me ? "is-liked" : ""}`}
@@ -450,6 +534,35 @@ export default function Community() {
                   {(selectedProfile.is_me === true || student?.id === selectedProfile.tesseramento_id) ? "Il tuo profilo" : selectedProfile.liked_by_me ? "Ti piace" : "Mi piace"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {connections.open && (
+        <div className="community-connections-overlay" role="presentation" onMouseDown={() => setConnections((current) => ({ ...current, open: false }))}>
+          <div className="community-connections-modal" role="dialog" aria-modal="true" aria-label={connections.title} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="community-connections-head">
+              <div><span className="eyebrow">Orchidea Social</span><h3>{connections.title}</h3></div>
+              <button type="button" onClick={() => setConnections((current) => ({ ...current, open: false }))} aria-label="Chiudi">×</button>
+            </div>
+            <div className="community-connections-list">
+              {connections.loading && <div className="community-empty-card">Carico i profili…</div>}
+              {!connections.loading && connections.rows.map((person) => {
+                const isMe = person.is_me === true || person.tesseramento_id === student?.id;
+                return (
+                  <article key={person.tesseramento_id}>
+                    <div className="community-avatar small">{connectionPhotos[person.tesseramento_id] ? <img src={connectionPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}</div>
+                    <div className="community-connection-person"><strong>{fullName(person)}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
+                    {!isMe && (
+                      <button type="button" className={`community-follow-btn compact ${person.followed_by_me ? "is-following" : ""}`} onClick={() => toggleFollow(person)} disabled={followBusyId === person.tesseramento_id}>
+                        {followBusyId === person.tesseramento_id ? "…" : person.followed_by_me ? "Segui già" : "Segui"}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+              {!connections.loading && !connections.rows.length && <div className="community-empty-card">Ancora nessun profilo in questa lista.</div>}
             </div>
           </div>
         </div>

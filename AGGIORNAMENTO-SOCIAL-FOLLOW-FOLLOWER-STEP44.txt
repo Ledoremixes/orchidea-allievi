@@ -1,0 +1,19 @@
+ORCHIDEA APP - STEP 44 - FOLLOW / FOLLOWER
+
+NOVITA
+- Community: ogni allievo/insegnante pubblico può essere seguito.
+- Follow e Mi piace restano due azioni separate.
+- Card ricerca: follower, seguiti e Mi piace + pulsante Segui.
+- Scheda profilo: follower/seguiti cliccabili e liste dei profili.
+- Etichetta "Ti segue" quando la relazione è reciproca.
+- Profilo personale: riepilogo Follower / Seguiti / Mi piace con liste cliccabili.
+- Nuovo follow: notifica interna e push personale solo al destinatario.
+- Unfollow: nessuna notifica.
+- I profili privati non sono ricercabili; nelle liste pubbliche non vengono esposti profili diventati privati.
+
+SUPABASE
+1. Eseguire supabase/step-44-follow-follower-social.sql.
+2. Aggiornare Edge Function send-push con supabase/functions/send-push/index.ts.
+
+VERCEL
+Pubblicare normalmente l'app. Nessuna nuova variabile ambiente.

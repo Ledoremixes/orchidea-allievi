@@ -1,0 +1,9 @@
+ORCHIDEA APP - STEP 43
+Community: scheda profilo ad altezza uniforme
+
+- Il modale del profilo Community ora ha la stessa altezza per tutti i profili.
+- Su mobile occupa l'88% dell'altezza utile dello schermo.
+- I profili con bio/curriculum lungo scorrono verticalmente all'interno della scheda.
+- I profili corti non collassano più in un modale troppo basso.
+- Durante l'apertura del profilo vengono nascosti temporaneamente la bottom navigation e "Sono all'Orchidea", così non coprono il contenuto o i comandi.
+- Nessuna modifica database necessaria.
