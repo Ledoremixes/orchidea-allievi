@@ -88,7 +88,9 @@ export default function Profilo() {
 
   useEffect(() => {
     let alive = true;
+
     async function loadSocialStats() {
+      if (!student?.id) return;
       const { data } = await supabase.rpc("get_my_social_stats");
       if (!alive || !data) return;
       setSocialStats({
@@ -97,8 +99,22 @@ export default function Profilo() {
         likes_count: Number(data.likes_count || 0),
       });
     }
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") loadSocialStats();
+    };
+
     if (student?.id) loadSocialStats();
-    return () => { alive = false; };
+    const timer = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [student?.id]);
 
   async function openSocialList(kind) {

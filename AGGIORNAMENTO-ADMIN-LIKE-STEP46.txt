@@ -1,0 +1,17 @@
+ORCHIDEA APP - STEP 46
+
+FIX ADMIN MOBILE
+- La sezione statistiche/presenze Admin resta dentro il viewport su smartphone.
+- La card Partecipazione, il grafico circolare e le 4 metriche non possono piu allargare la pagina.
+- Le griglie Admin diventano a colonna singola sotto 900 px e tutti i blocchi hanno min-width: 0.
+
+FIX MI PIACE / IDENTITA SOCIAL
+- Like, follower e seguiti vengono associati alla persona e non alla singola tessera storica.
+- Se la stessa persona possiede piu tesseramenti/stagioni, i conteggi vengono aggregati usando auth_user_id o codice fiscale.
+- Non viene usata l'email come identificatore persona, per evitare problemi con email condivise.
+- La ricerca Community mostra una sola scheda canonica per persona.
+- Profilo personale, ricerca Community e classifica Like leggono lo stesso conteggio.
+- I dati social del proprio profilo si aggiornano anche quando si torna nell'app e ogni 15 secondi mentre la pagina resta visibile.
+
+SUPABASE
+Eseguire: step-46-fix-like-identita-social-admin-mobile.sql

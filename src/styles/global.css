@@ -19575,3 +19575,114 @@ body.community-profile-open .bottom-nav.orchidea-bottom-nav {
   .admin-online-avatar { width: 42px; height: 42px; border-radius: 14px; }
   .admin-online-meta { grid-column: 2; min-width: 0; justify-items: start; text-align: left; }
 }
+
+/* ==========================================================
+   STEP 46 - Admin mobile dentro viewport + social stats coerenti
+   ========================================================== */
+@media (max-width: 900px) {
+  .admin-page,
+  .admin-page > *,
+  .attendance-admin-page,
+  .attendance-admin-page > *,
+  .attendance-overview-grid,
+  .attendance-overview-grid > *,
+  .attendance-goal-card,
+  .attendance-area-card,
+  .attendance-insights-grid,
+  .attendance-insights-grid-refined {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .attendance-overview-grid,
+  .attendance-insights-grid,
+  .attendance-insights-grid-refined {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .attendance-goal-card,
+  .attendance-area-card {
+    overflow: hidden;
+  }
+
+  .attendance-donut-wrap {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding-inline: 0;
+    overflow: hidden;
+  }
+
+  .attendance-donut {
+    width: min(176px, 52vw) !important;
+    max-width: 176px;
+    min-width: 132px;
+    flex: 0 0 auto;
+  }
+
+  .attendance-donut-wrap p {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: 6px;
+    text-align: center !important;
+    overflow-wrap: anywhere;
+  }
+
+  .attendance-goal-stat-grid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .attendance-goal-stat-grid > div {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0 !important;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .attendance-goal-stat-grid span,
+  .attendance-goal-stat-grid strong,
+  .attendance-goal-stat-grid small {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .attendance-goal-stat-grid small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .attendance-weekly-chart-wrap,
+  .attendance-table-wrap {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .attendance-goal-card,
+  .attendance-area-card {
+    padding: 18px 14px !important;
+  }
+
+  .attendance-goal-stat-grid {
+    gap: 8px;
+  }
+
+  .attendance-goal-stat-grid > div {
+    min-height: 84px;
+    padding: 12px 10px !important;
+  }
+
+  .attendance-goal-stat-grid strong {
+    font-size: 1.25rem;
+  }
+}
