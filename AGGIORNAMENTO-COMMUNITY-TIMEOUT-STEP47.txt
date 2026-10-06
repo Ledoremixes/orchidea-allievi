@@ -1,0 +1,8 @@
+ORCHIDEA APP - STEP 47
+FIX AVVISO TIMEOUT COMMUNITY
+
+- La tab Compagni non carica più in background Classifiche e leaderboard.
+- Le RPC classifiche vengono eseguite solo quando si apre la tab Classifiche.
+- Passando tra Compagni e Classifiche vengono puliti gli errori della tab precedente.
+- Se i profili sono già caricati, un timeout residuo non viene mostrato sopra la Community.
+- Nessuna modifica SQL richiesta.

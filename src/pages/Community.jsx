@@ -119,6 +119,7 @@ export default function Community() {
   }, [search]);
 
   useEffect(() => {
+    if (tab !== "rankings") return undefined;
     let active = true;
     async function loadRankings() {
       const { data, error: queryError } = await supabase.rpc("get_app_rankings");
@@ -134,7 +135,7 @@ export default function Community() {
     }
     loadRankings();
     return () => { active = false; };
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
     let active = true;
@@ -147,10 +148,10 @@ export default function Community() {
   }, [profiles]);
 
   useEffect(() => {
-    if (!selectedRankingId) {
+    if (tab !== "rankings" || !selectedRankingId) {
       setLeaderboard([]);
       setTeacherCandidates([]);
-      return;
+      return undefined;
     }
     let active = true;
     async function loadLeaderboard() {
@@ -167,7 +168,7 @@ export default function Community() {
     }
     loadLeaderboard();
     return () => { active = false; };
-  }, [selectedRankingId]);
+  }, [selectedRankingId, tab]);
 
   useEffect(() => {
     let active = true;
@@ -332,11 +333,11 @@ export default function Community() {
       </div>
 
       <div className="community-tabs" role="tablist">
-        <button type="button" className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>Compagni</button>
-        <button type="button" className={tab === "rankings" ? "active" : ""} onClick={() => setTab("rankings")}>Classifiche</button>
+        <button type="button" className={tab === "people" ? "active" : ""} onClick={() => { setError(""); setTab("people"); }}>Compagni</button>
+        <button type="button" className={tab === "rankings" ? "active" : ""} onClick={() => { setError(""); setTab("rankings"); }}>Classifiche</button>
       </div>
 
-      {error && <div className="alert error">{error}</div>}
+      {error && !(tab === "people" && profiles.length > 0 && /timeout/i.test(error)) && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
 
       {tab === "people" ? (
