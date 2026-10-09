@@ -29,11 +29,18 @@ const emptyPayment = {
   billing_cycle: "una_tantum",
 };
 
+function todayInputDate() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 const emptyVideo = {
   corso_id: "",
   titolo: "",
   descrizione: "",
   video_url: "",
+  lesson_date: "",
 };
 
 const emptyStudentForm = {
@@ -553,7 +560,7 @@ export default function AdminPanel() {
   const [enrollmentStartDate, setEnrollmentStartDate] = useState(todayIso());
   const [enrollmentRenewalActive, setEnrollmentRenewalActive] = useState(true);
   const [paymentForm, setPaymentForm] = useState(emptyPayment);
-  const [videoForm, setVideoForm] = useState(emptyVideo);
+  const [videoForm, setVideoForm] = useState(() => ({ ...emptyVideo, lesson_date: todayInputDate() }));
   const [videoFile, setVideoFile] = useState(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [optimizeVideoBeforeUpload, setOptimizeVideoBeforeUpload] = useState(true);
@@ -606,7 +613,7 @@ export default function AdminPanel() {
         .limit(500),
       supabase
         .from("video_corsi")
-        .select("id, corso_id, titolo, descrizione, pubblicato, video_url, storage_path, created_at, corsi(nome, livello)")
+        .select("id, corso_id, titolo, descrizione, pubblicato, video_url, storage_path, lesson_date, created_at, corsi(nome, livello)")
         .order("created_at", { ascending: false })
         .limit(220),
       supabase
@@ -2399,8 +2406,8 @@ export default function AdminPanel() {
   async function handleCreateVideo(e) {
     e.preventDefault();
 
-    if (!videoForm.corso_id || !videoForm.titolo.trim()) {
-      showError("Seleziona corso e titolo del video.");
+    if (!videoForm.corso_id || !videoForm.titolo.trim() || !videoForm.lesson_date) {
+      showError("Seleziona corso, titolo e data della lezione.");
       return;
     }
 
@@ -2478,6 +2485,7 @@ export default function AdminPanel() {
         storage_path: storagePath,
         thumbnail_url: thumbnailUrl,
         pubblicato: true,
+        lesson_date: videoForm.lesson_date,
       });
 
       if (videoError) {
@@ -2485,7 +2493,7 @@ export default function AdminPanel() {
         throw videoError;
       }
 
-      setVideoForm(emptyVideo);
+      setVideoForm({ ...emptyVideo, lesson_date: todayInputDate() });
       setVideoFile(null);
       setVideoOptimizationStatus("");
       setVideoOptimizationProgress(0);
@@ -3945,6 +3953,7 @@ export default function AdminPanel() {
             </select>
           </label>
           <label>Titolo video<input value={videoForm.titolo} onChange={(e) => setVideoForm({ ...videoForm, titolo: e.target.value })} placeholder="Ripasso lezione 1" /></label>
+          <label>Data della lezione<input type="date" value={videoForm.lesson_date} onChange={(e) => setVideoForm({ ...videoForm, lesson_date: e.target.value })} required /><small>Questa è la data mostrata agli allievi, indipendente dal giorno in cui carichi il video.</small></label>
           <label>File video privato
             <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => { setVideoFile(e.target.files?.[0] || null); setVideoOptimizationStatus(""); setVideoOptimizationProgress(0); }} />
             {videoFile ? <small>{videoFile.name} · {formatFileSize(videoFile.size)}</small> : null}
@@ -3975,7 +3984,7 @@ export default function AdminPanel() {
               <div className="compact-row with-action" key={video.id}>
                 <div>
                   <strong>{video.titolo}</strong>
-                  <span>{video.corsi?.nome || "Corso"} · {video.pubblicato ? "Pubblicato" : "Nascosto"}</span>
+                  <span>{video.corsi?.nome || "Corso"} · Lezione {formatDate(video.lesson_date || video.created_at)} · {video.pubblicato ? "Pubblicato" : "Nascosto"}</span>
                   <small>{video.storage_path ? "File privato Supabase" : "Link esterno"}</small>
                 </div>
                 <div className="row-actions">

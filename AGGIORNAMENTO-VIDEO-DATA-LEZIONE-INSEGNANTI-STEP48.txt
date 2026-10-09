@@ -1,0 +1,15 @@
+ORCHIDEA APP - STEP 48
+VIDEO: DATA LEZIONE MANUALE + UPLOAD DOCENTI
+
+- L'admin sceglie manualmente la data reale della lezione quando pubblica un video.
+- La data di caricamento resta tecnica e non viene mostrata come data della lezione.
+- L'Archivio Ripassi ordina e mostra i contenuti usando lesson_date.
+- Gli insegnanti possono pubblicare video direttamente dalla pagina Video.
+- Ogni docente vede nel selettore solo i propri corsi.
+- Supabase RLS blocca upload verso corsi non assegnati al docente.
+- I video caricati dai docenti passano dalla stessa ottimizzazione/compressione già usata dall'Admin.
+- I video storici ricevono automaticamente come lesson_date la precedente data di caricamento.
+
+ORDINE:
+1. Eseguire supabase/step-48-video-data-lezione-insegnanti.sql
+2. Deploy app su Vercel.

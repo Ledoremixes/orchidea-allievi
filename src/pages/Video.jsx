@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatDate, formatTime } from "../lib/format.js";
+import TeacherVideoUploader from "../components/TeacherVideoUploader.jsx";
 
 function isActiveEnrollment(enrollment) {
   return enrollment?.stato === "attivo" && enrollment?.rinnovo_attivo !== false;
@@ -41,6 +42,7 @@ export default function Video() {
   const [videosPerPage, setVideosPerPage] = useState(getVideosPerPage);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [videoRefreshKey, setVideoRefreshKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -102,9 +104,10 @@ export default function Video() {
 
       const { data: videosData, error: videosError } = await supabase
         .from("video_corsi")
-        .select("id, corso_id, titolo, descrizione, video_url, storage_path, thumbnail_url, created_at, corsi(id, nome, livello)")
+        .select("id, corso_id, titolo, descrizione, video_url, storage_path, thumbnail_url, lesson_date, created_at, corsi(id, nome, livello)")
         .eq("pubblicato", true)
         .in("corso_id", courseIds)
+        .order("lesson_date", { ascending: false })
         .order("created_at", { ascending: false });
 
       if (!mounted) return;
@@ -136,7 +139,7 @@ export default function Video() {
     return () => {
       mounted = false;
     };
-  }, [student?.id, teacher?.profile_id, teacherExperience]);
+  }, [student?.id, teacher?.profile_id, teacherExperience, videoRefreshKey]);
 
   useEffect(() => {
     setCoursePages({});
@@ -180,7 +183,7 @@ export default function Video() {
         video.descrizione,
         video.corsi?.nome,
         video.corsi?.livello,
-        formatDate(video.created_at),
+        formatDate(video.lesson_date || video.created_at),
       ].join(" "));
 
       return searchable.includes(term);
@@ -201,7 +204,7 @@ export default function Video() {
     }, {});
 
     Object.keys(groups).forEach((key) => {
-      groups[key].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      groups[key].sort((a, b) => new Date(b.lesson_date || b.created_at || 0) - new Date(a.lesson_date || a.created_at || 0));
     });
 
     return groups;
@@ -216,7 +219,7 @@ export default function Video() {
     }, {});
 
     Object.keys(groups).forEach((key) => {
-      groups[key].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      groups[key].sort((a, b) => new Date(b.lesson_date || b.created_at || 0) - new Date(a.lesson_date || a.created_at || 0));
     });
 
     return groups;
@@ -284,7 +287,7 @@ export default function Video() {
 
         <div className="video-body video-body-v2">
           <div className="video-card-title-row">
-            <span className="eyebrow">Lezione del {formatDate(video.created_at)}</span>
+            <span className="eyebrow">Lezione del {formatDate(video.lesson_date || video.created_at)}</span>
             <small>{video.corsi?.nome || "Corso"}</small>
           </div>
           <h3>{video.titolo}</h3>
@@ -326,6 +329,13 @@ export default function Video() {
       </div>
 
       {error && <div className="alert error">{error}</div>}
+
+      {teacherExperience && enrolledCourses.length > 0 ? (
+        <TeacherVideoUploader
+          courses={enrolledCourses}
+          onUploaded={() => setVideoRefreshKey((value) => value + 1)}
+        />
+      ) : null}
 
       {loading ? (
         <div className="content-card">Carico video…</div>
@@ -395,7 +405,7 @@ export default function Video() {
                 <span className="eyebrow">Continua da qui</span>
                 <h3>{latestVideo.titolo}</h3>
                 <p>{latestVideo.descrizione || "L'ultimo ripasso pubblicato dal tuo corso."}</p>
-                <small>{latestVideo.corsi?.nome || "Corso"} · {formatDate(latestVideo.created_at)}</small>
+                <small>{latestVideo.corsi?.nome || "Corso"} · Lezione del {formatDate(latestVideo.lesson_date || latestVideo.created_at)}</small>
                 {hasPlayableVideo(latestVideo) && (
                   <button type="button" className="primary-btn slim" onClick={() => openVideo(latestVideo)} disabled={openingVideoId === latestVideo.id}>
                     {openingVideoId === latestVideo.id ? "Apro…" : "▶ Ripassa ora"}

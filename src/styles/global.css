@@ -19686,3 +19686,144 @@ body.community-profile-open .bottom-nav.orchidea-bottom-nav {
     font-size: 1.25rem;
   }
 }
+
+/* =========================================================
+   STEP 48 - Upload video insegnanti + data lezione manuale
+   ========================================================= */
+.teacher-video-upload-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(236, 63, 190, 0.32);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(226, 50, 179, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(38, 14, 43, 0.96), rgba(13, 10, 18, 0.98));
+}
+
+.teacher-video-upload-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.teacher-video-upload-head h3 {
+  margin: 5px 0 7px;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.teacher-video-upload-head p {
+  margin: 0;
+  max-width: 720px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.teacher-video-upload-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(245, 199, 83, 0.28);
+  border-radius: 999px;
+  background: rgba(245, 199, 83, 0.08);
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.teacher-video-upload-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.teacher-video-upload-form label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: rgba(255,255,255,0.88);
+  font-weight: 750;
+}
+
+.teacher-video-upload-form input,
+.teacher-video-upload-form select,
+.teacher-video-upload-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.teacher-video-upload-form label > small {
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.teacher-video-upload-wide {
+  grid-column: 1 / -1;
+}
+
+.teacher-video-upload-toggle {
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px !important;
+  padding: 15px 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.035);
+}
+
+.teacher-video-upload-toggle > span {
+  display: grid;
+  gap: 4px;
+}
+
+.teacher-video-upload-toggle input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  accent-color: #e43ab8;
+}
+
+.teacher-video-upload-progress {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(232, 67, 185, 0.25);
+  background: rgba(232, 67, 185, 0.07);
+}
+
+.teacher-video-upload-progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.teacher-video-upload-progress progress {
+  width: 100%;
+}
+
+.teacher-video-upload-submit {
+  min-height: 48px;
+}
+
+@media (max-width: 720px) {
+  .teacher-video-upload-head {
+    display: grid;
+  }
+
+  .teacher-video-upload-badge {
+    width: max-content;
+  }
+
+  .teacher-video-upload-form {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-video-upload-wide {
+    grid-column: auto;
+  }
+}
