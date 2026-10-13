@@ -153,6 +153,7 @@ export default function Dashboard() {
       </div>
 
       <div className="home-action-grid">
+        <Link to="/presenze" className="home-action-card"><span className="home-action-icon">✓</span><strong>Registra<br />presenza</strong><em>›</em></Link>
         <Link to="/tessera" className="home-action-card"><span className="home-action-icon">▣</span><strong>Mostra<br />tessera</strong><em>›</em></Link>
         <Link to="/corsi" className="home-action-card"><span className="home-action-icon">◷</span><strong>Calendario</strong><em>›</em></Link>
         <Link to="/pagamenti" className="home-action-card"><span className="home-action-icon">€</span><strong>Quote e<br />storico</strong><em>›</em></Link>
