@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { formatMoney, formatTime } from "../lib/format.js";
@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [publicCourses, setPublicCourses] = useState([]);
   const [homeShowcaseIds, setHomeShowcaseIds] = useState([]);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const posterTouch = useRef(null);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -186,9 +187,24 @@ export default function Dashboard() {
       {featuredCourse ? (
         <section className="neo-panel home-course-showcase">
           <div className="neo-panel-title with-link"><div><span>🏆</span><h3>Tutti i corsi</h3></div><Link to="/corsi">Vedi tutti</Link></div>
-          <div className="showcase-poster-wrap">
+          <div className="showcase-poster-wrap home-swipe-posters"
+            onTouchStart={(event) => {
+              const touch = event.touches.length === 1 && !event.target.closest("button") ? event.touches[0] : null;
+              posterTouch.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+            }}
+            onTouchCancel={() => { posterTouch.current = null; }}
+            onTouchEnd={(event) => {
+              const start = posterTouch.current;
+              posterTouch.current = null;
+              const end = event.changedTouches[0];
+              if (!start || !end || showcaseCourses.length < 2) return;
+              const dx = end.clientX - start.x;
+              const dy = end.clientY - start.y;
+              if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy)) return;
+              setCarouselIndex((index) => (index + (dx < 0 ? 1 : -1) + showcaseCourses.length) % showcaseCourses.length);
+            }}>
             {showcaseCourses.length > 1 && <button type="button" className="showcase-arrow left" aria-label="Corso precedente" onClick={() => setCarouselIndex((index) => (index - 1 + showcaseCourses.length) % showcaseCourses.length)}>‹</button>}
-            <img src={featuredVisual.image} alt={`${featuredCourse.nome || "Corso"} ${featuredCourse.livello || ""}`} className="showcase-course-poster" loading="lazy" decoding="async" />
+            <img src={featuredVisual.image} alt={`${featuredCourse.nome || "Corso"} ${featuredCourse.livello || ""}`} className="showcase-course-poster" loading="lazy" decoding="async" draggable={false} />
             {showcaseCourses.length > 1 && <button type="button" className="showcase-arrow right" aria-label="Corso successivo" onClick={() => setCarouselIndex((index) => (index + 1) % showcaseCourses.length)}>›</button>}
           </div>
           <div className="showcase-course-meta"><strong>{featuredCourse.nome || "Corso Orchidea"}</strong><span>{featuredCourse.livello || "Livello"} · {featuredCourse.giorno_settimana || "Giorno"} {formatTime(featuredCourse.ora_inizio)}</span></div>

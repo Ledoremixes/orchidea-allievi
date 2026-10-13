@@ -10,8 +10,34 @@
 .student-attendance-history time { white-space: nowrap; }
 .attendance-success { border: 1px solid #70d6a0; }
 .student-attendance-page button:disabled { opacity: .6; cursor: default; }
-/* Keep every navigation destination readable and reachable on small phones. */
+.student-attendance-page > .content-card { padding: clamp(20px, 4vw, 30px); border-color: rgba(221,80,191,.2); box-shadow: 0 8px 28px rgba(0,0,0,.18); }
+.student-attendance-page h1 { margin: 12px 0 8px; font-size: clamp(1.9rem, 6vw, 2.6rem); letter-spacing: -.04em; }
+.student-attendance-page h2 { margin: 0; font-size: clamp(1.1rem, 3.5vw, 1.35rem); letter-spacing: -.025em; }
+.student-attendance-intro { background: radial-gradient(ellipse at top right, rgba(197,52,160,.15), transparent 70%), rgba(20,10,25,.8); }
+.student-attendance-intro > p { margin: 0; color: var(--muted); }
+.attendance-window { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 14px; border-radius: 14px; background: rgba(236,186,79,.06); color: rgba(255,255,255,.7); font-size: .8rem; line-height: 1.6; }
+.attendance-window > span:first-child { color: #edc775; font-size: 1.6rem; }
+.attendance-window strong { color: #edc775; }
+.student-attendance-heading { margin-bottom: 20px; gap: 8px; }
+.attendance-auto-label { display: inline-flex; align-items: center; gap: 5px; color: #a6bba9; font-size: .62rem; white-space: nowrap; }
+.attendance-auto-label::before { content: ''; width: 5px; height: 5px; background: #86c99c; border-radius: 50%; }
+.attendance-empty { display: grid; justify-items: center; text-align: center; padding: 16px 0 8px; }
+.attendance-empty-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 15px; background: rgba(216,95,183,.09); color: #e2a6d7; font-size: 1.4rem; margin-bottom: 14px; }
+.attendance-empty strong { font-size: .88rem; font-weight: 600; }
+.attendance-empty p, .attendance-caption { color: var(--muted); font-size: .78rem; line-height: 1.65; }
+.attendance-empty p { max-width: 290px; margin: 8px 0 16px; }
+.attendance-empty a, .attendance-retry { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 10px 16px; border: 1px solid rgba(217,147,202,.2); border-radius: 12px; background: rgba(217,147,202,.06); color: #edc8e5; font: inherit; font-size: .78rem; text-decoration: none; cursor: pointer; }
+.attendance-history-count { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 10px; background: rgba(255,255,255,.06); color: #d8b7d0; font-size: .75rem; }
+.attendance-caption { margin-top: -10px; }
+.attendance-empty-history { padding-top: 10px; }
+.home-swipe-posters { touch-action: pan-y pinch-zoom; }
+.home-swipe-posters img { user-select: none; -webkit-user-drag: none; }
+/* Equal-width destinations, including Admin, without horizontal scrolling. */
 @media (max-width: 600px) {
   .student-attendance-course { align-items: stretch; flex-direction: column; }
-  .orchidea-bottom-nav.bottom-nav { grid-template-columns: repeat(var(--nav-items), minmax(62px, 1fr)); overflow-x: auto; }
+  .orchidea-bottom-nav.bottom-nav { grid-template-columns: repeat(var(--nav-items), minmax(0, 1fr)); overflow: hidden; gap: 0; padding: 5px 3px; }
+  .orchidea-bottom-nav .bottom-link { padding: 7px 0; gap: 5px; min-width: 0; min-height: 54px; border-radius: 12px; }
+  .orchidea-bottom-nav .bottom-link svg { width: 20px; height: 20px; }
+  .orchidea-bottom-nav .bottom-link small { font-size: clamp(7px, 2.1vw, 10px); letter-spacing: -.025em; white-space: nowrap; }
+  .orchidea-bottom-nav .bottom-link.active::after { width: 18px; height: 3px; }
 }

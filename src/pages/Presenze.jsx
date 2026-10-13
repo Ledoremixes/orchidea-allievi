@@ -81,17 +81,17 @@ export default function Presenze() {
   if (!student?.id) return <section className="content-card"><h2>Presenze</h2><p>Questa sezione è riservata agli allievi con un tesseramento collegato.</p></section>;
 
   return <div className="student-attendance-page">
-    <section className="content-card">
+    <section className="content-card student-attendance-intro">
       <span className="eyebrow">Le tue lezioni</span>
       <h1>Presenze</h1>
-      <p>Sei arrivato a lezione? Registra qui la tua presenza, da 30 minuti prima dell’inizio fino alla fine del corso.</p>
-      <p>Registra la presenza solo alle lezioni a cui partecipi. La segreteria vedrà la conferma nel registro.</p>
+      <p>Il tuo posto in sala, una lezione alla volta.</p>
+      <div className="attendance-window"><span aria-hidden="true">◷</span><span>Conferma la presenza da <strong>30 minuti prima</strong> dell’inizio fino alla fine della lezione.</span></div>
     </section>
     {message && <p className="content-card attendance-success" role="status">{message}</p>}
-    {error && <div className="content-card" role="alert"><p>{error}</p><button className="secondary-btn" onClick={refresh} disabled={Boolean(saving)}>Riprova aggiornamento</button></div>}
+    {error && <div className="content-card" role="alert"><p>{error}</p><button className="attendance-retry" onClick={refresh} disabled={Boolean(saving)}>Riprova aggiornamento</button></div>}
     <section className="content-card" aria-busy={loading}>
-      <div className="student-attendance-heading"><h2>Corsi di oggi</h2><button className="secondary-btn" onClick={refresh} disabled={loading || Boolean(saving)}>Aggiorna</button></div>
-      {loading ? <p role="status">Caricamento presenze…</p> : !error && !courses.length ? <p>Oggi non risultano corsi attivi a cui sei iscritto. <Link to="/corsi">Consulta i tuoi corsi</Link>.</p> : null}
+      <div className="student-attendance-heading"><h2>Corsi di oggi</h2>{!error && <span className="attendance-auto-label">Automatico</span>}</div>
+      {loading ? <p role="status">Caricamento presenze…</p> : !error && !courses.length ? <div className="attendance-empty"><span className="attendance-empty-icon" aria-hidden="true">◷</span><strong>Oggi nessuna lezione in programma</strong><p>Qui troverai i tuoi corsi quando sarà il momento di ballare.</p><Link to="/corsi">Vai ai tuoi corsi <span aria-hidden="true">›</span></Link></div> : null}
       <div className="student-attendance-list">{courses.map((course) => <article className="student-attendance-course" key={course.id}>
         <div><h3>{course.nome}{course.livello ? ` · ${course.livello}` : ""}</h3><p>{formatTime(course.ora_inizio)}–{formatTime(course.ora_fine)}{course.sala ? ` · ${course.sala}` : ""}</p>
           <small>{course.already_registered ? "Presenza registrata" : !course.membership_active ? "Tessera non attiva: contatta la segreteria" : course.can_register ? "Registrazione aperta" : "Registrazione fuori orario"}</small></div>
@@ -100,8 +100,8 @@ export default function Presenze() {
         </button>
       </article>)}</div>
     </section>
-    <section className="content-card"><h2>Le tue ultime presenze</h2><p>Le ultime 100 lezioni registrate, anche tramite tablet o segreteria.</p>
-      {!loading && !error && !history.length && <p>Non hai ancora presenze registrate.</p>}
+    <section className="content-card"><div className="student-attendance-heading"><h2>Il tuo percorso</h2><span className="attendance-history-count">{history.length}</span></div><p className="attendance-caption">Le tue ultime presenze, anche da tablet e segreteria.</p>
+      {!loading && !error && !history.length && <div className="attendance-empty attendance-empty-history"><span className="attendance-empty-icon" aria-hidden="true">✓</span><strong>La prima presenza ti aspetta</strong><p>Le lezioni a cui partecipi compariranno qui.</p></div>}
       <ul className="student-attendance-history">{history.map((entry) => <li key={entry.id}><div><strong>{entry.corsi?.nome || "Corso"}</strong><span>{entry.corsi?.livello}</span></div><time dateTime={entry.data_lezione}>{formatDate(entry.data_lezione)}</time></li>)}</ul>
     </section>
   </div>;
