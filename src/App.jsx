@@ -8,6 +8,7 @@ import SetPassword from "./pages/SetPassword.jsx";
 import Home from "./pages/Home.jsx";
 import Tessera from "./pages/Tessera.jsx";
 import Corsi from "./pages/Corsi.jsx";
+import Presenze from "./pages/Presenze.jsx";
 import Pagamenti from "./pages/Pagamenti.jsx";
 import Video from "./pages/Video.jsx";
 import Eventi from "./pages/Eventi.jsx";
@@ -33,6 +34,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="tessera" element={<Tessera />} />
           <Route path="corsi" element={<Corsi />} />
+          <Route path="presenze" element={<Presenze />} />
           <Route path="pagamenti" element={<Pagamenti />} />
           <Route path="video" element={<Video />} />
           <Route path="eventi" element={<Eventi />} />

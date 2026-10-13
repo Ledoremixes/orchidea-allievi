@@ -1,0 +1,17 @@
+.student-attendance-page { display: grid; gap: 20px; }
+.student-attendance-heading, .student-attendance-course, .student-attendance-history li { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.student-attendance-list { display: grid; gap: 12px; }
+.student-attendance-course { border: 1px solid rgba(255,255,255,.14); border-radius: 16px; padding: 18px; }
+.student-attendance-course h3, .student-attendance-course p { margin: 0 0 8px; }
+.student-attendance-course small, .student-attendance-history span { color: var(--muted); }
+.student-attendance-history { list-style: none; padding: 0; }
+.student-attendance-history li { padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+.student-attendance-history li div { display: grid; gap: 4px; }
+.student-attendance-history time { white-space: nowrap; }
+.attendance-success { border: 1px solid #70d6a0; }
+.student-attendance-page button:disabled { opacity: .6; cursor: default; }
+/* Keep every navigation destination readable and reachable on small phones. */
+@media (max-width: 600px) {
+  .student-attendance-course { align-items: stretch; flex-direction: column; }
+  .orchidea-bottom-nav.bottom-nav { grid-template-columns: repeat(var(--nav-items), minmax(62px, 1fr)); overflow-x: auto; }
+}
