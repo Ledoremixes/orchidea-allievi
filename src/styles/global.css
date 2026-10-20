@@ -19688,142 +19688,311 @@ body.community-profile-open .bottom-nav.orchidea-bottom-nav {
 }
 
 /* =========================================================
-   STEP 48 - Upload video insegnanti + data lezione manuale
+   STEP 49 - CLASSIFICHE INSEGNANTI MOBILE-FIRST
+   Evita overflow orizzontale e rende il pannello voti usabile
+   su smartphone senza cambiare la logica delle classifiche.
    ========================================================= */
-.teacher-video-upload-card {
-  position: relative;
-  overflow: hidden;
-  border-color: rgba(236, 63, 190, 0.32);
-  background:
-    radial-gradient(circle at 92% 8%, rgba(226, 50, 179, 0.16), transparent 34%),
-    linear-gradient(145deg, rgba(38, 14, 43, 0.96), rgba(13, 10, 18, 0.98));
-}
 
-.teacher-video-upload-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 22px;
-}
-
-.teacher-video-upload-head h3 {
-  margin: 5px 0 7px;
-  font-size: clamp(1.35rem, 3vw, 2rem);
-}
-
-.teacher-video-upload-head p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.teacher-video-upload-badge {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid rgba(245, 199, 83, 0.28);
-  border-radius: 999px;
-  background: rgba(245, 199, 83, 0.08);
-  color: var(--gold);
-  font-weight: 800;
-  font-size: 0.82rem;
-}
-
-.teacher-video-upload-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
-}
-
-.teacher-video-upload-form label {
+.community-page-v1,
+.community-rankings-layout,
+.community-ranking-selector,
+.community-ranking-stage,
+.teacher-vote-cta,
+.teacher-voting-panel,
+.teacher-candidate-list,
+.teacher-candidate-card,
+.teacher-rating-grid,
+.teacher-rating-criterion {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: rgba(255,255,255,0.88);
-  font-weight: 750;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.teacher-video-upload-form input,
-.teacher-video-upload-form select,
-.teacher-video-upload-form textarea {
+.community-page-v1 {
   width: 100%;
-  min-width: 0;
+  overflow-x: clip;
 }
 
-.teacher-video-upload-form label > small {
-  color: var(--muted);
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.teacher-video-upload-wide {
-  grid-column: 1 / -1;
-}
-
-.teacher-video-upload-toggle {
-  flex-direction: row !important;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px !important;
-  padding: 15px 16px;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.035);
-}
-
-.teacher-video-upload-toggle > span {
-  display: grid;
-  gap: 4px;
-}
-
-.teacher-video-upload-toggle input[type="checkbox"] {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  accent-color: #e43ab8;
-}
-
-.teacher-video-upload-progress {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(232, 67, 185, 0.25);
-  background: rgba(232, 67, 185, 0.07);
-}
-
-.teacher-video-upload-progress > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.teacher-video-upload-progress progress {
+.community-rankings-layout {
   width: 100%;
 }
 
-.teacher-video-upload-submit {
-  min-height: 48px;
+.community-ranking-selector-list > button > span {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
-@media (max-width: 720px) {
-  .teacher-video-upload-head {
+.community-ranking-selector-list > button strong,
+.community-ranking-selector-list > button small {
+  overflow-wrap: anywhere;
+}
+
+.teacher-vote-cta > div {
+  min-width: 0;
+}
+
+.teacher-vote-cta span,
+.teacher-candidate-identity strong,
+.teacher-candidate-identity span {
+  overflow-wrap: anywhere;
+}
+
+.teacher-candidate-card > .primary-btn {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .community-page-v1 {
+    width: 100%;
+    max-width: 100vw;
+    padding-left: 0;
+    padding-right: 0;
+    overflow-x: hidden;
+  }
+
+  .community-tabs {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .community-tabs button {
+    min-width: 0;
+    padding-inline: 8px;
+    white-space: normal;
+  }
+
+  .community-rankings-layout {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .community-ranking-selector,
+  .community-ranking-stage {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .community-ranking-selector {
+    padding: 14px;
+    border-radius: 22px;
+    margin-bottom: 14px;
+  }
+
+  /* Su telefono le classifiche diventano una lista verticale:
+     niente card tagliate a destra e nessuno scroll laterale. */
+  .community-ranking-selector-list {
     display: grid;
-  }
-
-  .teacher-video-upload-badge {
-    width: max-content;
-  }
-
-  .teacher-video-upload-form {
     grid-template-columns: 1fr;
+    gap: 9px;
+    width: 100%;
+    overflow: visible;
+    padding: 0;
   }
 
-  .teacher-video-upload-wide {
-    grid-column: auto;
+  .community-ranking-selector-list > button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 13px 12px;
+    gap: 8px;
+  }
+
+  .community-ranking-selector-list > button > span {
+    min-width: 0;
+  }
+
+  .ranking-status {
+    flex: 0 0 auto;
+  }
+
+  .community-ranking-stage {
+    padding: 15px;
+    border-radius: 22px;
+    overflow: hidden;
+  }
+
+  .ranking-stage-head,
+  .ranking-stage-head > div:first-child {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ranking-stage-head h2 {
+    font-size: clamp(1.55rem, 8vw, 2rem);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  .ranking-stage-head p {
+    overflow-wrap: anywhere;
+  }
+
+  .ranking-dates {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* CTA insegnante sempre completamente visibile. */
+  .teacher-vote-cta {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 15px;
+    overflow: hidden;
+  }
+
+  .teacher-vote-cta button {
+    width: 100%;
+    max-width: 100%;
+    min-height: 48px;
+    margin: 0;
+    padding: 12px 14px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  /* Scheda di voto verticale e scorrevole naturalmente con la pagina. */
+  .teacher-voting-panel {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .teacher-voting-panel-head {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .teacher-voting-panel-head > div,
+  .teacher-voting-panel-head input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  .teacher-candidate-list {
+    width: 100%;
+    gap: 11px;
+  }
+
+  .teacher-candidate-card {
+    width: 100%;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .teacher-candidate-identity {
+    min-width: 0;
+    align-items: center;
+  }
+
+  .teacher-candidate-identity > div:last-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .teacher-rating-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* Ogni parametro usa due righe: titolo sopra, voti 1-5 sotto. */
+  .teacher-rating-criterion {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .teacher-rating-criterion > span {
+    display: block;
+    width: 100%;
+    font-size: .78rem;
+  }
+
+  .teacher-rating-scale {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .teacher-rating-scale button {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    border-radius: 10px;
+    font-size: .88rem;
+  }
+
+  .teacher-candidate-card > .primary-btn,
+  .teacher-candidate-card > button.primary-btn {
+    width: 100%;
+    max-width: 100%;
+    min-height: 46px;
+    padding: 11px 12px;
+    white-space: normal;
+  }
+
+  .ranking-leaderboard,
+  .ranking-row {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ranking-row {
+    grid-template-columns: 34px 42px minmax(0, 1fr);
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .ranking-row .community-avatar.small {
+    width: 42px;
+    height: 42px;
+  }
+
+  .ranking-score {
+    grid-column: 3;
+    min-width: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 380px) {
+  .community-ranking-selector,
+  .community-ranking-stage {
+    padding: 11px;
+  }
+
+  .teacher-voting-panel,
+  .teacher-candidate-card {
+    padding: 10px;
+  }
+
+  .teacher-rating-scale {
+    gap: 4px;
+  }
+
+  .teacher-rating-scale button {
+    height: 36px;
+    font-size: .82rem;
   }
 }
