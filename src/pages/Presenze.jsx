@@ -85,7 +85,7 @@ export default function Presenze() {
       <span className="eyebrow">Le tue lezioni</span>
       <h1>Presenze</h1>
       <p>Il tuo posto in sala, una lezione alla volta.</p>
-      <div className="attendance-window"><span aria-hidden="true">◷</span><span>Conferma la presenza da <strong>30 minuti prima</strong> dell’inizio fino alla fine della lezione.</span></div>
+      <div className="attendance-window"><span aria-hidden="true">◷</span><span>Conferma la presenza da <strong>30 minuti prima</strong> dell’inizio fino a mezzanotte del giorno della lezione.</span></div>
     </section>
     {message && <p className="content-card attendance-success" role="status">{message}</p>}
     {error && <div className="content-card" role="alert"><p>{error}</p><button className="attendance-retry" onClick={refresh} disabled={Boolean(saving)}>Riprova aggiornamento</button></div>}
@@ -106,3 +106,4 @@ export default function Presenze() {
     </section>
   </div>;
 }
+

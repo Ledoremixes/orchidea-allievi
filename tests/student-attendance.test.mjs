@@ -67,5 +67,24 @@ test('self attendance validates identity, enrollment, time and duplicate submiss
       ora_fine = case when timezone('Europe/Rome',now())::time > '12:00'::time then '02:00'::time else '23:00'::time end`);
     assert.equal(await status(), 'outside_window');
     assert.equal((await db.query('select count(*)::integer as total from presenze_corsi')).rows[0].total, 0);
+    // Freeze only the test database clock to check the evening and midnight boundary.
+    await db.exec(`create function public.test_clock() returns timestamptz language sql stable as $$
+      select current_setting('test.clock')::timestamp at time zone 'Europe/Rome' $$;
+      update corsi set nome = 'Salsa Intermedio', giorno_settimana = '4', ora_inizio = '20:30', ora_fine = '21:30';
+      update iscrizioni_corsi set data_inizio = '2026-01-01', data_iscrizione = '2026-01-01';`);
+    const midnightMigration = await readFile(new URL('../supabase/migrations/20261022194203_student_attendance_until_midnight.sql', import.meta.url), 'utf8');
+    await db.exec(midnightMigration.replaceAll('now()', 'public.test_clock()'));
+    for (const [clock, expected] of [
+      ['2026-10-22 19:59:59', 'outside_window'],
+      ['2026-10-22 20:00:00', 'success'],
+      ['2026-10-22 21:40:00', 'success'],
+      ['2026-10-22 23:59:59', 'success'],
+      ['2026-10-23 00:00:00', 'unavailable'],
+    ]) {
+      await db.exec(`delete from presenze_corsi; set test.clock = '${clock}'; set role authenticated;`);
+      assert.equal(await status(), expected, clock);
+      if (expected === 'success') assert.equal(await status(), 'already_registered');
+      await db.exec('reset role');
+    }
   } finally { await db.close(); }
 });
