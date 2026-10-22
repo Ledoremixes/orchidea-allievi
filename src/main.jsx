@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./styles/global.css";
-import "./styles/presenze.css";
 import { registerOrchideaServiceWorker } from "./lib/pushNotifications.js";
 
 registerOrchideaServiceWorker();

@@ -416,20 +416,20 @@ export default function KioskCheckIn() {
                 </div>
               ) : courses.length === 0 ? (
                 <div className="kiosk-no-course">
-                  <strong>Nessun corso disponibile adesso</strong>
-                  <span>Il check-in si attiverà automaticamente vicino all’orario della prossima lezione.</span>
+                  <strong>Check-in non ancora aperto</strong>
+                  <span>Si attiva 30 minuti prima della prima lezione della giornata e resta disponibile fino alle 23:59.</span>
                 </div>
               ) : courses.length === 1 ? (
                 <div className="kiosk-current-course">
-                  <span>Corso riconosciuto automaticamente</span>
+                  <span>Check-in aperto fino alle 23:59</span>
                   <strong>{courseLabel(courses[0])}</strong>
                   <small>{formatTime(courses[0].ora_inizio)} - {formatTime(courses[0].ora_fine)}{courses[0].sala ? ` · ${courses[0].sala}` : ""}</small>
                 </div>
               ) : (
                 <div className="kiosk-current-course">
-                  <span>Più lezioni sono disponibili</span>
-                  <strong>I tuoi corsi verranno riconosciuti automaticamente</strong>
-                  <small>Se frequenti più ore consecutive potrai registrarle insieme con un solo check-in.</small>
+                  <span>Check-in giornaliero aperto fino alle 23:59</span>
+                  <strong>I tuoi corsi di oggi verranno riconosciuti automaticamente</strong>
+                  <small>Se hai più lezioni oggi potrai selezionare quelle frequentate e registrarle insieme con un solo check-in.</small>
                 </div>
               )}
             </div>
@@ -463,9 +463,11 @@ export default function KioskCheckIn() {
                         ? "Cerco il tuo profilo…"
                         : searchScope === "corso_attivo"
                           ? "Iscritti al corso in programma"
-                          : searchScope === "tutti_corsisti"
-                            ? "Ricerca estesa a tutti i corsisti"
-                            : "Risultati"}
+                          : searchScope === "corsi_di_oggi"
+                            ? "Corsisti con lezione oggi"
+                            : searchScope === "tutti_corsisti"
+                              ? "Ricerca estesa a tutti i corsisti"
+                              : "Risultati"}
                     </strong>
                     <small>Mostriamo solo nome, cognome e numero tessera.</small>
                   </div>

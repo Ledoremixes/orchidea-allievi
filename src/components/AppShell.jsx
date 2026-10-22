@@ -11,7 +11,6 @@ import { heartbeatAppPresence, setAppPresenceOffline } from "../lib/appPresence.
 const studentNavItems = [
   { to: "/", label: "Home", icon: "home", end: true },
   { to: "/tessera", label: "Tessera", icon: "card" },
-  { to: "/presenze", label: "Presenze", icon: "events" },
   { to: "/corsi", label: "Corsi", icon: "courses" },
   { to: "/pagamenti", label: "Quote", icon: "euro" },
   { to: "/video", label: "Video", icon: "play" },
