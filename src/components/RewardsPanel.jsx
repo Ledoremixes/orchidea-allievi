@@ -50,7 +50,7 @@ export default function RewardsPanel({ student }) {
       </div>
 
       <div className="rewards-stats">
-        <div><span>Lezioni registrate</span><strong>{summary.lessons_count || 0}</strong><small>+10 pt ciascuna</small></div>
+        <div><span>Lezioni registrate</span><strong>{summary.lessons_count || 0}</strong><small>+10 pt per giornata, anche con più corsi</small></div>
         <div><span>Serate confermate</span><strong>{summary.event_rsvps || 0}</strong><small>+2 pt ciascuna</small></div>
         <div><span>Punti utilizzati</span><strong>{summary.spent_points || 0}</strong><small>premi richiesti</small></div>
       </div>
