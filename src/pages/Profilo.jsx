@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import ProfilePhotoCropper from "../components/ProfilePhotoCropper.jsx";
+import MedicalCertificateCard from "../components/MedicalCertificateCard.jsx";
 import { createProfilePhotoSignedUrl, removeProfilePhoto } from "../lib/profilePhoto.js";
 import { supabase } from "../lib/supabaseClient.js";
 
@@ -298,6 +299,8 @@ export default function Profilo() {
 
       {error && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
+
+      <MedicalCertificateCard studentId={student.id} />
 
       <section className="student-profile-likes-card student-profile-social-card">
         <div className="student-profile-likes-summary">

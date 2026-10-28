@@ -19996,3 +19996,48 @@ body.community-profile-open .bottom-nav.orchidea-bottom-nav {
     font-size: .82rem;
   }
 }
+
+/* Profilo · certificato medico privato, sincronizzato in lettura con Nova */
+.student-medical-card {
+  margin: 20px 0 24px;
+  padding: clamp(18px, 3.6vw, 26px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(130deg, rgba(23, 33, 54, .98), rgba(14, 19, 33, .97));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .13);
+  color: #f7f8fe;
+}
+.student-medical-heading { display: flex; align-items: flex-start; gap: 15px; flex-wrap: wrap; }
+.student-medical-icon { display: grid; place-items: center; flex: none; width: 49px; height: 49px; border-radius: 15px; background: rgba(167, 139, 250, .14); color: #e5d6ff; }
+.student-medical-icon svg { width: 27px; height: 27px; }
+.student-medical-title { flex: 1 1 180px; min-width: 0; }
+.student-medical-title .eyebrow { font-size: .73rem; color: #d3b9ff; letter-spacing: .09em; }
+.student-medical-title h2 { color: #fff; font-size: clamp(1.16rem, 3vw, 1.45rem); line-height: 1.23; margin: 4px 0 6px; }
+.student-medical-title p { margin: 0; font-size: .87rem; line-height: 1.5; color: #c3cbdb; }
+.student-medical-status { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 6px 12px; border-radius: 100px; font-size: .74rem; font-weight: 800; white-space: nowrap; }
+.student-medical-status.is-valid { color: #aef8d0; background: rgba(14, 156, 105, .18); }
+.student-medical-status.is-warning { color: #ffde94; background: rgba(227, 142, 28, .19); }
+.student-medical-status.is-expired { color: #ffb4c6; background: rgba(225, 62, 103, .17); }
+.student-medical-status.is-pending, .student-medical-status.is-missing { color: #d3dce8; background: rgba(147, 160, 186, .17); }
+.student-medical-loading, .student-medical-description, .student-medical-empty p, .student-medical-unavailable p { font-size: .91rem; color: #cfd5e3; line-height: 1.6; }
+.student-medical-description { margin: 18px 0 12px; }
+.student-medical-dates { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin: 17px 0; }
+.student-medical-dates > div { padding: 14px 15px; border: 1px solid rgba(255,255,255,.1); border-radius: 13px; background: rgba(255,255,255,.045); min-width: 0; }
+.student-medical-dates span, .student-medical-dates strong { display: block; }
+.student-medical-dates span { color: #aebbd0; font-size: .76rem; margin-bottom: 8px; }
+.student-medical-dates strong { color: #fff; font-weight: 750; font-size: .95rem; }
+.student-medical-download { display: inline-flex; align-items: center; justify-content: center; gap: 11px; padding: 12px 18px; min-height: 46px; border: 0; border-radius: 12px; background: #b89afa; color: #17122a; font-size: .88rem; font-weight: 800; cursor: pointer; transition: filter .2s, transform .2s; }
+.student-medical-download:disabled { opacity: .62; cursor: wait; }
+.student-medical-download:not(:disabled):hover { filter: brightness(1.07); transform: translateY(-1px); }
+.student-medical-download svg { width: 20px; height: 20px; }
+.student-medical-empty, .student-medical-unavailable { margin-top: 18px; padding: 15px; border-radius: 12px; border: 1px dashed rgba(255,255,255,.18); background: rgba(255,255,255,.04); }
+.student-medical-empty strong, .student-medical-unavailable strong { font-size: .95rem; color: #fff; }
+.student-medical-empty p, .student-medical-unavailable p { margin: 6px 0 0; }
+.student-medical-unavailable button { margin-top: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.09); color: white; border-radius: 9px; padding: 8px 13px; }
+.student-medical-error, .student-medical-no-file { color: #f9c4cb; font-size: .85rem; margin: 12px 0 0; }
+@media (max-width: 540px) {
+  .student-medical-status { margin-left: 64px; }
+  .student-medical-heading { gap: 11px; }
+  .student-medical-dates { grid-template-columns: minmax(0,1fr); }
+  .student-medical-download { width: 100%; }
+}
