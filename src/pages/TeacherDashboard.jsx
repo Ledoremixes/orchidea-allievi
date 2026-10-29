@@ -81,15 +81,23 @@ export default function TeacherDashboard() {
     async function loadMonth() {
       setMonthLoading(true);
       const { data, error: monthError } = await supabase.rpc("get_my_teacher_payout_snapshot", { p_month: month });
+      let legacy = null;
+      let legacyError = null;
+      if (monthError || data?.status !== "synced") {
+        const fallback = await supabase.rpc("get_my_teacher_compensation_nova", { p_month: month });
+        legacy = fallback.data || [];
+        legacyError = fallback.error;
+      }
       if (!mounted) return;
-      if (monthError) {
+      if (monthError && legacyError) {
         setRows([]);
         setSnapshot(null);
-        setMonthError(monthError.message || "Compensi non disponibili");
+        setMonthError(monthError.message || legacyError.message || "Compensi non disponibili");
       } else {
-        setSnapshot(data || null);
-        setRows(data?.status === "synced" ? (data.breakdown || []) : []);
-        setMonthError("");
+        const synced = data?.status === "synced";
+        setSnapshot(synced ? data : { status: legacyError ? "unavailable" : "estimated", totale: (legacy || []).reduce((a, r) => a + Number(r.compenso || 0), 0) });
+        setRows(synced ? (data.breakdown || []) : (legacy || []));
+        setMonthError(legacyError?.message || "");
       }
       setMonthLoading(false);
     }
@@ -97,11 +105,12 @@ export default function TeacherDashboard() {
     return () => { mounted = false; };
   }, [month, reloadKey]);
 
-  const total = snapshot?.status === "synced" ? Number(snapshot.totale || 0) : null;
   const hasSyncedMonth = snapshot?.status === "synced";
+  const hasEstimatedMonth = snapshot?.status === "estimated" && rows.length > 0;
+  const total = hasSyncedMonth || hasEstimatedMonth ? Number(snapshot.totale || 0) : null;
   const maxHistory = useMemo(() => Math.max(1, ...history.map((row) => Number(row.totale || 0))), [history]);
   const canGoForward = month < currentMonthValue();
-  const amountLabel = monthLoading ? "…" : monthError ? "Non disponibile" : hasSyncedMonth ? money(total) : "Da sincronizzare";
+  const amountLabel = monthLoading ? "…" : monthError ? "Non disponibile" : hasSyncedMonth || hasEstimatedMonth ? money(total) : "Non disponibile";
 
   if (loading) return <div className="content-card teacher-area-loading">Sto preparando la tua area insegnante…</div>;
 
@@ -152,7 +161,7 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="teacher-kpi-grid teacher-kpi-grid-clean">
-          <article><span>Il tuo compenso</span><strong>{amountLabel}</strong><small>{monthError ? "Errore lettura dati" : hasSyncedMonth ? "Importo identico a Nova" : "Apri il riepilogo Insegnanti su Nova"}</small></article>
+          <article><span>Il tuo compenso</span><strong>{amountLabel}</strong><small>{monthError ? "Errore lettura dati" : hasSyncedMonth ? "Importo verificato da Nova" : hasEstimatedMonth ? "Stima del database · da verificare su Nova" : "Nessun importo disponibile"}</small></article>
           <article><span>Corsi</span><strong>{Number(compensationSource?.active_course_links || rows.length)}</strong><small>Corsi assegnati in Nova</small></article>
           <article><span>Regola compenso</span><strong>{compensationRuleLabel(compensationSource, rows)}</strong><small>{String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("fiss") ? "Compenso mensile" : String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("orar") ? "Tariffa oraria" : "Sulle quote pagate"}</small></article>
         </div>
@@ -165,13 +174,21 @@ export default function TeacherDashboard() {
             <span>{monthError}</span>
             <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Riprova</button>
           </div>
-        ) : !hasSyncedMonth ? (
+        ) : !hasSyncedMonth && !hasEstimatedMonth ? (
           <div className="teacher-compensation-sync-error">
-            <strong>Compenso non ancora sincronizzato da Nova</strong>
-            <span>Per visualizzare l'importo esatto, un amministratore deve aprire Nova → Insegnanti e selezionare {monthLabel(month)}. Il valore non viene più ricalcolato separatamente.</span>
-            <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Aggiorna importo</button>
+            <strong>Compenso non disponibile per questo mese</strong>
+            <span>Non risultano ancora dati utilizzabili. Controlla il riepilogo Insegnanti di Nova.</span>
+            <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Riprova</button>
           </div>
         ) : (
+          <> 
+            {hasEstimatedMonth && (
+              <div className="teacher-compensation-sync-error" role="status">
+                <strong>Importo temporaneo, non confermato da Nova</strong>
+                <span>Mostro il valore calcolato dal database Orchidea, che potrebbe differire da Nova. Appena disponibile la cifra ufficiale, la sostituisco.</span>
+                <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Verifica aggiornamenti</button>
+              </div>
+            )}
           <div className="teacher-compensation-list">
             {rows.map((row) => (
               <article className="teacher-compensation-row" key={`${row.corso_nome}-${row.corso_livello || ""}`}>
@@ -205,6 +222,7 @@ export default function TeacherDashboard() {
               </div>
             )}
           </div>
+          </>
         )}
       </section>
 
@@ -230,7 +248,7 @@ export default function TeacherDashboard() {
 
       <div className="teacher-area-note">
         <strong>Dati collegati a Nova{compensationSource?.compensation_teacher_name ? ` · ${compensationSource.compensation_teacher_name}` : ""}</strong>
-        <span>Gli importi sono pubblicati dal riepilogo Insegnanti di Nova e sono mostrati senza ricalcoli. Se il mese non è sincronizzato, non viene presentato un importo stimato. Ogni insegnante vede solo i propri compensi.</span>
+        <span>Quando Nova pubblica il riepilogo, viene mostrato senza modifiche. In assenza del dato verificato può comparire una stima temporanea dal database, chiaramente identificata e non utilizzabile come rendiconto definitivo. Ogni insegnante vede solo i propri compensi.</span>
       </div>
     </div>
   );
