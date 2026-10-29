@@ -85,6 +85,28 @@ export default function TeacherHome() {
     return () => { mounted = false; };
   }, [teacher.profile_id]);
 
+  // Catch an official Nova sync while the home screen is already open.
+  useEffect(() => {
+    if (compensationSnapshot?.status === "synced") return undefined;
+    let active = true;
+    const refresh = async () => {
+      const { data, error } = await supabase.rpc("get_my_teacher_payout_snapshot", {
+        p_month: currentMonthValue(),
+      });
+      if (active && !error && data?.status === "synced") {
+        setCompensationSnapshot(data);
+        setCompensationError(false);
+      }
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [compensationSnapshot?.status]);
+
   const compensationSynced = compensationSnapshot?.status === "synced";
   const compensationEstimated = compensationSnapshot?.status === "estimated";
   const monthTotal = compensationSynced || compensationEstimated ? Number(compensationSnapshot.totale || 0) : null;
