@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { formatTime } from "../lib/format.js";
 
 function currentMonthValue() {
-  return new Date().toISOString().slice(0, 7);
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" }).slice(0, 7);
 }
 
 function shiftMonth(value, amount) {
@@ -46,6 +46,7 @@ export default function TeacherDashboard() {
   const [account, setAccount] = useState(null);
   const [month, setMonth] = useState(currentMonthValue());
   const [rows, setRows] = useState([]);
+  const [snapshot, setSnapshot] = useState(null);
   const [history, setHistory] = useState([]);
   const [compensationSource, setCompensationSource] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,13 +61,14 @@ export default function TeacherDashboard() {
       setLoading(true);
       const [accountResult, historyResult, sourceResult] = await Promise.all([
         supabase.rpc("get_my_teacher_account").maybeSingle(),
-        supabase.rpc("get_my_teacher_compensation_history_nova", { p_months: 12 }),
+        supabase.rpc("get_my_teacher_payout_history", { p_months: 12 }),
         supabase.rpc("get_my_teacher_compensation_source_nova").maybeSingle(),
       ]);
       if (!mounted) return;
       if (accountResult.error) setError(accountResult.error.message);
       setAccount(accountResult.data || null);
       setHistory(historyResult.error ? [] : (historyResult.data || []));
+      if (historyResult.error) setError(historyResult.error.message);
       setCompensationSource(sourceResult.error ? null : (sourceResult.data || null));
       setLoading(false);
     }
@@ -78,13 +80,15 @@ export default function TeacherDashboard() {
     let mounted = true;
     async function loadMonth() {
       setMonthLoading(true);
-      const { data, error: monthError } = await supabase.rpc("get_my_teacher_compensation_nova", { p_month: month });
+      const { data, error: monthError } = await supabase.rpc("get_my_teacher_payout_snapshot", { p_month: month });
       if (!mounted) return;
       if (monthError) {
         setRows([]);
+        setSnapshot(null);
         setMonthError(monthError.message || "Compensi non disponibili");
       } else {
-        setRows(data || []);
+        setSnapshot(data || null);
+        setRows(data?.status === "synced" ? (data.breakdown || []) : []);
         setMonthError("");
       }
       setMonthLoading(false);
@@ -93,9 +97,11 @@ export default function TeacherDashboard() {
     return () => { mounted = false; };
   }, [month, reloadKey]);
 
-  const total = useMemo(() => rows.reduce((sum, row) => sum + Number(row.compenso || 0), 0), [rows]);
+  const total = snapshot?.status === "synced" ? Number(snapshot.totale || 0) : null;
+  const hasSyncedMonth = snapshot?.status === "synced";
   const maxHistory = useMemo(() => Math.max(1, ...history.map((row) => Number(row.totale || 0))), [history]);
   const canGoForward = month < currentMonthValue();
+  const amountLabel = monthLoading ? "…" : monthError ? "Non disponibile" : hasSyncedMonth ? money(total) : "Da sincronizzare";
 
   if (loading) return <div className="content-card teacher-area-loading">Sto preparando la tua area insegnante…</div>;
 
@@ -127,7 +133,7 @@ export default function TeacherDashboard() {
         </div>
         <div className="teacher-current-total">
           <small>Compenso {monthLabel(month)}</small>
-          <strong>{monthError ? "Non disponibile" : money(total)}</strong>
+          <strong>{amountLabel}</strong>
           <span>{Number(compensationSource?.active_course_links || rows.length)} {Number(compensationSource?.active_course_links || rows.length) === 1 ? "corso collegato" : "corsi collegati"}</span>
         </div>
       </section>
@@ -146,7 +152,7 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="teacher-kpi-grid teacher-kpi-grid-clean">
-          <article><span>Il tuo compenso</span><strong>{monthError ? "Non disponibile" : money(total)}</strong><small>{monthError ? "Errore di sincronizzazione con Nova" : "Totale del mese selezionato"}</small></article>
+          <article><span>Il tuo compenso</span><strong>{amountLabel}</strong><small>{monthError ? "Errore lettura dati" : hasSyncedMonth ? "Importo identico a Nova" : "Apri il riepilogo Insegnanti su Nova"}</small></article>
           <article><span>Corsi</span><strong>{Number(compensationSource?.active_course_links || rows.length)}</strong><small>Corsi assegnati in Nova</small></article>
           <article><span>Regola compenso</span><strong>{compensationRuleLabel(compensationSource, rows)}</strong><small>{String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("fiss") ? "Compenso mensile" : String(compensationSource?.payment_type || "percentuale").toLowerCase().includes("orar") ? "Tariffa oraria" : "Sulle quote pagate"}</small></article>
         </div>
@@ -159,25 +165,31 @@ export default function TeacherDashboard() {
             <span>{monthError}</span>
             <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Riprova</button>
           </div>
+        ) : !hasSyncedMonth ? (
+          <div className="teacher-compensation-sync-error">
+            <strong>Compenso non ancora sincronizzato da Nova</strong>
+            <span>Per visualizzare l'importo esatto, un amministratore deve aprire Nova → Insegnanti e selezionare {monthLabel(month)}. Il valore non viene più ricalcolato separatamente.</span>
+            <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Aggiorna importo</button>
+          </div>
         ) : (
           <div className="teacher-compensation-list">
             {rows.map((row) => (
               <article className="teacher-compensation-row" key={row.corso_id}>
                 <div className="teacher-compensation-time">
-                  <strong>{formatTime(row.ora_inizio)}</strong>
-                  <span>{row.giorno_settimana || "Corso"}</span>
+                  <strong>{row.ora_inizio ? formatTime(row.ora_inizio) : "€"}</strong>
+                  <span>{row.giorno_settimana || "Nova"}</span>
                 </div>
                 <div className="teacher-compensation-course">
                   <span className="eyebrow">{row.corso_nome}</span>
                   <h3>{row.corso_livello || "Corso Orchidea"}</h3>
-                  <small>{formatTime(row.ora_inizio)}–{formatTime(row.ora_fine)}</small>
+                  <small>Importo certificato dal riepilogo Nova</small>
                 </div>
                 <div className="teacher-compensation-values teacher-compensation-values-clean">
                   <div className="teacher-pay-highlight">
                     <span>Il tuo compenso</span>
                     <strong>{money(row.compenso)}</strong>
-                    <small>{Number(row.corsisti_paganti || 0)} {Number(row.corsisti_paganti || 0) === 1 ? "corsista pagante" : "corsisti paganti"}</small>
-                    {String(row.metodo_compenso || "").toLowerCase().includes("percent") && (
+                    {row.corsisti_paganti !== null && row.corsisti_paganti !== undefined && <small>{row.corsisti_paganti} {Number(row.corsisti_paganti) === 1 ? "corsista coinvolto" : "corsisti coinvolti"}</small>}
+                    {String(row.metodo_compenso || "").toLowerCase().includes("percent") && row.aliquota !== null && (
                       <small className="teacher-course-rate">Regola del corso: {Number(row.aliquota || 0).toLocaleString("it-IT")}% sulle quote pagate</small>
                     )}
                   </div>
@@ -209,7 +221,7 @@ export default function TeacherDashboard() {
               <button key={row.mese} type="button" className={`teacher-history-row ${selected ? "is-selected" : ""}`} onClick={() => setMonth(row.mese)}>
                 <span className="teacher-history-label">{monthLabel(row.mese)}</span>
                 <span className="teacher-history-track"><i style={{ width: `${Math.max(amount > 0 ? 8 : 0, (amount / maxHistory) * 100)}%` }} /></span>
-                <strong>{money(amount)}</strong>
+                <strong>{row.sincronizzato ? money(amount) : "—"}</strong>
               </button>
             );
           })}
@@ -218,7 +230,7 @@ export default function TeacherDashboard() {
 
       <div className="teacher-area-note">
         <strong>Dati collegati a Nova{compensationSource?.compensation_teacher_name ? ` · ${compensationSource.compensation_teacher_name}` : ""}</strong>
-        <span>Il calcolo usa la stessa logica di Nova: quota mensile dell’allievo, ripartizione sui corsi attivi e percentuale specifica del singolo corso quando presente; in assenza di override usa la regola generale del docente. Ogni insegnante vede esclusivamente i propri compensi.</span>
+        <span>Gli importi sono pubblicati dal riepilogo Insegnanti di Nova e sono mostrati senza ricalcoli. Se il mese non è sincronizzato, non viene presentato un importo stimato. Ogni insegnante vede solo i propri compensi.</span>
       </div>
     </div>
   );
