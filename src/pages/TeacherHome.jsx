@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { getCourseVisual } from "../lib/courseVisuals.js";
