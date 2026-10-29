@@ -8,7 +8,7 @@ import { formatEventDate, loadUpcomingEvents } from "../lib/events.js";
 const DAY_ORDER = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
 
 function currentMonthValue() {
-  return new Date().toISOString().slice(0, 7);
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" }).slice(0, 7);
 }
 
 function firstName(teacher) {
@@ -27,7 +27,7 @@ export default function TeacherHome() {
   const { teacher } = useOutletContext();
   const [courseLinks, setCourseLinks] = useState([]);
   const [events, setEvents] = useState([]);
-  const [compensations, setCompensations] = useState([]);
+  const [compensationSnapshot, setCompensationSnapshot] = useState(null);
   const [compensationError, setCompensationError] = useState(false);
   const [videoCount, setVideoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -42,14 +42,14 @@ export default function TeacherHome() {
           .from("app_teacher_profile_courses")
           .select("id, corso_id, corsi(id, nome, livello, giorno_settimana, ora_inizio, ora_fine, sala, attivo)")
           .eq("profile_id", teacher.profile_id),
-        supabase.rpc("get_my_teacher_compensation_nova", { p_month: currentMonthValue() }),
+        supabase.rpc("get_my_teacher_payout_snapshot", { p_month: currentMonthValue() }),
         loadUpcomingEvents({ limit: 3 }),
       ]);
 
       if (!mounted) return;
       const links = (linksResult.data || []).filter((row) => row.corsi?.attivo !== false).sort(sortCourses);
       setCourseLinks(links);
-      setCompensations(compensationResult.error ? [] : (compensationResult.data || []));
+      setCompensationSnapshot(compensationResult.error ? null : (compensationResult.data || null));
       setCompensationError(Boolean(compensationResult.error));
       setEvents(eventResult.events || []);
 
@@ -70,7 +70,8 @@ export default function TeacherHome() {
     return () => { mounted = false; };
   }, [teacher.profile_id]);
 
-  const monthTotal = useMemo(() => compensations.reduce((sum, row) => sum + Number(row.compenso || 0), 0), [compensations]);
+  const compensationSynced = compensationSnapshot?.status === "synced";
+  const monthTotal = compensationSynced ? Number(compensationSnapshot.totale || 0) : null;
   const featuredCourse = courseLinks.length ? courseLinks[carouselIndex % courseLinks.length]?.corsi : null;
   const visual = getCourseVisual(featuredCourse);
 
@@ -97,7 +98,7 @@ export default function TeacherHome() {
       <section className="neo-panel teacher-home-compensation-panel">
         <div className="neo-panel-title with-link"><div><span>€</span><h3>Compensi del mese</h3></div><Link to="/insegnante">Dettaglio</Link></div>
         <div className="teacher-home-pay-card">
-          <div><small>Totale maturato</small><strong>{loading ? "…" : compensationError ? "Non disponibile" : formatMoney(monthTotal)}</strong><span>{compensationError ? "Sincronizzazione Nova non disponibile" : `${compensations.length} ${compensations.length === 1 ? "corso conteggiato" : "corsi conteggiati"}`}</span></div>
+          <div><small>Totale maturato</small><strong>{loading ? "…" : compensationError ? "Non disponibile" : compensationSynced ? formatMoney(monthTotal) : "Da sincronizzare"}</strong><span>{compensationError ? "Errore lettura da Nova" : compensationSynced ? "Importo pubblicato da Nova" : "Nova non ha ancora pubblicato il mese"}</span></div>
           <Link to="/insegnante">Apri compensi →</Link>
         </div>
       </section>
