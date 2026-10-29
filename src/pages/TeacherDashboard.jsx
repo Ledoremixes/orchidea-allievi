@@ -189,7 +189,7 @@ export default function TeacherDashboard() {
                     <span>Il tuo compenso</span>
                     <strong>{money(row.compenso)}</strong>
                     {row.corsisti_paganti !== null && row.corsisti_paganti !== undefined && <small>{row.corsisti_paganti} {Number(row.corsisti_paganti) === 1 ? "corsista coinvolto" : "corsisti coinvolti"}</small>}
-                    {String(row.metodo_compenso || "").toLowerCase().includes("percent") && row.aliquota !== null && (
+                    {row.aliquota !== null && row.aliquota !== undefined && (
                       <small className="teacher-course-rate">Regola del corso: {Number(row.aliquota || 0).toLocaleString("it-IT")}% sulle quote pagate</small>
                     )}
                   </div>
