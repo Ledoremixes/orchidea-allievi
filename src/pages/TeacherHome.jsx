@@ -49,8 +49,23 @@ export default function TeacherHome() {
       if (!mounted) return;
       const links = (linksResult.data || []).filter((row) => row.corsi?.attivo !== false).sort(sortCourses);
       setCourseLinks(links);
-      setCompensationSnapshot(compensationResult.error ? null : (compensationResult.data || null));
-      setCompensationError(Boolean(compensationResult.error));
+      let compensation = compensationResult.data;
+      let compensationIssue = compensationResult.error;
+      if (compensationIssue || compensation?.status !== "synced") {
+        const provisional = await supabase.rpc("get_my_teacher_compensation_nova", { p_month: currentMonthValue() });
+        if (!provisional.error) {
+          const items = provisional.data || [];
+          compensation = items.length
+            ? { status: "estimated", totale: items.reduce((sum, row) => sum + Number(row.compenso || 0), 0) }
+            : { status: "unavailable" };
+          compensationIssue = null;
+        } else {
+          compensationIssue = provisional.error;
+        }
+      }
+      if (!mounted) return;
+      setCompensationSnapshot(compensationIssue ? null : (compensation || null));
+      setCompensationError(Boolean(compensationIssue));
       setEvents(eventResult.events || []);
 
       const courseIds = links.map((row) => row.corso_id).filter(Boolean);
@@ -71,7 +86,8 @@ export default function TeacherHome() {
   }, [teacher.profile_id]);
 
   const compensationSynced = compensationSnapshot?.status === "synced";
-  const monthTotal = compensationSynced ? Number(compensationSnapshot.totale || 0) : null;
+  const compensationEstimated = compensationSnapshot?.status === "estimated";
+  const monthTotal = compensationSynced || compensationEstimated ? Number(compensationSnapshot.totale || 0) : null;
   const featuredCourse = courseLinks.length ? courseLinks[carouselIndex % courseLinks.length]?.corsi : null;
   const visual = getCourseVisual(featuredCourse);
 
@@ -98,7 +114,7 @@ export default function TeacherHome() {
       <section className="neo-panel teacher-home-compensation-panel">
         <div className="neo-panel-title with-link"><div><span>€</span><h3>Compensi del mese</h3></div><Link to="/insegnante">Dettaglio</Link></div>
         <div className="teacher-home-pay-card">
-          <div><small>Totale maturato</small><strong>{loading ? "…" : compensationError ? "Non disponibile" : compensationSynced ? formatMoney(monthTotal) : "Da sincronizzare"}</strong><span>{compensationError ? "Errore lettura da Nova" : compensationSynced ? "Importo pubblicato da Nova" : "Nova non ha ancora pubblicato il mese"}</span></div>
+          <div><small>Totale maturato</small><strong>{loading ? "…" : compensationError ? "Non disponibile" : compensationSynced || compensationEstimated ? formatMoney(monthTotal) : "Non disponibile"}</strong><span>{compensationError ? "Errore lettura da Nova" : compensationSynced ? "Importo verificato da Nova" : compensationEstimated ? "Stima temporanea, non confermata da Nova" : "Compenso non disponibile"}</span></div>
           <Link to="/insegnante">Apri compensi →</Link>
         </div>
       </section>
