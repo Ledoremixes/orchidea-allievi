@@ -74,7 +74,7 @@ export default function TeacherDashboard() {
     }
     loadBase();
     return () => { mounted = false; };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     let mounted = true;
