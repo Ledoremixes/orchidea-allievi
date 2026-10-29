@@ -122,6 +122,20 @@ export default function TeacherDashboard() {
   const canGoForward = month < currentMonthValue();
   const amountLabel = monthLoading ? "…" : monthError ? "Non disponibile" : hasSyncedMonth || hasEstimatedMonth ? money(total) : "Non disponibile";
 
+  // A new Nova snapshot must appear without users having to log out or
+  // manually reopen the teacher dashboard.
+  useEffect(() => {
+    if (hasSyncedMonth) return undefined;
+    const timer = window.setInterval(() => setReloadKey((value) => value + 1), 30000);
+    return () => window.clearInterval(timer);
+  }, [hasSyncedMonth]);
+
+  useEffect(() => {
+    const refresh = () => setReloadKey((value) => value + 1);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
+
   if (loading) return <div className="content-card teacher-area-loading">Sto preparando la tua area insegnante…</div>;
 
   if (!account) {
@@ -151,8 +165,9 @@ export default function TeacherDashboard() {
           </div>
         </div>
         <div className="teacher-current-total">
-          <small>Compenso {monthLabel(month)}</small>
+          <small>Compenso {monthLabel(month)} {hasSyncedMonth ? "· Nova" : ""}</small>
           <strong>{amountLabel}</strong>
+          {hasEstimatedMonth && <small>Stima non verificata · Nova resta il riferimento</small>}
           <span>{Number(compensationSource?.active_course_links || rows.length)} {Number(compensationSource?.active_course_links || rows.length) === 1 ? "corso collegato" : "corsi collegati"}</span>
         </div>
       </section>
