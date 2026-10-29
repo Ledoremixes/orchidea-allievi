@@ -174,7 +174,7 @@ export default function TeacherDashboard() {
         ) : (
           <div className="teacher-compensation-list">
             {rows.map((row) => (
-              <article className="teacher-compensation-row" key={row.corso_id}>
+              <article className="teacher-compensation-row" key={`${row.corso_nome}-${row.corso_livello || ""}`}>
                 <div className="teacher-compensation-time">
                   <strong>{row.ora_inizio ? formatTime(row.ora_inizio) : "€"}</strong>
                   <span>{row.giorno_settimana || "Nova"}</span>
