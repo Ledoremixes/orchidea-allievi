@@ -59,15 +59,25 @@ export default function TeacherDashboard() {
     let mounted = true;
     async function loadBase() {
       setLoading(true);
-      const [accountResult, historyResult, sourceResult] = await Promise.all([
+      const [accountResult, historyResult, sourceResult, legacyHistoryResult] = await Promise.all([
         supabase.rpc("get_my_teacher_account").maybeSingle(),
         supabase.rpc("get_my_teacher_payout_history", { p_months: 12 }),
         supabase.rpc("get_my_teacher_compensation_source_nova").maybeSingle(),
+        supabase.rpc("get_my_teacher_compensation_history_nova", { p_months: 12 }),
       ]);
       if (!mounted) return;
       if (accountResult.error) setError(accountResult.error.message);
       setAccount(accountResult.data || null);
-      setHistory(historyResult.error ? [] : (historyResult.data || []));
+      const legacyByMonth = new Map((legacyHistoryResult.data || []).map((item) => [item.mese, Number(item.totale || 0)]));
+      setHistory(historyResult.error
+        ? (legacyHistoryResult.data || []).map((item) => ({ ...item, sincronizzato: false, stimato: true }))
+        : (historyResult.data || []).map((item) => {
+          if (item.sincronizzato) return item;
+          const old = legacyByMonth.get(item.mese);
+          return old !== undefined && old > 0
+            ? { ...item, totale: old, stimato: true }
+            : item;
+        }));
       if (historyResult.error) setError(historyResult.error.message);
       setCompensationSource(sourceResult.error ? null : (sourceResult.data || null));
       setLoading(false);
@@ -229,7 +239,7 @@ export default function TeacherDashboard() {
       <section className="content-card teacher-history-card">
         <div className="teacher-history-head">
           <div><span className="eyebrow">Ultimi 12 mesi</span><h2>Andamento compensi</h2></div>
-          <span>Tocca un mese per aprirlo</span>
+          <span>≈ valori stimati · senza ≈ verificati da Nova</span>
         </div>
         <div className="teacher-history-list">
           {history.map((row) => {
@@ -239,7 +249,7 @@ export default function TeacherDashboard() {
               <button key={row.mese} type="button" className={`teacher-history-row ${selected ? "is-selected" : ""}`} onClick={() => setMonth(row.mese)}>
                 <span className="teacher-history-label">{monthLabel(row.mese)}</span>
                 <span className="teacher-history-track"><i style={{ width: `${Math.max(amount > 0 ? 8 : 0, (amount / maxHistory) * 100)}%` }} /></span>
-                <strong>{row.sincronizzato ? money(amount) : "—"}</strong>
+                <strong>{row.sincronizzato ? money(amount) : row.stimato ? `≈ ${money(amount)}` : "—"}</strong>
               </button>
             );
           })}
