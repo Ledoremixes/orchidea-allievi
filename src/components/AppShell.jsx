@@ -5,6 +5,7 @@ import NotificationCenter from "./NotificationCenter.jsx";
 import QuickQrModal from "./QuickQrModal.jsx";
 import ClubMode from "./ClubMode.jsx";
 import InstallAppBanner from "./InstallAppBanner.jsx";
+import StartupAdvertisement from "./StartupAdvertisement.jsx";
 import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
 import { heartbeatAppPresence, setAppPresenceOffline } from "../lib/appPresence.js";
 
@@ -335,6 +336,10 @@ export default function AppShell() {
           <Outlet context={{ student, teacher, isAdmin, sessionUser, displayName }} />
         )}
       </main>
+
+      {!loading && sessionUser?.id && (student || teacher) && !isAdminPath && (
+        <StartupAdvertisement userId={sessionUser.id} />
+      )}
 
       {(student || teacher) && !isAdminPath && (
         <>
