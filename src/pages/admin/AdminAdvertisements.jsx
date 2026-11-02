@@ -128,11 +128,12 @@ export default function AdminAdvertisements() {
     setError("");
     setMessage("");
     let freshlyUploadedPath = null;
+    let recordSaved = false;
     try {
       let imagePath = removeImage ? null : form.image_path || null;
       if (file) {
         const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-        freshlyUploadedPath = \`promos/\${crypto.randomUUID() }.\${extension}\`;
+        freshlyUploadedPath = `promos/${crypto.randomUUID() }.${extension}`;
         const upload = await supabase.storage.from(BUCKET).upload(freshlyUploadedPath, file, {
           contentType: file.type, cacheControl: "3600", upsert: false,
         });
@@ -155,6 +156,7 @@ export default function AdminAdvertisements() {
         ? await supabase.from("app_advertisements").update(payload).eq("id", editingId).select("id").single()
         : await supabase.from("app_advertisements").insert(payload).select("id").single();
       if (result.error) throw result.error;
+      recordSaved = true;
 
       // Only clean up the old image after the new record was saved successfully.
       if (editingId && form.image_path && form.image_path !== imagePath) {
@@ -165,10 +167,10 @@ export default function AdminAdvertisements() {
       reset();
       setMessage(editingId ? "Pubblicità aggiornata." : "Pubblicità salvata. Premi «Attiva» per mostrarla nell'app.");
     } catch (problem) {
-      if (freshlyUploadedPath) {
+      if (freshlyUploadedPath && !recordSaved) {
         await supabase.storage.from(BUCKET).remove([freshlyUploadedPath]);
       }
-      setError(problem?.message || "Impossibile salvare la pubblicità.");
+      setError(recordSaved ? "Pubblicità salvata. Aggiorna la lista per ricaricarla." : (problem?.message || "Impossibile salvare la pubblicità."));
     } finally {
       setWorking(false);
     }
@@ -191,7 +193,7 @@ export default function AdminAdvertisements() {
   }
 
   async function deleteAd(row) {
-    if (!window.confirm(\`Eliminare definitivamente la pubblicità "\${row.title}"?\`)) return;
+    if (!window.confirm(`Eliminare definitivamente la pubblicità "${row.title}"?`)) return;
     setWorking(true);
     setError("");
     setMessage("");
@@ -283,7 +285,7 @@ export default function AdminAdvertisements() {
         ) : (
           <div className="ad-admin-cards">
             {rows.map((ad) => (
-              <article key={ad.id} className={\`ad-admin-card \${ad.is_active ? "is-active" : ""}\`}>
+              <article key={ad.id} className={`ad-admin-card ${ad.is_active ? "is-active" : ""}`}>
                 {ad.image_path && <img className="ad-admin-card-image" src={advertisementImageUrl(ad.image_path)} alt="" loading="lazy" />}
                 <div className="ad-admin-card-details">
                   <span className="ad-admin-card-status">{campaignStatus(ad)}</span>
