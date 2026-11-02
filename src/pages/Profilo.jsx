@@ -43,12 +43,8 @@ export default function Profilo() {
   const [customDanceStyle, setCustomDanceStyle] = useState("");
   const [communityPublic, setCommunityPublic] = useState(student.profilo_community_pubblico !== false);
   const [savingCommunity, setSavingCommunity] = useState(false);
-  const [likers, setLikers] = useState([]);
-  const [likerPhotos, setLikerPhotos] = useState({});
-  const [likersOpen, setLikersOpen] = useState(false);
-  const [likersLoading, setLikersLoading] = useState(true);
   const [socialStats, setSocialStats] = useState({ followers_count: 0, following_count: 0, likes_count: 0 });
-  const [socialList, setSocialList] = useState({ kind: "", rows: [], loading: false });
+  const [socialList, setSocialList] = useState({ kind: "", rows: [], loading: false, error: "" });
   const [socialListPhotos, setSocialListPhotos] = useState({});
 
   useEffect(() => {
@@ -61,31 +57,6 @@ export default function Profilo() {
     return () => { alive = false; };
   }, [photoPath]);
 
-
-  useEffect(() => {
-    let alive = true;
-    async function loadLikers() {
-      setLikersLoading(true);
-      const { data, error: likesError } = await supabase.rpc("get_my_profile_likers");
-      if (!alive) return;
-      if (likesError) {
-        setLikers([]);
-        setLikersLoading(false);
-        return;
-      }
-      const rows = data || [];
-      setLikers(rows);
-      const entries = await Promise.all(rows.map(async (row) => [
-        row.tesseramento_id,
-        row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
-      ]));
-      if (alive) setLikerPhotos(Object.fromEntries(entries));
-      if (alive) setLikersLoading(false);
-    }
-    if (student?.id) loadLikers();
-    else setLikersLoading(false);
-    return () => { alive = false; };
-  }, [student?.id]);
 
   useEffect(() => {
     let alive = true;
@@ -121,25 +92,25 @@ export default function Profilo() {
   async function openSocialList(kind) {
     if (!student?.id) return;
     if (socialList.kind === kind && !socialList.loading) {
-      setSocialList({ kind: "", rows: [], loading: false });
+      setSocialList({ kind: "", rows: [], loading: false, error: "" });
       setSocialListPhotos({});
       return;
     }
-    setSocialList({ kind, rows: [], loading: true });
-    const { data, error: listError } = await supabase.rpc("get_profile_connections", {
+    setSocialList({ kind, rows: [], loading: true, error: "" });
+    setSocialListPhotos({});
+    const { data, error: listError } = await supabase.rpc("get_profile_social_people", {
       p_target_tesseramento_id: student.id,
       p_kind: kind,
     });
     if (listError) {
-      setError(listError.message);
-      setSocialList({ kind, rows: [], loading: false });
+      setSocialList({ kind, rows: [], loading: false, error: listError.message });
       return;
     }
     const rows = data || [];
-    setSocialList({ kind, rows, loading: false });
+    setSocialList({ kind, rows, loading: false, error: "" });
     const entries = await Promise.all(rows.map(async (row) => [
       row.tesseramento_id,
-      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
+      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600).catch(() => "") : "",
     ]));
     setSocialListPhotos(Object.fromEntries(entries));
   }
@@ -315,37 +286,24 @@ export default function Profilo() {
         <div className="profile-social-stats">
           <button type="button" className={socialList.kind === "followers" ? "active" : ""} onClick={() => openSocialList("followers")}><strong>{socialStats.followers_count}</strong><span>Follower</span></button>
           <button type="button" className={socialList.kind === "following" ? "active" : ""} onClick={() => openSocialList("following")}><strong>{socialStats.following_count}</strong><span>Seguiti</span></button>
-          <button type="button" className={likersOpen ? "active" : ""} onClick={() => { setLikersOpen((value) => !value); setSocialList({ kind: "", rows: [], loading: false }); }} disabled={likersLoading}><strong>{likersLoading ? "…" : socialStats.likes_count}</strong><span>Mi piace</span></button>
+          <button type="button" className={socialList.kind === "likes" ? "active" : ""} onClick={() => openSocialList("likes")}><strong>{socialStats.likes_count}</strong><span>Mi piace</span></button>
         </div>
 
         {socialList.kind && (
           <div className="profile-likers-list profile-social-list">
             {socialList.loading && <div className="profile-social-empty">Carico i profili…</div>}
-            {!socialList.loading && socialList.rows.map((person) => (
+            {!socialList.loading && socialList.error && <div className="profile-social-empty" role="alert">Errore nel caricamento: {socialList.error}</div>}
+            {!socialList.loading && !socialList.error && socialList.rows.map((person) => (
               <article key={`${socialList.kind}-${person.tesseramento_id}`}>
                 <div className="profile-liker-avatar">{socialListPhotos[person.tesseramento_id] ? <img src={socialListPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}</div>
-                <div><strong>{`${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea"}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
-                <b>{socialList.kind === "followers" ? "Follower" : "Seguito"}</b>
+                <div><strong>{`${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea"}</strong><span>{socialList.kind === "likes" ? "Ha messo Mi piace al tuo profilo" : person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
+                <b>{socialList.kind === "likes" ? "♥" : socialList.kind === "followers" ? "Follower" : "Seguito"}</b>
               </article>
             ))}
-            {!socialList.loading && !socialList.rows.length && <div className="profile-social-empty">{socialList.kind === "followers" ? "Non hai ancora follower." : "Non stai ancora seguendo nessuno."}</div>}
+            {!socialList.loading && !socialList.error && !socialList.rows.length && <div className="profile-social-empty">{socialList.kind === "likes" ? "Ancora nessun Mi piace ricevuto." : socialList.kind === "followers" ? "Non hai ancora follower." : "Non stai ancora seguendo nessuno."}</div>}
           </div>
         )}
 
-        {likersOpen && likers.length > 0 && (
-          <div className="profile-likers-list">
-            {likers.map((person) => (
-              <article key={`${person.tesseramento_id}-${person.liked_at || ""}`}>
-                <div className="profile-liker-avatar">
-                  {likerPhotos[person.tesseramento_id] ? <img src={likerPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}
-                </div>
-                <div><strong>{`${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea"}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : "Ballerino Orchidea"}</span></div>
-                <b>♥</b>
-              </article>
-            ))}
-          </div>
-        )}
-        {likersOpen && !likersLoading && !likers.length && <div className="profile-social-empty">Ancora nessun Mi piace ricevuto.</div>}
       </section>
 
       <form className="student-dance-profile-card" onSubmit={saveCommunityProfile}>
