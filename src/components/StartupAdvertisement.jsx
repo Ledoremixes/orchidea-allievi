@@ -37,7 +37,7 @@ export function AdvertisementDialog({ advertisement, onClose, preview = false })
   }, [advertisement, onClose]);
 
   if (!advertisement) return null;
-  const url = advertisement.image_preview_url || advertisementImageUrl(advertisement.image_path);
+  const url = Object.prototype.hasOwnProperty.call(advertisement, "image_preview_url") ? advertisement.image_preview_url : advertisementImageUrl(advertisement.image_path);
   const href = String(advertisement.cta_url || "").trim();
   const hasLink = validAdvertisementLink(href);
   const isExternal = href.startsWith("https://");
@@ -97,7 +97,7 @@ export default function StartupAdvertisement({ userId }) {
         .limit(1)
         .maybeSingle();
       if (!mounted || error || !data) return;
-      const key = \`orchidea:startup-ad:\${userId}:\${data.id}\`;
+      const key = `orchidea:startup-ad:${userId}:${data.id}`;
       sessionKeyRef.current = key;
       try {
         if (window.sessionStorage.getItem(key) === "seen") return;
