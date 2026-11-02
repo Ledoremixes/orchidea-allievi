@@ -9,6 +9,7 @@ import AdminOnline from "./AdminOnline.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
 import { todayLessonDate, isValidLessonDate, displayLessonDate } from "../../lib/videoLessonDates.js";
+import "../../styles/video-admin-dates.css";
 
 const emptyCourse = {
   nome: "",
