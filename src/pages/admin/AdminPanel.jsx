@@ -8,7 +8,7 @@ import AdminEngagement from "./AdminEngagement.jsx";
 import AdminOnline from "./AdminOnline.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
-import { todayLessonDate, isValidLessonDate, displayLessonDate } from "../../lib/videoLessonDates.js";
+import { todayLessonDate, isValidLessonDate, displayLessonDate, compareVideosByLessonDate } from "../../lib/videoLessonDates.js";
 import "../../styles/video-admin-dates.css";
 
 const emptyCourse = {
@@ -613,6 +613,7 @@ export default function AdminPanel() {
       supabase
         .from("video_corsi")
         .select("id, corso_id, titolo, descrizione, pubblicato, video_url, storage_path, created_at, lesson_date, corsi(nome, livello)")
+        .order("lesson_date", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(220),
       supabase
@@ -2546,7 +2547,7 @@ export default function AdminPanel() {
 
       setVideos((current) => current.map((item) =>
         item.id === data.id ? { ...item, lesson_date: data.lesson_date } : item
-      ));
+      ).sort(compareVideosByLessonDate));
       setEditingVideoDateId(null);
       setEditingVideoDate("");
       showSuccess(`Data della lezione aggiornata al ${displayLessonDate(data.lesson_date)}.`);
