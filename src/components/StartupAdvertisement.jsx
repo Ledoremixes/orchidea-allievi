@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
 import "../styles/app-advertisements.css";
 
@@ -82,7 +82,6 @@ export function AdvertisementDialog({ advertisement, onClose, preview = false })
 
 export default function StartupAdvertisement({ userId }) {
   const shownRef = useRef(false);
-  const advertisementRef = useRef(null);
   const sessionKeyRef = useRef("");
 
   // State is kept in a separate component so navigation does not reopen the ad.
