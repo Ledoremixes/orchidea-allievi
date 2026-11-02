@@ -46,6 +46,7 @@ export default function Profilo() {
   const [socialStats, setSocialStats] = useState({ followers_count: 0, following_count: 0, likes_count: 0 });
   const [socialList, setSocialList] = useState({ kind: "", rows: [], loading: false, error: "" });
   const [socialListPhotos, setSocialListPhotos] = useState({});
+  const socialListRequestId = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -91,6 +92,7 @@ export default function Profilo() {
 
   async function openSocialList(kind) {
     if (!student?.id) return;
+    const requestId = ++socialListRequestId.current;
     if (socialList.kind === kind && !socialList.loading) {
       setSocialList({ kind: "", rows: [], loading: false, error: "" });
       setSocialListPhotos({});
@@ -102,6 +104,7 @@ export default function Profilo() {
       p_target_tesseramento_id: student.id,
       p_kind: kind,
     });
+    if (requestId !== socialListRequestId.current) return;
     if (listError) {
       setSocialList({ kind, rows: [], loading: false, error: listError.message });
       return;
@@ -112,7 +115,7 @@ export default function Profilo() {
       row.tesseramento_id,
       row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600).catch(() => "") : "",
     ]));
-    setSocialListPhotos(Object.fromEntries(entries));
+    if (requestId === socialListRequestId.current) setSocialListPhotos(Object.fromEntries(entries));
   }
 
   const fullName = useMemo(() => `${student.nome || ""} ${student.cognome || ""}`.trim() || (teacher ? "Insegnante Orchidea" : "Allievo Orchidea"), [student.nome, student.cognome, teacher]);
