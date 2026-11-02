@@ -6,6 +6,7 @@ import { getCourseVisual } from "../../lib/courseVisuals.js";
 import AttendanceAdmin from "./AttendanceAdmin.jsx";
 import AdminEngagement from "./AdminEngagement.jsx";
 import AdminOnline from "./AdminOnline.jsx";
+import AdminAdvertisements from "./AdminAdvertisements.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
 import { todayLessonDate, isValidLessonDate, displayLessonDate, compareVideosByLessonDate } from "../../lib/videoLessonDates.js";
@@ -65,6 +66,7 @@ const adminSections = [
   { id: "courses", label: "Corsi", icon: "◷" },
   { id: "enrollments", label: "Iscrizioni", icon: "+" },
   { id: "videos", label: "Video", icon: "▶" },
+  { id: "advertisements", label: "Pubblicità", icon: "✦" },
   { id: "home_showcase", label: "Home app", icon: "✹" },
   { id: "community", label: "Community", icon: "♥" },
 ];
@@ -4159,6 +4161,7 @@ export default function AdminPanel() {
       case "courses": return renderCourses();
       case "enrollments": return renderEnrollments();
       case "videos": return renderVideos();
+      case "advertisements": return <AdminAdvertisements />;
       case "home_showcase": return renderHomeShowcase();
       case "community": return <AdminEngagement />;
       default: return renderOverview();
