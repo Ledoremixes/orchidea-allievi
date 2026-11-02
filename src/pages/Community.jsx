@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
@@ -76,7 +76,8 @@ export default function Community() {
   const [voteBusyId, setVoteBusyId] = useState("");
   const [followBusyId, setFollowBusyId] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [connections, setConnections] = useState({ open: false, kind: "followers", title: "", profileId: "", rows: [], loading: false });
+  const [connections, setConnections] = useState({ open: false, kind: "followers", title: "", profileId: "", rows: [], loading: false, error: "" });
+  const connectionsRequestId = useRef(0);
   const [connectionPhotos, setConnectionPhotos] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -237,25 +238,31 @@ export default function Community() {
 
   async function openConnections(profile, kind = "followers") {
     if (!profile?.tesseramento_id) return;
-    const title = kind === "following" ? `Seguiti da ${fullName(profile)}` : `Follower di ${fullName(profile)}`;
-    setConnections({ open: true, kind, title, profileId: profile.tesseramento_id, rows: [], loading: true });
+    const title = kind === "following"
+      ? `Seguiti da ${fullName(profile)}`
+      : kind === "likes"
+        ? `Chi ha messo Mi piace a ${fullName(profile)}`
+        : `Follower di ${fullName(profile)}`;
+    const requestId = ++connectionsRequestId.current;
+    setConnections({ open: true, kind, title, profileId: profile.tesseramento_id, rows: [], loading: true, error: "" });
     setConnectionPhotos({});
-    const { data, error: connectionError } = await supabase.rpc("get_profile_connections", {
+
+    const { data, error: connectionError } = await supabase.rpc("get_profile_social_people", {
       p_target_tesseramento_id: profile.tesseramento_id,
       p_kind: kind,
     });
+    if (requestId !== connectionsRequestId.current) return;
     if (connectionError) {
-      setError(connectionError.message);
-      setConnections((current) => ({ ...current, loading: false, rows: [] }));
+      setConnections((current) => ({ ...current, loading: false, rows: [], error: connectionError.message }));
       return;
     }
     const rows = data || [];
-    setConnections((current) => ({ ...current, loading: false, rows }));
+    setConnections((current) => ({ ...current, loading: false, rows, error: "" }));
     const entries = await Promise.all(rows.map(async (row) => [
       row.tesseramento_id,
-      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600) : "",
+      row.foto_profilo_path ? await createProfilePhotoSignedUrl(row.foto_profilo_path, 3600).catch(() => "") : "",
     ]));
-    setConnectionPhotos(Object.fromEntries(entries));
+    if (requestId === connectionsRequestId.current) setConnectionPhotos(Object.fromEntries(entries));
   }
 
   async function openTeacherVoting() {
@@ -383,7 +390,7 @@ export default function Community() {
                     <div className="community-social-stats">
                       <button type="button" onClick={(event) => { event.stopPropagation(); openConnections(profile, "followers"); }}><strong>{profile.followers_count || 0}</strong><span>Follower</span></button>
                       <button type="button" onClick={(event) => { event.stopPropagation(); openConnections(profile, "following"); }}><strong>{profile.following_count || 0}</strong><span>Seguiti</span></button>
-                      <div><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></div>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); openConnections(profile, "likes"); }}><strong>{profile.likes_count || 0}</strong><span>Mi piace</span></button>
                     </div>
                     <div className="community-social-actions">
                       {!isMe && (
@@ -503,7 +510,7 @@ export default function Community() {
               <div className="community-profile-modal-stats">
                 <button type="button" onClick={() => openConnections(selectedProfile, "followers")}><strong>{selectedProfile.followers_count || 0}</strong><span>Follower</span></button>
                 <button type="button" onClick={() => openConnections(selectedProfile, "following")}><strong>{selectedProfile.following_count || 0}</strong><span>Seguiti</span></button>
-                <div><strong>{selectedProfile.likes_count || 0}</strong><span>Mi piace</span></div>
+                <button type="button" onClick={() => openConnections(selectedProfile, "likes")}><strong>{selectedProfile.likes_count || 0}</strong><span>Mi piace</span></button>
               </div>
               {(selectedProfile.balli_preferiti || []).length > 0 && (
                 <div className="community-style-chips community-profile-modal-styles">
@@ -549,12 +556,13 @@ export default function Community() {
             </div>
             <div className="community-connections-list">
               {connections.loading && <div className="community-empty-card">Carico i profili…</div>}
+              {!connections.loading && connections.error && <div className="community-empty-card" role="alert">Impossibile caricare la lista: {connections.error}</div>}
               {!connections.loading && connections.rows.map((person) => {
                 const isMe = person.is_me === true || person.tesseramento_id === student?.id;
                 return (
                   <article key={person.tesseramento_id}>
                     <div className="community-avatar small">{connectionPhotos[person.tesseramento_id] ? <img src={connectionPhotos[person.tesseramento_id]} alt="" loading="lazy" /> : <span>{initials(person)}</span>}</div>
-                    <div className="community-connection-person"><strong>{fullName(person)}</strong><span>{person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
+                    <div className="community-connection-person"><strong>{fullName(person)}</strong><span>{connections.kind === "likes" ? "Ha messo Mi piace ♥" : person.is_teacher ? "Insegnante Orchidea" : person.follows_me ? "Ti segue" : "Ballerino Orchidea"}</span></div>
                     {!isMe && (
                       <button type="button" className={`community-follow-btn compact ${person.followed_by_me ? "is-following" : ""}`} onClick={() => toggleFollow(person)} disabled={followBusyId === person.tesseramento_id}>
                         {followBusyId === person.tesseramento_id ? "…" : person.followed_by_me ? "Segui già" : "Segui"}
@@ -563,7 +571,7 @@ export default function Community() {
                   </article>
                 );
               })}
-              {!connections.loading && !connections.rows.length && <div className="community-empty-card">Ancora nessun profilo in questa lista.</div>}
+              {!connections.loading && !connections.error && !connections.rows.length && <div className="community-empty-card">Nessuna persona da mostrare. I profili privati non sono visibili nelle liste pubbliche.</div>}
             </div>
           </div>
         </div>
