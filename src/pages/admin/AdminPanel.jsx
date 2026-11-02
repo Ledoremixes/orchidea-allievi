@@ -8,6 +8,7 @@ import AdminEngagement from "./AdminEngagement.jsx";
 import AdminOnline from "./AdminOnline.jsx";
 import { isPaymentOpen } from "../../lib/payments.js";
 import { createVideoThumbnailDataUrl, formatFileSize, optimizeVideoFile } from "../../lib/videoOptimization.js";
+import { todayLessonDate, isValidLessonDate, displayLessonDate } from "../../lib/videoLessonDates.js";
 
 const emptyCourse = {
   nome: "",
@@ -34,6 +35,7 @@ const emptyVideo = {
   titolo: "",
   descrizione: "",
   video_url: "",
+  lesson_date: todayLessonDate(),
 };
 
 const emptyStudentForm = {
@@ -554,6 +556,9 @@ export default function AdminPanel() {
   const [enrollmentRenewalActive, setEnrollmentRenewalActive] = useState(true);
   const [paymentForm, setPaymentForm] = useState(emptyPayment);
   const [videoForm, setVideoForm] = useState(emptyVideo);
+  const [editingVideoDateId, setEditingVideoDateId] = useState(null);
+  const [editingVideoDate, setEditingVideoDate] = useState("");
+  const [savingVideoDateId, setSavingVideoDateId] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [optimizeVideoBeforeUpload, setOptimizeVideoBeforeUpload] = useState(true);
@@ -606,7 +611,7 @@ export default function AdminPanel() {
         .limit(500),
       supabase
         .from("video_corsi")
-        .select("id, corso_id, titolo, descrizione, pubblicato, video_url, storage_path, created_at, corsi(nome, livello)")
+        .select("id, corso_id, titolo, descrizione, pubblicato, video_url, storage_path, created_at, lesson_date, corsi(nome, livello)")
         .order("created_at", { ascending: false })
         .limit(220),
       supabase
@@ -2399,8 +2404,8 @@ export default function AdminPanel() {
   async function handleCreateVideo(e) {
     e.preventDefault();
 
-    if (!videoForm.corso_id || !videoForm.titolo.trim()) {
-      showError("Seleziona corso e titolo del video.");
+    if (!videoForm.corso_id || !videoForm.titolo.trim() || !isValidLessonDate(videoForm.lesson_date)) {
+      showError("Seleziona corso, titolo e una data valida della lezione.");
       return;
     }
 
@@ -2478,6 +2483,7 @@ export default function AdminPanel() {
         storage_path: storagePath,
         thumbnail_url: thumbnailUrl,
         pubblicato: true,
+        lesson_date: videoForm.lesson_date,
       });
 
       if (videoError) {
@@ -2485,7 +2491,7 @@ export default function AdminPanel() {
         throw videoError;
       }
 
-      setVideoForm(emptyVideo);
+      setVideoForm({ ...emptyVideo, lesson_date: todayLessonDate() });
       setVideoFile(null);
       setVideoOptimizationStatus("");
       setVideoOptimizationProgress(0);
@@ -2501,6 +2507,52 @@ export default function AdminPanel() {
       showError(videoError?.message || "Errore durante la pubblicazione del video.");
     } finally {
       setUploadingVideo(false);
+    }
+  }
+
+  function startEditingVideoDate(video) {
+    setEditingVideoDateId(video.id);
+    setEditingVideoDate(video.lesson_date || String(video.created_at || "").slice(0, 10));
+    setError("");
+  }
+
+  async function saveExistingVideoDate(video) {
+    if (!isValidLessonDate(editingVideoDate)) {
+      showError("Inserisci una data valida per la lezione.");
+      return;
+    }
+
+    if (editingVideoDate === video.lesson_date) {
+      setEditingVideoDateId(null);
+      return;
+    }
+
+    setSavingVideoDateId(video.id);
+    setError("");
+
+    try {
+      const { data, error: saveError } = await supabase
+        .from("video_corsi")
+        .update({ lesson_date: editingVideoDate })
+        .eq("id", video.id)
+        .select("id, lesson_date")
+        .single();
+
+      if (saveError) throw saveError;
+      if (!data || data.lesson_date !== editingVideoDate) {
+        throw new Error("La data non è stata salvata. Verifica i permessi amministratore.");
+      }
+
+      setVideos((current) => current.map((item) =>
+        item.id === data.id ? { ...item, lesson_date: data.lesson_date } : item
+      ));
+      setEditingVideoDateId(null);
+      setEditingVideoDate("");
+      showSuccess(`Data della lezione aggiornata al ${displayLessonDate(data.lesson_date)}.`);
+    } catch (saveError) {
+      showError(saveError.message || "Impossibile modificare la data del video.");
+    } finally {
+      setSavingVideoDateId(null);
     }
   }
 
@@ -3944,6 +3996,10 @@ export default function AdminPanel() {
               ))}
             </select>
           </label>
+          <label>Data della lezione
+            <input type="date" value={videoForm.lesson_date} onChange={(e) => setVideoForm({ ...videoForm, lesson_date: e.target.value })} required />
+            <small>Se carichi il video in un altro giorno, seleziona la data in cui si è svolta la lezione.</small>
+          </label>
           <label>Titolo video<input value={videoForm.titolo} onChange={(e) => setVideoForm({ ...videoForm, titolo: e.target.value })} placeholder="Ripasso lezione 1" /></label>
           <label>File video privato
             <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => { setVideoFile(e.target.files?.[0] || null); setVideoOptimizationStatus(""); setVideoOptimizationProgress(0); }} />
@@ -3977,9 +4033,32 @@ export default function AdminPanel() {
                   <strong>{video.titolo}</strong>
                   <span>{video.corsi?.nome || "Corso"} · {video.pubblicato ? "Pubblicato" : "Nascosto"}</span>
                   <small>{video.storage_path ? "File privato Supabase" : "Link esterno"}</small>
+                  <small className="video-lesson-date-label">Lezione del <strong>{displayLessonDate(video.lesson_date || String(video.created_at || "").slice(0, 10))}</strong></small>
+                  {editingVideoDateId === video.id && (
+                    <div className="admin-video-date-editor">
+                      <label htmlFor={`admin-video-date-${video.id}`}>Correggi la data della lezione</label>
+                      <input
+                        id={`admin-video-date-${video.id}`}
+                        type="date"
+                        value={editingVideoDate}
+                        onChange={(event) => setEditingVideoDate(event.target.value)}
+                        disabled={savingVideoDateId === video.id}
+                        required
+                      />
+                      <div className="admin-video-date-editor-actions">
+                        <button className="mini-btn" type="button" onClick={() => saveExistingVideoDate(video)} disabled={!isValidLessonDate(editingVideoDate) || savingVideoDateId === video.id}>
+                          {savingVideoDateId === video.id ? "Salvo…" : "Salva data"}
+                        </button>
+                        <button className="mini-btn" type="button" onClick={() => setEditingVideoDateId(null)} disabled={savingVideoDateId === video.id}>Annulla</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="row-actions">
-                  <button className="mini-btn" type="button" onClick={() => handleToggleVideo(video)}>
+                  <button className="mini-btn" type="button" onClick={() => startEditingVideoDate(video)} disabled={savingVideoDateId === video.id}>
+                    Modifica data
+                  </button>
+                  <button className="mini-btn" type="button" onClick={() => handleToggleVideo(video)} disabled={savingVideoDateId === video.id}>
                     {video.pubblicato ? "Nascondi" : "Pubblica"}
                   </button>
                   <button className="mini-btn danger" type="button" onClick={() => handleDeleteVideo(video)}>Elimina</button>
