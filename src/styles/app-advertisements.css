@@ -1,0 +1,179 @@
+/* Startup advertisements: deliberately smaller than a full screen takeover. */
+.orchidea-ad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 22000;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(5, 2, 9, .77);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+.orchidea-ad-dialog {
+  position: relative;
+  width: min(100%, 390px);
+  max-height: min(85dvh, 660px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(235, 84, 194, .45);
+  border-radius: 23px;
+  background: linear-gradient(145deg, #27102b, #130b1c 55%, #1b1021);
+  box-shadow: 0 25px 75px rgba(0, 0, 0, .65), 0 0 35px rgba(231, 53, 183, .10);
+  color: #fff;
+}
+.orchidea-ad-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 58px 13px 20px;
+  gap: 10px;
+}
+.orchidea-ad-eyebrow {
+  color: #f1bb62;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  font-size: .66rem;
+  font-weight: 850;
+}
+.orchidea-ad-brand { font-size: .8rem; font-weight: 800; color: rgba(255, 255, 255, .75); }
+.orchidea-ad-close {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 50%;
+  background: #352139;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.orchidea-ad-close:hover, .orchidea-ad-close:focus-visible {
+  background: #7c2867;
+  outline: 2px solid #f6c36b;
+  outline-offset: 2px;
+}
+.orchidea-ad-picture {
+  background: rgba(0, 0, 0, .32);
+  display: grid;
+  place-items: center;
+  margin: 0 12px;
+  border-radius: 15px;
+  overflow: hidden;
+}
+.orchidea-ad-picture img {
+  width: 100%;
+  max-height: min(37dvh, 260px);
+  display: block;
+  object-fit: contain;
+}
+.orchidea-ad-content { text-align: center; padding: 18px 22px 20px; }
+.orchidea-ad-content h2 {
+  font-size: clamp(1.15rem, 4vw, 1.45rem);
+  line-height: 1.28;
+  margin: 0;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.orchidea-ad-content p {
+  margin: 10px 0 0;
+  font-size: .92rem;
+  line-height: 1.48;
+  color: #e3d6e7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.orchidea-ad-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 17px;
+  padding: 12px 17px;
+  border-radius: 13px;
+  background: linear-gradient(110deg, #dc349f, #a71e91);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  min-height: 44px;
+}
+.orchidea-ad-cta[aria-disabled] { opacity: .83; cursor: default; }
+.orchidea-ad-dismiss {
+  display: block;
+  border: 0;
+  background: transparent;
+  color: #d8c7db;
+  padding: 12px 12px 0;
+  margin: 0 auto;
+  font-size: .78rem;
+  cursor: pointer;
+}
+.ad-admin-page { display: grid; gap: 17px; min-width: 0; }
+.ad-admin-intro, .ad-admin-editor, .ad-admin-library { min-width: 0; }
+.ad-admin-page h3 { margin: 5px 0 10px; }
+.ad-admin-page p { color: var(--muted); line-height: 1.5; }
+.ad-admin-form { display: grid; gap: 14px; }
+.ad-admin-form > label, .ad-admin-form-pair > label {
+  display: grid;
+  gap: 7px;
+  color: #f7eff7;
+  font-weight: 700;
+  min-width: 0;
+}
+.ad-admin-form input, .ad-admin-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+}
+.ad-admin-form input[type="file"] { padding: 10px; }
+.ad-admin-form input[type="date"] { color-scheme: dark; }
+.ad-admin-form label small { color: var(--muted); font-weight: 400; }
+.ad-admin-form-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ad-admin-form-actions, .ad-admin-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ad-admin-image-review {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ad-admin-image-review img {
+  max-width: 170px;
+  max-height: 170px;
+  object-fit: contain;
+  border-radius: 14px;
+}
+.ad-admin-cards { display: grid; gap: 12px; margin-top: 14px; }
+.ad-admin-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 17px;
+  padding: 13px;
+  background: rgba(255, 255, 255, .025);
+}
+.ad-admin-card.is-active { border-color: rgba(239, 194, 107, .5); background: rgba(245, 196, 99, .045); }
+.ad-admin-card-image { width: 88px; height: 102px; flex-shrink: 0; object-fit: contain; border-radius: 10px; background: #171020; }
+.ad-admin-card-details { flex: 1; min-width: 0; }
+.ad-admin-card-details h4 { margin: 7px 0 3px; overflow-wrap: anywhere; }
+.ad-admin-card-details p { margin: 0 0 7px; font-size: .88rem; white-space: pre-line; }
+.ad-admin-card-details > small { display: block; color: var(--muted); margin: 8px 0; }
+.ad-admin-card-status { font-size: .7rem; font-weight: 800; color: #f6c66b; }
+@media (max-width: 650px) {
+  .ad-admin-form-pair { grid-template-columns: 1fr; }
+  .ad-admin-card { flex-direction: column; }
+  .ad-admin-card-image { width: 100%; height: 150px; }
+  .ad-admin-form-actions .primary-btn { width: 100%; }
+}
+@media (max-height: 630px) {
+  .orchidea-ad-picture img { max-height: 27dvh; }
+  .orchidea-ad-heading { padding-top: 10px; padding-bottom: 8px; }
+  .orchidea-ad-content { padding: 12px 18px 15px; }
+}
