@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import InstallAppBanner from "../components/InstallAppBanner.jsx";
+import PasswordInput from "../components/PasswordInput.jsx";
+import { loginErrorMessage } from "../lib/loginError.js";
 import { emailConfirmationRedirectUrl, passwordRecoveryRedirectUrl } from "../lib/appUrl.js";
 
 const firstAccessInitial = {
@@ -64,19 +66,22 @@ export default function Login() {
     }
 
     setLoading(true);
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-
-    if (loginError) {
-      setError("Credenziali non valide. Se è la prima volta usa “Primo accesso”; se avevi già un account usa “Password dimenticata”.");
-      return;
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (loginError) {
+        setError(loginErrorMessage(loginError));
+        return;
+      }
+      const from = location.state?.from?.pathname || "/";
+      navigate(from, { replace: true });
+    } catch {
+      setError(loginErrorMessage());
+    } finally {
+      setLoading(false);
     }
-
-    const from = location.state?.from?.pathname || "/";
-    navigate(from, { replace: true });
   }
 
   function openPasswordReset() {
@@ -261,16 +266,14 @@ export default function Login() {
                 />
               </label>
 
-              <label className="comfort-field">
-                Password
-                <input
-                  type="password"
+                <PasswordInput
+                  key="login-password"
+                  label="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="La tua password"
                   autoComplete="current-password"
                 />
-              </label>
 
               <button className="link-btn comfort-link-btn forgot-password-link" type="button" onClick={openPasswordReset}>
                 Hai dimenticato la password?
@@ -352,14 +355,8 @@ export default function Login() {
               </label>
 
               <div className="first-access-password-grid">
-                <label className="comfort-field">
-                  Scegli password
-                  <input type="password" value={firstAccess.password} onChange={(e) => setFirstAccess({ ...firstAccess, password: e.target.value })} placeholder="Almeno 8 caratteri" autoComplete="new-password" />
-                </label>
-                <label className="comfort-field">
-                  Conferma password
-                  <input type="password" value={firstAccess.confirmPassword} onChange={(e) => setFirstAccess({ ...firstAccess, confirmPassword: e.target.value })} placeholder="Ripeti password" autoComplete="new-password" />
-                </label>
+                <PasswordInput key="first-password" label="Scegli password" value={firstAccess.password} onChange={(e) => setFirstAccess({ ...firstAccess, password: e.target.value })} placeholder="Almeno 8 caratteri" autoComplete="new-password" />
+                <PasswordInput key="first-confirm" label="Conferma password" value={firstAccess.confirmPassword} onChange={(e) => setFirstAccess({ ...firstAccess, confirmPassword: e.target.value })} placeholder="Ripeti password" autoComplete="new-password" />
               </div>
 
               <div className="password-rule-box compact-password-rules">
