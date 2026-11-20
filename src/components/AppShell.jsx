@@ -170,6 +170,9 @@ export default function AppShell() {
       if (!mounted) return;
 
       setSessionUser(user);
+      // Un tesseramento da solo non concede l'accesso all'app corsisti:
+      // il flag is_corsista è deciso dall'amministrazione nel database.
+      // Admin e insegnanti abilitati conservano i propri percorsi riservati.
       setIsAdmin(!adminResult.error && adminResult.data === true);
       setTeacher(teacherResult.error ? null : (teacherResult.data || null));
 
@@ -177,7 +180,8 @@ export default function AppShell() {
         setStudentError(studentResult.error.message);
         setStudent(null);
       } else {
-        setStudent(studentResult.data || null);
+        const registeredStudent = studentResult.data || null;
+        setStudent(registeredStudent?.is_corsista === true ? registeredStudent : null);
       }
 
       setLoading(false);
@@ -327,7 +331,7 @@ export default function AppShell() {
           <div className="content-card warning-card">
             <h2>Account non collegato</h2>
             <p>
-              L’email con cui hai fatto accesso non risulta ancora collegata a un tesseramento Orchidea.
+              L’account non risulta associato a un corsista abilitato. Se sei iscritto ai corsi, contatta la segreteria per verificare il tuo tesseramento.
               Verifica che l’email sia la stessa usata nel modulo tesseramento.
             </p>
             {isAdmin && <button className="primary-btn slim" type="button" onClick={() => navigate("/admin")}>Vai al pannello admin</button>}
