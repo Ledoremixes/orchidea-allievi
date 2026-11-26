@@ -42,7 +42,7 @@ begin
 end $$;
 
 create function orchidea_games.state() returns jsonb language plpgsql stable security definer set search_path='' as $$
-declare e orchidea_games.events; r orchidea_games.rounds; p orchidea_games.players; s orchidea_games.responses; admin boolean; live boolean; opts jsonb; secret text; reveal text; board jsonb; teams jsonb; pending jsonb; counts jsonb; my_response jsonb; total integer;
+declare e orchidea_games.events; r orchidea_games.rounds; p orchidea_games.players; myrow orchidea_games.responses; admin boolean; live boolean; opts jsonb; secret text; reveal text; board jsonb; teams jsonb; pending jsonb; counts jsonb; my_response jsonb; total integer;
 begin
  if not orchidea_games.allowed() then raise exception 'Accesso riservato ai corsisti e allo staff'; end if;
  admin:=public.is_admin();
@@ -50,9 +50,9 @@ begin
  if e.id is null then return jsonb_build_object('admin',admin,'joined',false,'event',null); end if;
  select * into p from orchidea_games.players where event_id=e.id and user_id=auth.uid();
  if p.id is not null or admin then
- select coalesce(jsonb_agg(to_jsonb(b) order by b.xp desc,b.name),'[]') into board from (select pl.id,pl.name,coalesce(sum(s.points),0) as xp from orchidea_games.players pl left join orchidea_games.responses s on s.player_id=pl.id where pl.event_id=e.id group by pl.id order by xp desc,pl.name limit 100) b;
+ select coalesce(jsonb_agg(to_jsonb(b) order by b.xp desc,b.name),'[]') into board from (select pl.id,pl.name,coalesce(sum(case when rr.kind in ('quiz','impostor') and rr.status='live' and rr.ends_at>now() and e.status='live' then 0 else s.points end),0) as xp from orchidea_games.players pl left join orchidea_games.responses s on s.player_id=pl.id left join orchidea_games.rounds rr on rr.id=s.round_id where pl.event_id=e.id group by pl.id order by xp desc,pl.name limit 100) b;
  select coalesce(jsonb_agg(to_jsonb(b) order by b.xp desc,b.name),'[]') into teams from (select min(pl.team) name, sum(s.points) xp from orchidea_games.players pl join orchidea_games.responses s on s.player_id=pl.id where pl.event_id=e.id and s.team_key is not null group by s.team_key order by xp desc limit 100) b;
- select coalesce(sum(points),0) into total from orchidea_games.responses where player_id=p.id;
+ select coalesce(sum(case when rr.kind in ('quiz','impostor') and rr.status='live' and rr.ends_at>now() and e.status='live' then 0 else s.points end),0) into total from orchidea_games.responses s join orchidea_games.rounds rr on rr.id=s.round_id where s.player_id=p.id;
  end if;
  if admin then select coalesce(jsonb_agg(to_jsonb(b)),'[]') into pending from (select s.id,pl.name,pl.team,r.kind,r.prompt,s.created_at from orchidea_games.responses s join orchidea_games.players pl on pl.id=s.player_id join orchidea_games.rounds r on r.id=s.round_id where pl.event_id=e.id and s.pending order by s.created_at limit 100) b; end if;
  select * into r from orchidea_games.rounds where event_id=e.id order by starts_at desc limit 1;
@@ -62,12 +62,12 @@ begin
  if r.kind='mission' then opts:='[]'; if p.id is not null then secret:=r.options->>((hashtextextended(p.id::text||r.id::text,0)&9223372036854775807)%jsonb_array_length(r.options))::int; end if;
  elsif r.kind='impostor' then
   opts:=coalesce((select jsonb_agg(x->>'name' order by i) from jsonb_array_elements(r.roster) with ordinality q(x,i)),'[]');
-  if p.id is not null and exists(select 1 from jsonb_array_elements(r.roster) x where x->>'id'=p.id::text) then secret:=case when p.id=r.impostor_id then 'Sei l’impostore! Non conosci la parola.' else 'Parola segreta: '||(r.options->>0) end; else opts:='[]'; end if;
+  if p.id is not null and exists(select 1 from jsonb_array_elements(r.roster) x where x->>'id'=p.id::text) then secret:=case when p.id=r.impostor_id then 'Sei l’impostore! Non conosci la parola.' else 'Parola segreta: '||(r.options->>0) end; elsif live and not admin then opts:='[]'; end if;
   if not live then reveal:='L’impostore era: '||(select name from orchidea_games.players where id=r.impostor_id); end if;
  elsif r.kind='quiz' and not live then reveal:='Risposta corretta: '||(r.options->>r.answer);
  end if;
- select * into s from orchidea_games.responses where round_id=r.id and player_id=p.id;
- if s.id is not null then my_response:=jsonb_build_object('result',case when live and r.kind in ('quiz','impostor') then 'Risposta registrata!' else s.result end,'points',case when live and r.kind in ('quiz','impostor') then 0 else s.points end,'pending',s.pending); end if;
+ select * into myrow from orchidea_games.responses where round_id=r.id and player_id=p.id;
+ if myrow.id is not null then my_response:=jsonb_build_object('result',case when live and r.kind in ('quiz','impostor') then 'Risposta registrata!' else myrow.result end,'points',case when live and r.kind in ('quiz','impostor') then 0 else myrow.points end,'pending',myrow.pending); end if;
  if not live and r.kind in ('awards','impostor') then
  select coalesce(jsonb_agg(jsonb_build_object('name',opts->>b.idx,'votes',b.votes) order by b.votes desc,b.idx),'[]') into counts from (select value::int idx,count(*) votes from orchidea_games.responses where round_id=r.id group by value) b;
  end if;
