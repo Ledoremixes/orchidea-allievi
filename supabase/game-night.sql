@@ -54,7 +54,7 @@ begin
  select coalesce(jsonb_agg(to_jsonb(b) order by b.xp desc,b.name),'[]') into teams from (select min(pl.team) name, sum(s.points) xp from orchidea_games.players pl join orchidea_games.responses s on s.player_id=pl.id where pl.event_id=e.id and s.team_key is not null group by s.team_key order by xp desc limit 100) b;
  select coalesce(sum(case when rr.kind in ('quiz','impostor') and rr.status='live' and rr.ends_at>now() and e.status='live' then 0 else s.points end),0) into total from orchidea_games.responses s join orchidea_games.rounds rr on rr.id=s.round_id where s.player_id=p.id;
  end if;
- if admin then select coalesce(jsonb_agg(to_jsonb(b)),'[]') into pending from (select s.id,pl.name,pl.team,r.kind,r.prompt,s.created_at from orchidea_games.responses s join orchidea_games.players pl on pl.id=s.player_id join orchidea_games.rounds r on r.id=s.round_id where pl.event_id=e.id and s.pending order by s.created_at limit 100) b; end if;
+ if admin then select coalesce(jsonb_agg(to_jsonb(b)),'[]') into pending from (select s.id,pl.name,pl.team,rr.kind,rr.prompt,s.created_at from orchidea_games.responses s join orchidea_games.players pl on pl.id=s.player_id join orchidea_games.rounds rr on rr.id=s.round_id where pl.event_id=e.id and s.pending order by s.created_at limit 100) b; end if;
  select * into r from orchidea_games.rounds where event_id=e.id order by starts_at desc limit 1;
  if r.id is not null and (p.id is not null or admin) then
  live:=e.status='live' and r.status='live' and r.ends_at>now();
