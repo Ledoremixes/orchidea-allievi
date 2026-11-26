@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient.js";
 import { createProfilePhotoSignedUrl } from "../lib/profilePhoto.js";
+import GameNight from "./GameNight.jsx";
 
 function fullName(person = {}) {
   return `${person.nome || ""} ${person.cognome || ""}`.trim() || "Profilo Orchidea";
@@ -58,7 +59,7 @@ function RatingButtons({ value, onChange, label }) {
 }
 
 export default function Community() {
-  const { student = null, teacher = null } = useOutletContext() || {};
+  const { student = null, teacher = null, isAdmin = false } = useOutletContext() || {};
   const [tab, setTab] = useState(teacher && !student ? "rankings" : "people");
   const [search, setSearch] = useState("");
   const [profiles, setProfiles] = useState([]);
@@ -342,12 +343,13 @@ export default function Community() {
       <div className="community-tabs" role="tablist">
         <button type="button" className={tab === "people" ? "active" : ""} onClick={() => { setError(""); setTab("people"); }}>Compagni</button>
         <button type="button" className={tab === "rankings" ? "active" : ""} onClick={() => { setError(""); setTab("rankings"); }}>Classifiche</button>
+        <button type="button" className={tab === "games" ? "active" : ""} onClick={() => { setError(""); setMessage(""); setTab("games"); }}>Game Night</button>
       </div>
 
       {error && !(tab === "people" && profiles.length > 0 && /timeout/i.test(error)) && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
 
-      {tab === "people" ? (
+      {tab === "games" ? <GameNight isAdmin={isAdmin} /> : tab === "people" ? (
         <>
           <div className="community-search-card">
             <span>⌕</span>
