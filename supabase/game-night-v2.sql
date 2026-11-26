@@ -72,7 +72,10 @@ begin
  if n not between 2 and 12 then raise exception 'Servono da 2 a 12 spicchi'; end if;
  rules:=coalesce(p_payload->'wheel_rules','{}'::jsonb); fallback:=coalesce((p_payload->>'wheel_default')::int,0);
  if jsonb_typeof(rules)<>'object' or fallback not between 0 and n-1 then raise exception 'Regole ruota non valide'; end if;
- if exists(select 1 from jsonb_each_text(rules) x where x.key !~ '^[1-9][0-9]{0,5}
+ if exists(select 1 from jsonb_each_text(rules) x where x.key !~ '^[1-9][0-9]{0,5}$' or x.value !~ '^[0-9]{1,2}$') then raise exception 'Giri o premi non validi'; end if;
+ if exists(select 1 from jsonb_each_text(rules) x where x.value::int not between 0 and n-1) then raise exception 'Premio non valido'; end if;
+ if rules<>'{}'::jsonb and (opts->>fallback) <> 'Riprova la prossima volta' then raise exception 'Il giro ordinario deve essere Riprova la prossima volta'; end if;
+ end if;
  if k='battle' then opts:='["Sfida completata"]'; end if;
  if k='awards' and n=0 then select coalesce(jsonb_agg(name order by name,id),'[]') into opts from orchidea_games.players where event_id=e.id; if jsonb_array_length(opts)<2 then raise exception 'Servono almeno due candidati'; end if; end if;
  if k='impostor' then
@@ -87,36 +90,6 @@ begin
  return jsonb_build_object('ok',true);
 end $$;
 
- or x.value !~ '^[0-9]{1,2}
- if k='battle' then opts:='["Sfida completata"]'; end if;
- if k='awards' and n=0 then select coalesce(jsonb_agg(name order by name,id),'[]') into opts from orchidea_games.players where event_id=e.id; if jsonb_array_length(opts)<2 then raise exception 'Servono almeno due candidati'; end if; end if;
- if k='impostor' then
- if n<>1 then raise exception 'Inserisci una sola parola segreta'; end if;
- select coalesce(jsonb_agg(jsonb_build_object('id',id,'name',name) order by name,id),'[]') into roster from orchidea_games.players where event_id=e.id;
- if jsonb_array_length(roster)<3 then raise exception 'Servono almeno tre partecipanti iscritti'; end if;
- select id into imp from orchidea_games.players where event_id=e.id order by random() limit 1;
- end if;
- insert into orchidea_games.rounds(event_id,kind,prompt,options,answer,points,seconds,ends_at,impostor_id,roster) values(e.id,k,prompt,opts,a,pts,secs,clock_timestamp()+make_interval(secs=>secs),imp,roster);
- else raise exception 'Comando non valido'; end if;
- return jsonb_build_object('ok',true);
-end $$;
-
-) then raise exception 'Giri o premi non validi'; end if;
- if exists(select 1 from jsonb_each_text(rules) x where x.value::int not between 0 and n-1) then raise exception 'Premio non valido'; end if;
- if rules<>'{}'::jsonb and opts->>fallback <> 'Riprova la prossima volta' then raise exception 'Il giro ordinario deve essere Riprova la prossima volta'; end if;
- end if;
- if k='battle' then opts:='["Sfida completata"]'; end if;
- if k='awards' and n=0 then select coalesce(jsonb_agg(name order by name,id),'[]') into opts from orchidea_games.players where event_id=e.id; if jsonb_array_length(opts)<2 then raise exception 'Servono almeno due candidati'; end if; end if;
- if k='impostor' then
- if n<>1 then raise exception 'Inserisci una sola parola segreta'; end if;
- select coalesce(jsonb_agg(jsonb_build_object('id',id,'name',name) order by name,id),'[]') into roster from orchidea_games.players where event_id=e.id;
- if jsonb_array_length(roster)<3 then raise exception 'Servono almeno tre partecipanti iscritti'; end if;
- select id into imp from orchidea_games.players where event_id=e.id order by random() limit 1;
- end if;
- insert into orchidea_games.rounds(event_id,kind,prompt,options,answer,points,seconds,ends_at,impostor_id,roster) values(e.id,k,prompt,opts,a,pts,secs,clock_timestamp()+make_interval(secs=>secs),imp,roster);
- else raise exception 'Comando non valido'; end if;
- return jsonb_build_object('ok',true);
-end $$;
 
 create or replace function orchidea_games.tombola_state() returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare e orchidea_games.events; t orchidea_games.tombola_sessions; p orchidea_games.players; card int[]; marks int[]; winners jsonb; n int; latest_round timestamptz;
