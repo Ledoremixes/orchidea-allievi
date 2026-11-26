@@ -26,7 +26,7 @@ export default function GameNight({isAdmin=false}){
 function GameNightArena({isAdmin=false,demo=false}) {
  const [state,setState]=useState(()=>demo?{...demoInitial(),leaderboard:demoBoard(0)}:null), [error,setError]=useState(""), [busy,setBusy]=useState(false);
  const [draft,setDraft]=useState(()=>makeDraft("quiz")), [title,setTitle]=useState("Cena Orchidea · 29 novembre 2026");
- const [clock,setClock]=useState(Date.now()), [checked,setChecked]=useState([]), [spin,setSpin]=useState(false), [team,setTeam]=useState("");
+ const [clock,setClock]=useState(Date.now()), [spin,setSpin]=useState(false);
  const offset=useRef(0), request=useRef(0), submitting=useRef(false);
  const load=useCallback(async()=>{if(demo)return;const seq=++request.current;const {data,error}=await supabase.rpc("orchidea_game_state");if(seq!==request.current)return;if(error){setError(error.message);return;}if(data?.server_time)offset.current=Date.parse(data.server_time)-Date.now();setState(data);},[demo]);
  useEffect(()=>{if(demo)return;let active=true;let running=false;const refresh=async()=>{if(!active||running)return;running=true;try{await load();}finally{running=false;}};refresh();const id=setInterval(refresh,2500);return()=>{active=false;clearInterval(id);};},[load,demo]);
@@ -36,57 +36,53 @@ function GameNightArena({isAdmin=false,demo=false}) {
  const tombola=state?.tombola;
  const tombolaOpen=Boolean(tombola&&tombola.status!=="closed");
  const showTombola=demo?demoTombola:Boolean(tombola);
- useEffect(()=>{setChecked([]);setSpin(false);},[id]);
+ useEffect(()=>{setSpin(false);},[id]);
  async function run(name,args={}){if(demo||submitting.current)return;submitting.current=true;setBusy(true);setError("");try{const {error}=await supabase.rpc(name,args);if(error)throw error;await load();}catch(e){setError(e.message||"Operazione non riuscita");}finally{submitting.current=false;setBusy(false);}}
  const left=r?Math.max(0,Math.ceil((Date.parse(r.ends_at)-clock-offset.current)/1000)):0;
  const live=state?.event?.status==="live" && r?.status==="live" && left>0;
  const answered=Boolean(state?.response);
+ useEffect(()=>{if(demo&&r?.status==="live"&&left===0)demoFinish();},[demo,r?.status,left]);
  function demoStart(kind){
    if(kind==="tombola"){setDemoTombola(true);setState(s=>({...s,round:null,response:null}));return;}
    setDemoTombola(false);
    const t=templates[kind], now=Date.now();
-   const options=kind==="impostor"||kind==="awards"?demoNames:t.options;
-   const secret=kind==="mission"?t.options[0]:kind==="impostor"?"Parola segreta: Bachata":null;
-   setClock(now);setChecked([]);setSpin(false);setError("");
+   const options=kind==="impostor"?demoNames:t.options;
+   const secret=kind==="impostor"?"Parola segreta: Bachata":null;
+   setClock(now);setSpin(false);setError("");
    setState(s=>({...s,response:null,round:{id:"demo-"+now+"-"+kind,kind,prompt:t.prompt,options,secret,status:"live",ends_at:new Date(now+t.seconds*1000).toISOString(),seconds:t.seconds}}));
  }
  function demoFinish(){
    setState(s=>{
      const round=s.round;if(!round||round.status==="closed")return s;
      const reveal=round.kind==="quiz"?"Risposta corretta: "+round.options[templates.quiz.answer]:round.kind==="impostor"?"L’impostore era: Demo 2":null;
-     const votes=["awards","impostor"].includes(round.kind)?demoNames.map((name,i)=>({name,votes:(i===1?2:0)+(Number(s.response?.value)===i&&s.response?1:0)})).sort((a,b)=>b.votes-a.votes):null;
+     const votes=round.kind==="impostor"?demoNames.map((name,i)=>({name,votes:(i===1?2:0)+(Number(s.response?.value)===i&&s.response?1:0)})).sort((a,b)=>b.votes-a.votes):null;
      return {...s,round:{...round,status:"closed",reveal,counts:votes}};
    });
  }
  function demoSubmit(value){
    if(!live||answered)return;
    const kind=r.kind,t=templates[kind];
-   if(kind==="bingo"&&checked.length!==9)return;
-   let points=0,result="Risposta registrata!",pending=["mission","bingo","battle"].includes(kind);
+   let points=0,result="Risposta registrata!",pending=false;
    if(kind==="quiz"||kind==="impostor"){
      const right=Number(value)===(kind==="quiz"?t.answer:1);
      points=right?(kind==="quiz"?Math.round(t.points*(.5+.5*Math.min(1,left/t.seconds))):t.points):0;
      result=right?"Risposta corretta!":"Risposta errata";
    }else if(kind==="wheel"){result=t.options[Math.floor(Math.random()*t.options.length)];}
-   else if(pending){result="In attesa di conferma del presentatore";}
    setState(s=>{if(s.response||s.round?.id!==id)return s;const xp=s.xp+points;return {...s,xp,leaderboard:demoBoard(xp),response:{value,points,result,pending}};});
- }
- function demoApprove(approved){
-   setState(s=>{if(!s.response?.pending)return s;const points=approved?templates[s.round.kind].points:0,xp=s.xp+points;return {...s,xp,leaderboard:demoBoard(xp),teams:approved&&s.round.kind==="battle"?[{name:"Tavolo Demo",xp:(s.teams?.[0]?.xp||0)+points}]:s.teams,response:{...s.response,pending:false,points,result:approved?"Sfida approvata!":"Sfida non convalidata"}};});
  }
  const submit=value=>demo?demoSubmit(value):run("orchidea_game_submit",{p_round:id,p_value:value});
  const tombolaAction=(action,session=null)=>run("orchidea_tombola_action",{p_action:action,p_session:session});
  const openRound=()=>run("orchidea_game_admin",{p_action:"round",p_payload:{...draft,options:draft.options.split("\n").map(x=>x.trim()).filter(Boolean),answer:Number(draft.answer||0),seconds:Number(draft.seconds),points:Number(draft.points)}});
  return <div className="gn-root">
    <header className="gn-hero"><div><small>ORCHIDEA COMMUNITY · SPECIAL EVENT</small><h2>GAME<br/>NIGHT<span> ✦</span></h2><p>Gioca. Conosci. Divertiti.</p></div><div className="gn-orb" aria-hidden="true">★</div></header>
-   {demo&&<section className="gn-demo-banner"><strong>Scegli il gioco da provare</strong><small>Puoi ripetere ogni prova e simulare anche la convalida del presentatore.</small><div className="gn-demo-picker">{Object.entries(games).map(([k,g])=><button type="button" key={k} aria-pressed={k==="tombola"?demoTombola:r?.kind===k} onClick={()=>demoStart(k)}>{g[0]}</button>)}</div>{r&&<div className="gn-demo-actions"><button type="button" className="gn-secondary" onClick={()=>demoStart(r.kind)}>Riprova</button><button type="button" className="gn-secondary" disabled={r.status==="closed"} onClick={demoFinish}>Termina e mostra esito</button></div>}<button type="button" className="gn-secondary" onClick={()=>{setState({...demoInitial(),leaderboard:demoBoard(0)});setDemoTombola(false);setChecked([]);setSpin(false);}}>Azzera test</button></section>}
+   {demo&&<section className="gn-demo-banner"><strong>Scegli il gioco da provare</strong><small>Puoi ripetere ogni prova senza coinvolgere gli allievi.</small><div className="gn-demo-picker">{Object.entries(games).map(([k,g])=><button type="button" key={k} aria-pressed={k==="tombola"?demoTombola:r?.kind===k} onClick={()=>demoStart(k)}>{g[0]}</button>)}</div>{r&&<div className="gn-demo-actions"><button type="button" className="gn-secondary" onClick={()=>demoStart(r.kind)}>Riprova</button><button type="button" className="gn-secondary" disabled={r.status==="closed"} onClick={demoFinish}>Termina e mostra esito</button></div>}<button type="button" className="gn-secondary" onClick={()=>{setState({...demoInitial(),leaderboard:demoBoard(0)});setDemoTombola(false);setSpin(false);}}>Azzera test</button></section>}
    {error&&<p className="gn-alert" role="alert">{error.includes("orchidea_game_state")?"Game Night non è ancora configurata.":error}</p>}
    {!state&&!error&&<p>Caricamento arena…</p>}
    {state&&<><div className="gn-metrics"><div><small>EVENTO</small><strong>{state.event?.title||"In attesa"}</strong></div><div><small>IL TUO PUNTEGGIO</small><strong>{(demo&&live&&["quiz","impostor"].includes(r.kind)?state.xp-(state.response?.points||0):state.xp)||0} XP</strong></div></div>
-   {state.event?.status==="live"&&!state.joined&&<section className="gn-stage gn-admin"><h3>Entra in Game Night</h3><p>Il tuo nome e il punteggio saranno visibili agli altri partecipanti. </p><button disabled={busy} onClick={()=>run("orchidea_game_join",{p_team:""})}>Partecipa</button></section>}
+   {state.event?.status==="live"&&!state.joined&&<section className="gn-stage gn-admin"><h3>Entra in Game Night</h3><p>Il tuo nome e il punteggio saranno visibili agli altri partecipanti.</p><button disabled={busy} onClick={()=>run("orchidea_game_join",{p_team:""})}>Partecipa</button></section>}
    {showTombola&&<Tombola key={demo?"demo":tombola.id} session={tombola} demo={demo} admin={isAdmin&&state.admin} busy={busy} onAction={tombolaAction}/>}
    {!showTombola&&r&&<section className="gn-stage" key={id}><div className="gn-stage-top"><span>{games[r.kind]?.[0]}</span><strong>{live?left+" s":"Round concluso"}</strong></div><div className="gn-progress"><i style={{width:Math.min(100,100*left/r.seconds)+"%"}}/></div><div className={"gn-token gn-"+r.kind+(spin?" gn-spin":"")} aria-hidden="true">{games[r.kind]?.[1]}</div><h3>{r.prompt}</h3>
-   {!state.joined?<p>Partecipa per giocare.</p>:answered?<div className="gn-result" role="status"><strong>{demo&&live&&["quiz","impostor"].includes(r.kind)?"Risposta registrata!":state.response.result||"Risposta registrata!"}</strong><p>{state.response.pending?"Il presentatore deve convalidare la prova.":live&&["quiz","impostor"].includes(r.kind)?"Esito a fine round.":"+"+state.response.points+" XP"}</p>{demo&&state.response.pending&&<div className="gn-demo-actions"><button type="button" onClick={()=>demoApprove(true)}>Simula convalida</button><button type="button" className="gn-secondary" onClick={()=>demoApprove(false)}>Simula rifiuto</button></div>}</div>:!live?<p>Attendi il prossimo gioco.</p>:r.kind==="impostor"?<><p className="gn-secret">{r.secret||"Ruolo non assegnato: attendi il prossimo round."}</p><p>Non mostrare lo schermo! Discutete a voce, poi vota il sospettato.</p><div className="gn-options">{r.secret&&(r.options||[]).map((o,i)=><button key={i} disabled={busy} onClick={()=>submit(String(i))}>{o}</button>)}</div></>:r.kind==="mission"?<><p className="gn-secret">{r.secret}</p><button disabled={busy} onClick={()=>submit("done")}>Missione completata</button></>:r.kind==="bingo"?<><div className="gn-bingo-board">{(r.options||[]).map((option,i)=><button key={i} aria-pressed={checked.includes(i)} disabled={busy} onClick={()=>setChecked(old=>old.includes(i)?old.filter(x=>x!==i):[...old,i])}>{checked.includes(i)?"✓ ":""}{option}</button>)}</div><button disabled={busy||checked.length!==9} onClick={()=>submit("done")}>Bingo! {checked.length}/9</button></>:r.kind==="wheel"?<button disabled={busy} onClick={()=>{setSpin(true);submit("spin");}}>Gira la ruota</button>:r.kind==="battle"?<button disabled={busy||!state.team} onClick={()=>submit("done")}>{state.team?"Consegna la sfida del tavolo":"Nessun tavolo assegnato"}</button>:<div className="gn-options">{(r.options||[]).map((option,i)=><button key={i} disabled={busy} onClick={()=>submit(String(i))}><b>{String.fromCharCode(65+i)}</b>{option}</button>)}</div>}
+   {!state.joined?<p>Partecipa per giocare.</p>:answered?<div className="gn-result" role="status"><strong>{demo&&live&&["quiz","impostor"].includes(r.kind)?"Risposta registrata!":state.response.result||"Risposta registrata!"}</strong><p>{live&&["quiz","impostor"].includes(r.kind)?"Esito a fine round.":"+"+state.response.points+" XP"}</p></div>:!live?<p>Attendi il prossimo gioco.</p>:r.kind==="impostor"?<><p className="gn-secret">{r.secret||"Ruolo non assegnato: attendi il prossimo round."}</p><p>Non mostrare lo schermo! Discutete a voce, poi vota il sospettato.</p><div className="gn-options">{r.secret&&(r.options||[]).map((o,i)=><button key={i} disabled={busy} onClick={()=>submit(String(i))}>{o}</button>)}</div></>:r.kind==="wheel"?<button disabled={busy} onClick={()=>{setSpin(true);submit("spin");}}>Gira la ruota</button>:<div className="gn-options">{(r.options||[]).map((option,i)=><button key={i} disabled={busy} onClick={()=>submit(String(i))}><b>{String.fromCharCode(65+i)}</b>{option}</button>)}</div>}
    {r.reveal&&<p className="gn-secret">{r.reveal}</p>}{r.counts?.map((x,i)=><div className="gn-rank" key={i}><span>{x.name}</span><strong>{x.votes} voti</strong></div>)}
    </section>}
    <div className="gn-games">{Object.entries(games).map(([key,g])=><div key={key} className={"gn-card gn-"+key+((key==="tombola"?(demoTombola||tombolaOpen):live&&r?.kind===key)?" gn-active":"")}><div className="gn-token" aria-hidden="true">{g[1]}</div><strong>{g[0]}</strong><small>{g[2]}</small><span>{(key==="tombola"?(demoTombola||tombolaOpen):live&&r?.kind===key)?"IN CORSO":"IN ATTESA"}</span></div>)}</div>
