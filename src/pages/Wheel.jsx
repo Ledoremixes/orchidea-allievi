@@ -2,7 +2,7 @@ import {memo,useEffect,useRef,useState} from "react";
 import "./Wheel.css";
 const colors=["#ffcd05","#ef7809","#83b641","#00a5d1","#42549a","#8f358e","#00a5d1","#ff7900","#ffca00","#80b73c","#df211b","#435668"];
 const pt=(r,a)=>[160+r*Math.sin(a*Math.PI/180),160-r*Math.cos(a*Math.PI/180)];
-export default memo(function Wheel({options=[],result=null,resultIndex=null,disabled=false,onSpin,programmed=false,count=null,demo=false}){
+export default memo(function Wheel({options=[],result=null,resultIndex=null,disabled=false,onSpin,programmed=false,count=null,demo=false,onReplay}){
  const [angle,setAngle]=useState(0),[moving,setMoving]=useState(false),[revealed,setRevealed]=useState(false);
  const requested=useRef(false),finished=useRef(null),timer=useRef(null);
  const n=options.length,step=360/Math.max(1,n);
@@ -32,6 +32,6 @@ export default memo(function Wheel({options=[],result=null,resultIndex=null,disa
  {programmed&&<p className="ow-note">Premi assegnati a giri prestabiliti; gli altri giri non sono vincenti.</p>}
  {count!=null&&<p className="ow-note">Giri registrati: {count}</p>}
  {resultIndex==null?<button type="button" disabled={disabled||moving||n<2} onClick={spin}>{disabled?"Attendi…":"Gira la ruota"}</button>:<div className="ow-result" role="status">{revealed?(result||options[resultIndex]):"La ruota sta girando…"}</div>}
- {demo&&<small>Simulazione: nessun premio reale.</small>}
+ {demo&&revealed&&onReplay&&<button type="button" className="gn-secondary" onClick={onReplay}>Simula un altro partecipante</button>}{demo&&<small>Simulazione: nessun premio reale.</small>}
  </div>;
 });
