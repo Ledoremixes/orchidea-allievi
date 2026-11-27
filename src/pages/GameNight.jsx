@@ -115,7 +115,7 @@ function GameNightArena({isAdmin=false,demo=false}) {
  }
  function demoSubmit(value){
    if(!live||answered)return;
-   const kind=r.kind,t=kind==="quiz"?r:templates[kind];
+   const kind=r.kind,t=kind==="quiz"||kind==="impostor"?r:templates[kind];
    let points=0,result="Risposta registrata!",pending=false;
    if(kind==="quiz"||kind==="impostor"){
      const right=kind==="quiz"?Number(value)===t.answer:r.impostorIndex!==demoNames.length-1&&Number(value)===r.impostorIndex;
