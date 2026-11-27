@@ -27,3 +27,11 @@
 .gn-quiz-controls{padding:12px;border:1px solid #704575;border-radius:14px;background:#ffffff08}
 .gn-quiz-controls p{font-size:.82rem}
 @media(max-width:480px){.gn-suspect-scroll,.gn-result-scroll{max-height:min(285px,42dvh)}}
+
+.gn-impostor-admin{display:grid;gap:5px;padding:13px 15px;border:1px solid #ff787f;border-radius:14px;background:linear-gradient(140deg,#4b172b,#2a1224);color:#ffd6d9;overflow-wrap:anywhere}
+.gn-impostor-admin small{font-size:.68rem;letter-spacing:.1em;color:#ff9da4;font-weight:800}
+.gn-impostor-admin strong{font-size:1.1rem;color:#fff}
+.gn-impostor-admin span{font-size:.75rem;color:#edb9c4}
+.gn-root .gn-suspect-scroll button{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gn-root .gn-suspect-scroll button.gn-impostor-mark{background:#7a2338;border-color:#ff8389;color:#fff;box-shadow:0 3px 0 #421422}
+.gn-impostor-mark small{font-size:.65rem;color:#ffe3e5;letter-spacing:.05em;flex-shrink:0}
